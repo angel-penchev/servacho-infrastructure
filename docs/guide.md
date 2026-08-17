@@ -171,6 +171,22 @@ To achieve this, GitHub Actions Self-Hosted Runners are deployed on the Manageme
 
 After this phase is in place, the manually created bootstrap directory from Phase 0 is no longer the primary execution path. OpenTofu commands are instead run from the GitHub repository checkout created by the self-hosted runner for each workflow job. In other words, Phase 0 uses a manually created local working directory on the Management VM, while Phase 1 and later execute from the repository workspace checked out by GitHub Actions.
 
+### Persistent OpenTofu State on the Runner
+
+The GitHub Actions checkout is transient and must not hold the OpenTofu state file. Configure the local backend with a path outside the checkout, for example `/var/lib/opentofu/servacho-infrastructure.tfstate`:
+
+```
+terraform {
+  backend "local" {
+    path = "/var/lib/opentofu/servacho-infrastructure.tfstate"
+  }
+}
+```
+
+Before the first workflow run, create `/var/lib/opentofu` on the Management VM and grant read/write access only to the account used by the GitHub runner service. Keep the directory on persistent storage and back it up; state can contain sensitive values and must not be committed to Git.
+
+After adding or changing the backend, run `tofu -chdir=tofu init -migrate-state` once on the runner host to move an existing local state file to the persistent path. If the old state is no longer available, import the already-created resources before applying. The plan and apply workflows should share a GitHub Actions concurrency group so only one operation accesses the state at a time.
+
 ### Checking Status and Declared Resources Without Logging In
 
 When an engineer pushes a change to the GitHub repository and opens a Pull Request, the CI/CD pipeline automatically runs `tofu plan`. The output of this plan—detailing exactly which resources will be created, modified, or destroyed—is posted automatically as a comment on the Pull Request. This provides full visibility into the declared resources and the impending infrastructure state directly within GitHub, enabling peer review without ever granting engineers SSH access to the Management VM. Merging the Pull Request subsequently triggers `tofu apply`, permanently enacting the changes.

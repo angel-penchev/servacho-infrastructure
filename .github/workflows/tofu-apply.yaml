@@ -19,6 +19,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: tofu-state
+  cancel-in-progress: false
+
 jobs:
   apply-automatically:
     if: github.event_name == 'push' || inputs.auto_approve
