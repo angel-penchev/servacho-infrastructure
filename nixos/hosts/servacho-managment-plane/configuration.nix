@@ -16,7 +16,7 @@
     prefixLength = 24;
   }];
   networking.defaultGateway = "192.168.5.1";
-  networking.nameservers = [ "1.1.1.1" ];
+  networking.nameservers = [ "1.1.1.1" "1.0.0.1" ];
 
   time.timeZone = "UTC";
 
@@ -43,6 +43,11 @@
     vim
     neovim
   ];
+
+  environment.variables = {
+    EDITOR = "nvim";
+    VISUAL = "nvim";
+  };
 
   services.openssh = {
     enable = true;
