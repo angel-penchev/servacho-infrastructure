@@ -61,12 +61,34 @@ jobs:
               '```'
             ].join('\n');
 
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
+            // 1. Get existing comments
+            const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body
+              issue_number: context.issue.number,
             });
+
+            // 2. Find the comment made by the bot that contains our header
+            const botComment = comments.find(comment => {
+              return comment.user.type === 'Bot' && comment.body.includes('### OpenTofu Plan Results');
+            });
+
+            // 3. Update if found, otherwise create a new one
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+            }
 
       - name: Fail workflow if plan failed
         if: steps.plan.outputs.exit_code != '0'
