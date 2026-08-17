@@ -61,6 +61,18 @@
       tokenFile = "/var/lib/github-runner/.token";
       extraPackages = with pkgs; [ opentofu git colmena ];
       extraLabels = [ "servacho-management-plane" "self-hosted" ];
+
+      # The runner service uses ProtectSystem=strict. StateDirectory makes
+      # this persistent directory writable to its dynamically allocated user.
+      serviceOverrides = {
+        StateDirectory = [ "github-runner/management-runner" "opentofu" ];
+        StateDirectoryMode = "0700";
+      };
+      
+      # Bypass the local channel and fetch the latest version from unstable
+      package = (import (fetchTarball "https://github.com/NixOS/nixpkgs/archive/nixos-unstable.tar.gz") { 
+        config.allowUnfree = true; 
+      }).github-runner;
     };
   };
 
@@ -68,6 +80,8 @@
   systemd.tmpfiles.rules = [
     "d /var/lib/github-runner 0755 root root -"
   ];
+
+  services.qemuGuest.enable = true;
 
   system.stateVersion = "25.05";
 }

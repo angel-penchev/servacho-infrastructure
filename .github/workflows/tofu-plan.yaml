@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: OpenTofu init
         run: tofu -chdir=tofu init
@@ -26,15 +26,22 @@ jobs:
       - name: OpenTofu plan
         id: plan
         run: |
-          set +e
-          tofu -chdir=tofu plan -no-color -out=tfplan > plan_output.txt 2>&1
-          exit_code=$?
+          # Use pipefail so that if tofu fails, the whole pipeline step registers the failure
+          set -o pipefail
+          
+          # Run tofu with -input=false, and use 'tee' to show logs in real-time while saving to the file
+          tofu -chdir=tofu plan -no-color -input=false -out=tfplan 2>&1 | tee plan_output.txt
+          
+          # Capture the exit code of the tofu command (not the tee command)
+          exit_code=${PIPESTATUS[0]}
           echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          
+          # Don't fail the step here so the next PR comment step can run
           exit 0
 
       - name: Post plan to PR
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           PLAN_EXIT_CODE: ${{ steps.plan.outputs.exit_code }}
         with:
@@ -58,12 +65,34 @@ jobs:
               '```'
             ].join('\n');
 
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
+            // 1. Get every existing comment, not just GitHub's first page.
+            const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body
+              issue_number: context.issue.number,
             });
+
+            // 2. Find the comment made by the bot that contains our header
+            const botComment = comments.find(comment => {
+              return comment.user.type === 'Bot' && comment.body.includes('### OpenTofu Plan Results');
+            });
+
+            // 3. Update if found, otherwise create a new one
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+            }
 
       - name: Fail workflow if plan failed
         if: steps.plan.outputs.exit_code != '0'

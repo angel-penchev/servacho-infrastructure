@@ -183,7 +183,7 @@ terraform {
 }
 ```
 
-Before the first workflow run, create `/var/lib/opentofu` on the Management VM and grant read/write access only to the account used by the GitHub runner service. Keep the directory on persistent storage and back it up; state can contain sensitive values and must not be committed to Git.
+The GitHub runner service is sandboxed with a read-only filesystem. Its NixOS configuration must add `opentofu` to `serviceOverrides.StateDirectory`; systemd then creates `/var/lib/opentofu` on persistent storage and grants access to the runner's dynamically allocated service account. Do not create or change its ownership manually. Back up the directory, because state can contain sensitive values and must not be committed to Git.
 
 After adding or changing the backend, run `tofu -chdir=tofu init -migrate-state` once on the runner host to move an existing local state file to the persistent path. If the old state is no longer available, import the already-created resources before applying. The plan and apply workflows should share a GitHub Actions concurrency group so only one operation accesses the state at a time.
 
