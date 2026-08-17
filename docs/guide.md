@@ -10,7 +10,7 @@ To begin managing a brand new Proxmox cluster with self-hosted OpenTofu, the ini
 
 1. **Generate Proxmox API Credentials:** Log into your fresh Proxmox host via SSH as the `root` user to create a dedicated API token rather than relying on root passwords.
     - Create the global OpenTofu user: `pveum user add tofu-provisioner@pve`.
-    - Create the IaC Role with required provider privileges: `pveum role add TofuProvisioner -privs "VM.Allocate VM.Audit VM.Clone VM.Config.CPU VM.Config.Memory VM.Config.Network VM.Config.Disk VM.Config.Options VM.Config.Cloudinit VM.PowerMgmt Datastore.AllocateSpace Datastore.Audit SDN.Use Pool.Audit"`.
+    - Create the IaC Role with required provider privileges: `pveum role add TofuProvisioner -privs "VM.Allocate VM.Audit VM.Clone VM.Config.CPU VM.Config.Memory VM.Config.Network VM.Config.HWType VM.Config.Disk VM.Config.Options VM.Config.Cloudinit VM.PowerMgmt VM.GuestAgent.Audit Datastore.AllocateSpace Datastore.Audit SDN.Use Pool.Audit"`.
     - Assign the role to the user globally (since this is the root provisioner): `pveum aclmod / -user tofu-provisioner@pve -role TofuProvisioner`.
     - Generate the API Token without privilege separation so it inherits the role: `pveum user token add tofu-provisioner@pve token --privsep=0`. The token ID and secret will be displayed in a table; the secret must be saved immediately as it cannot be retrieved again.
 2. **Bootstrap the Management VM:** Since OpenTofu is not yet running, manually create the first virtual machine using the "Create VM" wizard in the Proxmox Web UI. Navigate through each screen as follows:
@@ -55,21 +55,17 @@ To begin managing a brand new Proxmox cluster with self-hosted OpenTofu, the ini
 
 After updating the configuration file, execute `nixos-rebuild switch` to apply the changes and install the OpenTofu binary on the machine.
 
-4. **Configure the Proxmox Provider:** Create an IaC directory and a `main.tf` file utilizing the `bpg/proxmox` provider. Because it is a fresh cluster, you must configure it to accept self-signed TLS certificates using the `insecure = true` argument. The API token must be formatted as a concatenated string.
+4. **Configure the Proxmox Provider:** On the bootstrapped Management VM itself, create a dedicated IaC working directory and place your initial OpenTofu files there. A practical bootstrap path is `/srv/iac/bootstrap`. This directory is only for the initial manual bootstrap phase before GitOps is established. In this layout, keep provider configuration in a dedicated `providers.tf` file and keep resources plus import blocks in `main.tf`. The `endpoint` must point to the Proxmox API on the hypervisor or cluster management address, not to the Management VM itself. Because it is a fresh cluster, configure the provider to accept self-signed TLS certificates using `insecure = true`. The `api_token` value must be the full concatenated token string in the form `user@realm!tokenid=tokensecret`.
 
-5. **Initialize and Test:** Run `tofu init` to download the provider, write a simple data block (e.g., `data "proxmox_virtual_environment_nodes" "available_nodes" {}`), and run `tofu apply` to verify successful connectivity to the Proxmox API.
+5. **Initialize and Test:** Run `tofu init` to download the provider, then run `tofu plan` to verify successful connectivity to the Proxmox API before attempting any imports.
 
-6. **Import the Management VM into OpenTofu:** Once OpenTofu is initialized and authenticated, bring the manually bootstrapped Management VM under IaC control. Define a `proxmox_virtual_environment_vm` resource block in your `main.tf` matching its configuration. Then, from your terminal, run the import command formatting it as `<node_name>/<vm_id>`:
+6. **Import the Management VM into OpenTofu:** Once OpenTofu is initialized and authenticated, bring the manually bootstrapped Management VM under IaC control. Define a `proxmox_virtual_environment_vm` resource block in your `main.tf`, then declare the import directly in code using an `import` block with the `<node_name>/<vm_id>` format. For bootstrap safety, use `lifecycle { ignore_changes = all }` so the first apply records state without mutating the VM.
 
-`tofu import proxmox_virtual_environment_vm.management_vm pve-01/5011`
+7. **Manage the Bootstrapped Role During Phase 0:** Keep `TofuProvisioner` managed manually with `pveum` during early bootstrap. Declarative role management requires broader `/access` privileges (for example `Sys.Modify`) and can trigger replacement risk before the management VM import is stable. Move role resources into a later, privileged root-IAM OpenTofu stack once Phase 0 is complete.
 
-OpenTofu will read the existing state of the VM into your local state file, allowing you to manage its hardware properties declaratively moving forward.
+8. **Avoid Self-Interrupting Apply Runs:** If OpenTofu is executed from the same VM being imported (for example VM `5011`), in-place VM updates can restart the machine and terminate the SSH session mid-apply. During bootstrap, keep the VM resource import-only (`ignore_changes = all`) or execute applies from a different control host.
 
-7. **Import the Bootstrapped Role:** The `TofuProvisioner` role created manually in Step 1 can and should be brought under OpenTofu's management as well. Define the `proxmox_virtual_environment_role` resource in your OpenTofu `.tf` configuration file (this is codified in OpenTofu HCL, not in the NixOS configuration). Once it is defined in your code, import it into your state file using the role's ID:
-
-`tofu import proxmox_virtual_environment_role.tofu_provisioner TofuProvisioner`.
-
-OpenTofu Configuration for Phase 0 (Provider Bootstrap, Role, & VM Import):
+OpenTofu Configuration for Phase 0 (Provider Bootstrap & VM Import Safety Pattern):
 
 ```
 terraform {
@@ -82,52 +78,83 @@ terraform {
 }
 
 provider "proxmox" {
-  endpoint  = "https://<YOUR_PROXMOX_IP>:8006/"
-  api_token = "tofu-provisioner@pve!token=YOUR_SECRET_STRING"
+  endpoint  = "https://<YOUR_PROXMOX_API_IP>:8006/"
+  api_token = "tofu-provisioner@pve!token=YOUR_TOKEN_SECRET"
   insecure  = true
 }
 
-# The role defined here matches the manual one and is imported via:
-# tofu import proxmox_virtual_environment_role.tofu_provisioner TofuProvisioner
-resource "proxmox_virtual_environment_role" "tofu_provisioner" {
-  role_id = "TofuProvisioner"
-  privileges = [
-    "VM.Allocate", "VM.Audit", "VM.Clone",
-    "VM.Config.CPU", "VM.Config.Memory", "VM.Config.Network",
-    "VM.Config.Disk", "VM.Config.Options", "VM.Config.Cloudinit",
-    "VM.PowerMgmt", "Datastore.AllocateSpace", "Datastore.Audit",
-    "SDN.Use", "Pool.Audit"
-  ]
+import {
+  id = "Servacho-Alice/5011"
+  to = proxmox_virtual_environment_vm.management_vm
 }
 
-# The management VM defined here is imported via:
-# tofu import proxmox_virtual_environment_vm.management_vm pve-01/5011
 resource "proxmox_virtual_environment_vm" "management_vm" {
-  name      = "management-plane-01"
-  node_name = "pve-01"
+  name      = "servacho-managment-plane"
+  node_name = "Servacho-Alice"
   vm_id     = 5011
+  scsi_hardware = "virtio-scsi-single"
 
   # Reflecting the manual configuration
   on_boot   = true
 
+  agent {
+    enabled = true
+    timeout = "15m"
+    trim    = false
+  }
+
   cpu {
-    cores = 4
-    type  = "host"
+    cores = 2
+    type  = "x86-64-v2-AES"
+  }
+
+  disk {
+    interface    = "scsi0"
+    datastore_id = "local-lvm"
+    file_format  = "raw"
+    size         = 32
+    cache        = "none"
+    discard      = "ignore"
+    iothread     = true
+    ssd          = false
   }
 
   memory {
-    dedicated = 8192
+    dedicated = 4096
   }
 
-  # Post-import, additional hardware specs (disks, network options) will be defined here to match state.
+  network_device {
+    bridge   = "vmbr0"
+    enabled  = true
+    firewall = true
+    model    = "virtio"
+    vlan_id  = 0
+  }
+
+  operating_system {
+    type = "l26"
+  }
+
+  vga {
+    enabled = true
+  }
+
+  lifecycle {
+    # Bootstrap safety: import state first without mutating the VM.
+    ignore_changes = all
+  }
 }
 ```
+
+After the first successful import/apply, remove the `import` block and gradually replace `ignore_changes = all` with explicit managed attributes.
 
 ## Phase 1: GitOps Automation, CI/CD, and Declarative Imports
 
 Before deploying the rest of the infrastructure, it is critical to establish a GitOps pipeline. Operators should not need to SSH into the Management VMs to manually execute `tofu plan`, `tofu apply`, or `tofu import`. The entire lifecycle must be managed through the GitHub repository interface via pull request automation.
 
 To achieve this, GitHub Actions Self-Hosted Runners are deployed on the Management VMs. These runners listen for events from the GitHub repository and execute OpenTofu commands locally on the management node, reporting the output directly back to the GitHub UI.
+
+After this phase is in place, the manually created bootstrap directory from Phase 0 is no longer the primary execution path. OpenTofu commands are instead run from the GitHub repository checkout created by the self-hosted runner for each workflow job. In other words, Phase 0 uses a manually created local working directory on the Management VM, while Phase 1 and later execute from the repository workspace checked out by GitHub Actions.
 
 ### Checking Status and Declared Resources Without Logging In
 
