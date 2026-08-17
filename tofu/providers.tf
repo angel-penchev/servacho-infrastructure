@@ -1,4 +1,8 @@
 terraform {
+  backend "local" {
+    path = "/var/lib/opentofu/servacho-infrastructure.tfstate"
+  }
+
   required_providers {
     proxmox = {
       source  = "bpg/proxmox"
