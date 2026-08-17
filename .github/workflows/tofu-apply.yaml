@@ -1,0 +1,23 @@
+name: OpenTofu Apply
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    runs-on: [self-hosted, servacho-management-plane]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: OpenTofu init
+        run: tofu -chdir=tofu init
+
+      - name: OpenTofu apply
+        run: tofu -chdir=tofu apply -auto-approve
