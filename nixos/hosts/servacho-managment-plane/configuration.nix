@@ -54,5 +54,20 @@
     settings.PermitRootLogin = "prohibit-password";
   };
 
+  services.github-runners = {
+    management-runner = {
+      enable = true;
+      url = "https://github.com/angel-penchev/servacho-infrastructure";
+      tokenFile = "/var/lib/github-runner/.token";
+      extraPackages = with pkgs; [ opentofu git colmena ];
+      extraLabels = [ "servacho-management-plane" "self-hosted" ];
+    };
+  };
+
+  # Keep parent directory traversable for the runner service process.
+  systemd.tmpfiles.rules = [
+    "d /var/lib/github-runner 0755 root root -"
+  ];
+
   system.stateVersion = "25.05";
 }

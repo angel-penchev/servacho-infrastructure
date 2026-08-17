@@ -188,21 +188,50 @@ Using an `import` block, an operator simply writes the intent to import an exist
     NixOS provides a native module for spinning up self-hosted runners. Update your Management VM's `configuration.nix` to include the `services.github-runners` module. This securely attaches the VM to your repository and injects the necessary tools (OpenTofu, Colmena, Git) into the runner's PATH so it can execute infrastructure code locally.
     
 
-```
-# /etc/nixos/configuration.nix on the Management VM
-services.github-runners = {
-  management-runner = {
-    enable = true;
-    url = "https://github.com/your-org/your-repo";
-    # A text file containing the runner registration token from GitHub
-    tokenFile = "/var/lib/github-runner/.token";
-    # Ensure the runner environment possesses the required binaries
-    extraPackages = with pkgs; [ opentofu git colmena ];
-    # Tag it so workflows can target this specific isolated VM
-    extraLabels = [ "qoax-management", "self-hosted" ];
-  };
-};
-```
+    ```nix
+    # /etc/nixos/configuration.nix on the Management VM
+    { config, pkgs, ... }:
+    {
+      services.github-runners = {
+        management-runner = {
+          enable = true;
+          url = "https://github.com/angel-penchev/servacho-infrastructure";
+          tokenFile = "/var/lib/github-runner/.token";
+          extraPackages = with pkgs; [ opentofu git colmena ];
+          extraLabels = [ "servacho-management-plane" "self-hosted" ];
+        };
+      };
+    }
+    ```
+
+
+    Generate the `.token` file referenced above before starting or rebuilding the runner service:
+
+    1. In GitHub, open your repository and navigate to **Settings -> Actions -> Runners**.
+    2. Click **New self-hosted runner** and select the target OS/architecture for your Management VM.
+    3. Copy the runner registration token shown in the setup instructions page (this token is time-limited).
+    4. On the Management VM, create the token directory and write the token to the expected file path:
+
+      ```bash
+      sudo install -d -m 0755 /var/lib/github-runner
+      sudo sh -c 'cat > /var/lib/github-runner/.token'
+      # Paste token, then press Ctrl+D
+      ```
+
+    5. Restrict file permissions so only root can read it:
+
+      ```bash
+      sudo chown root:root /var/lib/github-runner/.token
+      sudo chmod 0600 /var/lib/github-runner/.token
+      ```
+
+    6. Apply the NixOS configuration so the runner service can consume the token:
+
+      ```bash
+      sudo nixos-rebuild switch
+      ```
+
+    7. If the registration token expires before use, generate a new one from the same GitHub Runners page and overwrite `/var/lib/github-runner/.token`.
 
 1. **Define the CI/CD Pull Request Plan Workflow:**
     
