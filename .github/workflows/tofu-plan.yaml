@@ -22,10 +22,17 @@ jobs:
       - name: OpenTofu plan
         id: plan
         run: |
-          set +e
-          tofu -chdir=tofu plan -no-color -out=tfplan > plan_output.txt 2>&1
-          exit_code=$?
+          # Use pipefail so that if tofu fails, the whole pipeline step registers the failure
+          set -o pipefail
+          
+          # Run tofu with -input=false, and use 'tee' to show logs in real-time while saving to the file
+          tofu -chdir=tofu plan -no-color -input=false -out=tfplan 2>&1 | tee plan_output.txt
+          
+          # Capture the exit code of the tofu command (not the tee command)
+          exit_code=${PIPESTATUS[0]}
           echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          
+          # Don't fail the step here so the next PR comment step can run
           exit 0
 
       - name: Post plan to PR
