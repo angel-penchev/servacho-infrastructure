@@ -61,6 +61,11 @@
       tokenFile = "/var/lib/github-runner/.token";
       extraPackages = with pkgs; [ opentofu git colmena ];
       extraLabels = [ "servacho-management-plane" "self-hosted" ];
+      
+      # Bypass the local channel and fetch the latest version from unstable
+      package = (import (fetchTarball "https://github.com/NixOS/nixpkgs/archive/nixos-unstable.tar.gz") { 
+        config.allowUnfree = true; 
+      }).github-runner;
     };
   };
 
