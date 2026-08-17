@@ -9,6 +9,7 @@ terraform {
 
 provider "proxmox" {
   endpoint  = "https://192.168.5.10:8006/"
-  api_token = "tofu-provisioner@pve!token=(token)"
+  # Setting temporary access token, which is to be revolked very soon after OpenBao configuration.
+  api_token = "tofu-provisioner@pve!token=e57274fa-82b5-4f53-8e35-42635b94c98c"
   insecure  = true
 }
