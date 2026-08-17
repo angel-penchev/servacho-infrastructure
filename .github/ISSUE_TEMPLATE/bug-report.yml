@@ -1,0 +1,78 @@
+name: Bug report
+description: Report a reproducible problem with the infrastructure configuration or automation.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Do not include credentials, API tokens, state files, or other secrets.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Briefly describe the problem and its impact.
+      placeholder: The OpenTofu plan fails when...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - OpenTofu configuration
+        - GitHub Actions workflow
+        - NixOS management plane
+        - Proxmox configuration
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: List the smallest set of steps that consistently reproduces the issue.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and sanitized logs
+      description: Include relevant error messages with secrets and internal-only details removed.
+      render: text
+    validations:
+      required: true
+
+  - type: input
+    id: revision
+    attributes:
+      label: Repository revision
+      description: Commit SHA, branch, or pull request where this occurred.
+      placeholder: main@abc1234
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I removed secrets and other sensitive information.
+          required: true
+        - label: I searched existing issues for duplicates.
+          required: true
