@@ -81,5 +81,7 @@
     "d /var/lib/github-runner 0755 root root -"
   ];
 
+  services.qemuGuest.enable = true;
+
   system.stateVersion = "25.05";
 }
