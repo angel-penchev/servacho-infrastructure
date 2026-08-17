@@ -1,12 +1,35 @@
+resource "proxmox_virtual_environment_role" "tofu_provisioner" {
+  role_id = "TofuProvisioner"
+  privileges = [
+    "VM.Allocate",
+    "VM.Audit",
+    "VM.Clone",
+    "VM.Config.CPU",
+    "VM.Config.Memory",
+    "VM.Config.Network",
+    "VM.Config.HWType",
+    "VM.Config.Disk",
+    "VM.Config.Options",
+    "VM.Config.Cloudinit",
+    "VM.PowerMgmt",
+    "VM.GuestAgent.Audit",
+    "Datastore.AllocateSpace",
+    "Datastore.Audit",
+    "SDN.Use",
+    "Pool.Audit"
+  ]
+}
+
+
 import {
   id = "Servacho-Alice/5011"
   to = proxmox_virtual_environment_vm.management_vm
 }
 
 resource "proxmox_virtual_environment_vm" "management_vm" {
-  name      = "servacho-managment-plane"
-  node_name = "Servacho-Alice"
-  vm_id     = 5011
+  name          = "servacho-managment-plane"
+  node_name     = "Servacho-Alice"
+  vm_id         = 5011
   scsi_hardware = "virtio-scsi-single"
 
   # Reflecting the manual configuration
