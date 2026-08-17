@@ -236,7 +236,6 @@ Using an `import` block, an operator simply writes the intent to import an exist
 1. **Define the CI/CD Pull Request Plan Workflow:**
     
     Create a `.github/workflows/tofu-plan.yaml` file in your repository. This workflow triggers when a Pull Request is opened or updated, executes `tofu plan`, and securely comments the output back on the PR.
-    
 
 ```
 # .github/workflows/tofu-plan.yaml
