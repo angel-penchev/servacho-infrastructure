@@ -20,11 +20,13 @@ resource "proxmox_virtual_environment_role" "tofu_provisioner" {
   ]
 }
 
-
-import {
-  id = "Servacho-Alice/5011"
-  to = proxmox_virtual_environment_vm.management_vm
-}
+# Commented out because the import block is a one-time operation.
+# Once the VM is successfully imported into the OpenTofu state file, 
+# this block is no longer needed and can be safely disabled.
+# import {
+#   id = "Servacho-Alice/5012"
+#   to = proxmox_virtual_environment_vm.management_vm
+# }
 
 resource "proxmox_virtual_environment_vm" "management_vm" {
   name          = "servacho-managment-plane"
@@ -77,10 +79,13 @@ resource "proxmox_virtual_environment_vm" "management_vm" {
     enabled = true
   }
 
-  lifecycle {
-    # Bootstrap safety: import state first without mutating the VM that is
-    # currently running OpenTofu. Remove this once applying from another host
-    # and when ready to reconcile config changes intentionally.
-    ignore_changes = all
-  }
+  # Commented out because we now WANT OpenTofu to actively manage this VM. 
+  # Keeping 'ignore_changes = all' would prevent updating things like CPU or RAM
+  # in the future.
+  # lifecycle {
+  #   # Bootstrap safety: import state first without mutating the VM that is
+  #   # currently running OpenTofu. Remove this once applying from another host
+  #   # and when ready to reconcile config changes intentionally.
+  #   ignore_changes = all
+  # }
 }

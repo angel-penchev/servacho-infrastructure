@@ -68,21 +68,6 @@ After updating the configuration file, execute `nixos-rebuild switch` to apply t
 OpenTofu Configuration for Phase 0 (Provider Bootstrap & VM Import Safety Pattern):
 
 ```
-terraform {
-  required_providers {
-    proxmox = {
-      source  = "bpg/proxmox"
-      version = "~> 0.46.0"
-    }
-  }
-}
-
-provider "proxmox" {
-  endpoint  = "https://<YOUR_PROXMOX_API_IP>:8006/"
-  api_token = "tofu-provisioner@pve!token=YOUR_TOKEN_SECRET"
-  insecure  = true
-}
-
 resource "proxmox_virtual_environment_role" "tofu_provisioner" {
   role_id = "TofuProvisioner"
   privileges = [
@@ -105,19 +90,22 @@ resource "proxmox_virtual_environment_role" "tofu_provisioner" {
   ]
 }
 
-import {
-  id = "Servacho-Alice/5011"
-  to = proxmox_virtual_environment_vm.management_vm
-}
+# Commented out because the import block is a one-time operation.
+# Once the VM is successfully imported into the OpenTofu state file, 
+# this block is no longer needed and can be safely disabled.
+# import {
+#   id = "Servacho-Alice/5012"
+#   to = proxmox_virtual_environment_vm.management_vm
+# }
 
 resource "proxmox_virtual_environment_vm" "management_vm" {
-  name      = "servacho-managment-plane"
-  node_name = "Servacho-Alice"
-  vm_id     = 5011
+  name          = "servacho-managment-plane"
+  node_name     = "Servacho-Alice"
+  vm_id         = 5011
   scsi_hardware = "virtio-scsi-single"
 
   # Reflecting the manual configuration
-  on_boot   = true
+  on_boot = true
 
   agent {
     enabled = true
@@ -161,10 +149,15 @@ resource "proxmox_virtual_environment_vm" "management_vm" {
     enabled = true
   }
 
-  lifecycle {
-    # Bootstrap safety: import state first without mutating the VM.
-    ignore_changes = all
-  }
+  # Commented out because we now WANT OpenTofu to actively manage this VM. 
+  # Keeping 'ignore_changes = all' would prevent updating things like CPU or RAM
+  # in the future.
+  # lifecycle {
+  #   # Bootstrap safety: import state first without mutating the VM that is
+  #   # currently running OpenTofu. Remove this once applying from another host
+  #   # and when ready to reconcile config changes intentionally.
+  #   ignore_changes = all
+  # }
 }
 ```
 
