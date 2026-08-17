@@ -4,17 +4,49 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch or tag to apply
+        required: true
+        default: main
+        type: string
+      auto_approve:
+        description: Apply without waiting for GitHub environment approval
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
 
 jobs:
-  apply:
+  apply-automatically:
+    if: github.event_name == 'push' || inputs.auto_approve
     runs-on: [self-hosted, servacho-management-plane]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.sha }}
+
+      - name: OpenTofu init
+        run: tofu -chdir=tofu init
+
+      - name: OpenTofu apply
+        run: tofu -chdir=tofu apply -auto-approve
+
+  apply-with-approval:
+    if: github.event_name == 'workflow_dispatch' && !inputs.auto_approve
+    runs-on: [self-hosted, servacho-management-plane]
+    environment:
+      name: tofu-apply
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.branch }}
 
       - name: OpenTofu init
         run: tofu -chdir=tofu init
