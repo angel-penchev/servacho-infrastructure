@@ -8,12 +8,22 @@ terraform {
       source  = "bpg/proxmox"
       version = "~> 0.46.0"
     }
+    vault = {
+      source  = "hashicorp/vault"
+      version = "~> 5.11.0"
+    }
   }
+}
+
+provider "vault" {}
+
+data "vault_kv_secret_v2" "proxmox" {
+  mount = "secret"
+  name  = "proxmox"
 }
 
 provider "proxmox" {
   endpoint  = "https://192.168.5.10:8006/"
-  # Setting temporary access token, which is to be revolked very soon after OpenBao configuration.
-  api_token = "tofu-provisioner@pve!token=e57274fa-82b5-4f53-8e35-42635b94c98c"
+  api_token = data.vault_kv_secret_v2.proxmox.data["api_token"]
   insecure  = true
 }
