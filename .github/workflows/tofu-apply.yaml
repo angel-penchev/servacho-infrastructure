@@ -29,7 +29,6 @@ jobs:
     runs-on: [self-hosted, servacho-management-plane]
     env:
       VAULT_ADDR: http://127.0.0.1:8200
-      VAULT_TOKEN: ${{ secrets.OPENBAO_TOFU_TOKEN }}
 
     steps:
       - name: Checkout code
@@ -38,19 +37,22 @@ jobs:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.sha }}
 
       - name: OpenTofu init
+        env:
+          VAULT_TOKEN: ${{ secrets.OPENBAO_TOFU_TOKEN }}
         run: tofu -chdir=tofu init
 
       - name: OpenTofu apply
+        env:
+          VAULT_TOKEN: ${{ secrets.OPENBAO_TOFU_TOKEN }}
         run: tofu -chdir=tofu apply -auto-approve
 
   apply-with-approval:
     if: github.event_name == 'workflow_dispatch' && !inputs.auto_approve
     runs-on: [self-hosted, servacho-management-plane]
-    environment:
-      name: tofu-apply
     env:
       VAULT_ADDR: http://127.0.0.1:8200
-      VAULT_TOKEN: ${{ secrets.OPENBAO_TOFU_TOKEN }}
+    environment:
+      name: tofu-apply
 
     steps:
       - name: Checkout code
@@ -59,7 +61,11 @@ jobs:
           ref: ${{ inputs.branch }}
 
       - name: OpenTofu init
+        env:
+          VAULT_TOKEN: ${{ secrets.OPENBAO_TOFU_TOKEN }}
         run: tofu -chdir=tofu init
 
       - name: OpenTofu apply
+        env:
+          VAULT_TOKEN: ${{ secrets.OPENBAO_TOFU_TOKEN }}
         run: tofu -chdir=tofu apply -auto-approve
