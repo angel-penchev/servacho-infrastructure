@@ -712,34 +712,81 @@ To prevent organizational overreach, Proxmox Resource Pools and Role-Based Acces
 ### Implementation Steps
 
 1. **Manage Roles via Root OpenTofu:** Utilize the root OpenTofu instance to manage all Proxmox roles. The `TofuProvisioner` role is created declaratively in Phase 0. While the root `tofu-provisioner@pve` user stays an `Administrator`, this `TofuProvisioner` role serves as the template for all organizational tenant access.
-2. **Create Resource Pools:** Use the root OpenTofu instance to codify organizational pools (e.g., `pool-qoax-community`, `pool-personal`).
-3. **Create the Users:** Generate distinct users for each tenant's automation using the root OpenTofu configuration. Note that the `bpg/proxmox` provider deprecates inline ACL blocks in favor of the dedicated `proxmox_acl` resource.
+2. **Create Resource Pools:** Use the root OpenTofu instance to codify organizational pools (e.g., `pool-qoax-community`, `pool-qoax-community-broadcast`, `pool-personal`).
+3. **Create the Users:** Generate distinct users for each tenant's automation using the root OpenTofu configuration.
 4. **Apply Access Control Lists (ACLs):** Bind the user to their specific pool via the root OpenTofu instance, referencing the managed `TofuProvisioner` role to strictly enforce organizational boundaries.
-5. **Generate API Tokens:** From the Proxmox CLI, generate the specific tokens for each user utilizing `-privsep 0` so the token inherits the strictly scoped pool permissions.
+5. **Generate API Tokens via IaC:** Use the `proxmox_virtual_environment_user_token` resource within the root OpenTofu pipeline to dynamically create the tokens for each tenant user (with privilege separation disabled, so they inherit the pool ACLs).
+6. **Zero-Touch Vault Hand-Off:** In that exact same pipeline run, use the `vault_kv_secret_v2` resource to instantly push the raw token output directly into the root OpenBao (Vault) instance. When the isolated tenant repository (e.g. `qoax-community`) executes its pipeline later, it uses a `vault_kv_secret_v2` data source to dynamically pull its specific token. No human ever sees or copy-pastes the credentials.
 
 OpenTofu Configuration for Phase 4 (RBAC Setup via Root Management VM):
 
-```
-# Create the Resource Pool for the Qoax Community Organization
+```hcl
+# -------------------------------------------------------------
+# QOAX COMMUNITY ISOLATION
+# -------------------------------------------------------------
 resource "proxmox_virtual_environment_pool" "pool_qoax_community" {
   pool_id = "pool-qoax-community"
   comment = "Isolated Resource Pool for Qoax Community Infrastructure"
 }
 
-# Create the dedicated user for the Qoax Community organization
 resource "proxmox_virtual_environment_user" "tofu_qoax_community" {
   user_id = "tofu-qoax-community@pve"
   comment = "Qoax Community IaC Account"
 }
 
-# Bind the user and role explicitly to the Qoax Community resource pool.
-# This references the `proxmox_virtual_environment_role.tofu_provisioner`
-# that is now managed by this root OpenTofu instance (from Phase 0).
 resource "proxmox_acl" "qoax_community_pool_acl" {
   path      = "/pool/${proxmox_virtual_environment_pool.pool_qoax_community.pool_id}"
   role_id   = proxmox_virtual_environment_role.tofu_provisioner.role_id
   user_id   = proxmox_virtual_environment_user.tofu_qoax_community.user_id
-  propagate = true
+}
+
+resource "proxmox_virtual_environment_user_token" "qoax_community_token" {
+  comment               = "Qoax Community Automation Token"
+  user_id               = proxmox_virtual_environment_user.tofu_qoax_community.user_id
+  token_name            = "tofu-provisioner"
+  privileges_separation = false
+}
+
+resource "vault_kv_secret_v2" "qoax_community_vault_secret" {
+  mount     = "secret"
+  name      = "proxmox/qoax_community_token"
+  data_json = jsonencode({
+    api_token = proxmox_virtual_environment_user_token.qoax_community_token.value
+  })
+}
+
+# -------------------------------------------------------------
+# QOAX COMMUNITY BROADCAST ISOLATION
+# -------------------------------------------------------------
+resource "proxmox_virtual_environment_pool" "pool_qoax_community_broadcast" {
+  pool_id = "pool-qoax-community-broadcast"
+  comment = "Isolated Resource Pool for Qoax Community Broadcast Media"
+}
+
+resource "proxmox_virtual_environment_user" "tofu_qoax_community_broadcast" {
+  user_id = "tofu-qoax-community-broadcast@pve"
+  comment = "Qoax Community Broadcast IaC Account"
+}
+
+resource "proxmox_acl" "qoax_community_broadcast_pool_acl" {
+  path      = "/pool/${proxmox_virtual_environment_pool.pool_qoax_community_broadcast.pool_id}"
+  role_id   = proxmox_virtual_environment_role.tofu_provisioner.role_id
+  user_id   = proxmox_virtual_environment_user.tofu_qoax_community_broadcast.user_id
+}
+
+resource "proxmox_virtual_environment_user_token" "qoax_community_broadcast_token" {
+  comment               = "Qoax Community Broadcast Automation Token"
+  user_id               = proxmox_virtual_environment_user.tofu_qoax_community_broadcast.user_id
+  token_name            = "tofu-provisioner"
+  privileges_separation = false
+}
+
+resource "vault_kv_secret_v2" "qoax_community_broadcast_vault_secret" {
+  mount     = "secret"
+  name      = "proxmox/qoax_community_broadcast_token"
+  data_json = jsonencode({
+    api_token = proxmox_virtual_environment_user_token.qoax_community_broadcast_token.value
+  })
 }
 ```
 
