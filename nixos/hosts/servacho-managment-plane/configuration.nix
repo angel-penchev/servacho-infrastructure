@@ -42,11 +42,34 @@
     colmena
     vim
     neovim
+    openbao
   ];
 
   environment.variables = {
     EDITOR = "nvim";
     VISUAL = "nvim";
+  };
+
+  # OpenBao is only reachable by processes on this management VM. The GitHub
+  # Actions runner uses a dedicated token rather than an interactive SSO flow.
+  services.openbao = {
+    enable = true;
+    settings = {
+      ui = true;
+      api_addr = "http://127.0.0.1:8200";
+      cluster_addr = "http://127.0.0.1:8201";
+
+      listener.tcp = {
+        type = "tcp";
+        address = "127.0.0.1:8200";
+        tls_disable = 1;
+      };
+
+      storage.raft = {
+        path = "/var/lib/openbao";
+        node_id = "servacho-management-plane";
+      };
+    };
   };
 
   services.openssh = {

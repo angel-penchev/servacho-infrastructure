@@ -27,6 +27,9 @@ jobs:
   apply-automatically:
     if: github.event_name == 'push' || inputs.auto_approve
     runs-on: [self-hosted, servacho-management-plane]
+    env:
+      VAULT_ADDR: http://127.0.0.1:8200
+      VAULT_TOKEN: ${{ secrets.OPENBAO_TOFU_TOKEN }}
 
     steps:
       - name: Checkout code
@@ -45,6 +48,9 @@ jobs:
     runs-on: [self-hosted, servacho-management-plane]
     environment:
       name: tofu-apply
+    env:
+      VAULT_ADDR: http://127.0.0.1:8200
+      VAULT_TOKEN: ${{ secrets.OPENBAO_TOFU_TOKEN }}
 
     steps:
       - name: Checkout code

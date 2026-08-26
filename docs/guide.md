@@ -14,7 +14,7 @@ To begin managing a brand new Proxmox cluster with self-hosted OpenTofu, the ini
   - Assign the bootstrap token to a global administrator ACL for the first apply, since the custom `TofuProvisioner` role will be created by OpenTofu itself: `pveum aclmod / -user tofu-provisioner@pve -role Administrator`.
   - The token ID and secret will be displayed in a table; the secret must be saved immediately as it cannot be retrieved again.
 2. **Bootstrap the Management VM:** Since OpenTofu is not yet running, manually create the first virtual machine using the "Create VM" wizard in the Proxmox Web UI. Navigate through each screen as follows:
-    - **General:** Select your target node (e.g., `pve-01`). Enter **5011** for the VM ID (derived from the Phase 6 dynamic naming convention: VLAN 5 + zero-padded IP octet 011). Set the Name to `management-plane-01`.
+    - **General:** Select your target node (e.g., `pve-01`). Enter **5011** for the VM ID (derived from the Phase 7 dynamic naming convention: VLAN 5 + zero-padded IP octet 011). Set the Name to `management-plane-01`.
     - **OS:** Select "Use CD/DVD disc image file (iso)" and choose your uploaded NixOS minimal installation ISO.
     - **System:** Leave most defaults, but check the **Qemu Agent** box. This allows the Proxmox API (and subsequently OpenTofu) to read the guest's IP address later.
     - **Disks:** Leave Bus/Device as `scsi0` (which implies the high-performance VirtIO SCSI controller). Select your local datastore (e.g., `local-lvm`), check the **Discard** box (to enable TRIM support if you are using SSDs/NVMe storage), and set Disk size to `30` GiB (to accommodate NixOS store caching).
@@ -43,7 +43,27 @@ To begin managing a brand new Proxmox cluster with self-hosted OpenTofu, the ini
     opentofu
     git
     colmena # For future remote NixOS deployments
+    openbao
   ];
+
+  # Central Secrets Engine for the Root Management Plane
+  services.openbao = {
+    enable = true;
+    settings = {
+      ui = true;
+      api_addr = "http://127.0.0.1:8200";
+      cluster_addr = "http://127.0.0.1:8201";
+      listener.tcp = {
+        type = "tcp";
+        address = "127.0.0.1:8200";
+        tls_disable = 1;
+      };
+      storage.raft = {
+        path = "/var/lib/openbao";
+        node_id = "servacho-management-plane";
+      };
+    };
+  };
 
   # Ensure the SSH daemon is enabled so it can be managed remotely
   services.openssh = {
@@ -62,7 +82,7 @@ The below steps are not explicitly nessary, check phase 1 before doing them:
 
 6. **Import the Management VM into OpenTofu:** Once OpenTofu is initialized and authenticated, bring the manually bootstrapped Management VM under IaC control. Define a `proxmox_virtual_environment_vm` resource block in your `main.tf`, then declare the import directly in code using an `import` block with the `<node_name>/<vm_id>` format. For bootstrap safety, use `lifecycle { ignore_changes = all }` so the first apply records state without mutating the VM.
 
-7. **Create the IaC Role in OpenTofu During Phase 0:** Define `TofuProvisioner` directly in `main.tf` with the provider privileges required for day-to-day VM lifecycle work. This keeps the role declarative from the beginning instead of creating it manually with `pveum`. During the first bootstrap apply, the API token can still authenticate as an administrator; after the role exists, bind `tofu-provisioner@pve` to `TofuProvisioner` and remove the broader bootstrap ACL.
+7. **Create the IaC Role in OpenTofu During Phase 0:** Define `TofuProvisioner` directly in `main.tf` with the provider privileges required for day-to-day VM lifecycle work. This keeps the role declarative from the beginning instead of creating it manually with `pveum`. The root `tofu-provisioner@pve` account will permanently retain the `Administrator` role on `/` to manage cluster-wide infrastructure, IAM, and networking. The custom `TofuProvisioner` role you create here is designed specifically for restricted organizational/tenant users later on.
 
 8. **Avoid Self-Interrupting Apply Runs:** If OpenTofu is executed from the same VM being imported (for example VM `5011`), in-place VM updates can restart the machine and terminate the SSH session mid-apply. During bootstrap, keep the VM resource import-only (`ignore_changes = all`) or execute applies from a different control host.
 
@@ -254,71 +274,181 @@ Using an `import` block, an operator simply writes the intent to import an exist
     
     Create a `.github/workflows/tofu-plan.yaml` file in your repository. This workflow triggers when a Pull Request is opened or updated, executes `tofu plan`, and securely comments the output back on the PR.
 
-```
+```yaml
 # .github/workflows/tofu-plan.yaml
 name: OpenTofu Plan
+
 on:
   pull_request:
-    branches: [ main ]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: tofu-state
+  cancel-in-progress: false
 
 jobs:
   plan:
-    # Target the specific NixOS Management VM via the label
-    runs-on: [self-hosted, qoax-management]
+    runs-on: [self-hosted, servacho-management-plane]
+
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v6
 
-      - name: OpenTofu Init
-        run: tofu init
+      - name: OpenTofu init
+        run: tofu -chdir=tofu init
 
-      - name: OpenTofu Plan
+      - name: OpenTofu plan
         id: plan
-        # The -no-color flag ensures clean text for the PR comment
-        run: tofu plan -no-color -out=tfplan > plan_output.txt
+        run: |
+          # Use pipefail so that if tofu fails, the whole pipeline step registers the failure
+          set -o pipefail
+          
+          # Run tofu with -input=false, and use 'tee' to show logs in real-time while saving to the file
+          tofu -chdir=tofu plan -no-color -input=false -out=tfplan 2>&1 | tee plan_output.txt
+          
+          # Capture the exit code of the tofu command (not the tee command)
+          exit_code=${PIPESTATUS[0]}
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          
+          # Don't fail the step here so the next PR comment step can run
+          exit 0
 
-      - name: Post Plan to PR
-        uses: actions/github-script@v7
+      - name: Post plan to PR
         if: github.event_name == 'pull_request'
+        uses: actions/github-script@v8
+        env:
+          PLAN_EXIT_CODE: ${{ steps.plan.outputs.exit_code }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
-            const planOutput = fs.readFileSync('plan_output.txt', 'utf8');
-            const commentBody = `### OpenTofu Plan Results\n\`\`\`hcl\n${planOutput}\n\`\`\``;
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
+            const path = 'plan_output.txt';
+            let planOutput = fs.existsSync(path) ? fs.readFileSync(path, 'utf8') : 'No plan output found.';
+
+            const maxLen = 60000;
+            if (planOutput.length > maxLen) {
+              planOutput = `${planOutput.slice(0, maxLen)}
+
+...truncated...`;
+            }
+
+            const status = process.env.PLAN_EXIT_CODE === '0' ? 'Success' : 'Failed';
+            const body = [
+              '### OpenTofu Plan Results',
+              `Status: **${status}**`,
+              '',
+              '```hcl',
+              planOutput,
+              '```'
+            ].join('
+');
+
+            // 1. Get every existing comment, not just GitHub's first page.
+            const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: commentBody
-            })
+              issue_number: context.issue.number,
+            });
+
+            // 2. Find the comment made by the bot that contains our header
+            const botComment = comments.find(comment => {
+              return comment.user.type === 'Bot' && comment.body.includes('### OpenTofu Plan Results');
+            });
+
+            // 3. Update if found, otherwise create a new one
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+            }
+
+      - name: Fail workflow if plan failed
+        if: steps.plan.outputs.exit_code != '0'
+        run: |
+          echo "OpenTofu plan failed. See PR comment for details."
+          exit 1
 ```
+
 
 1. **Define the CI/CD Apply Workflow:**
     
     Create a `.github/workflows/tofu-apply.yaml` file to execute changes automatically when code is merged into the `main` branch.
     
 
-```
+```yaml
 # .github/workflows/tofu-apply.yaml
 name: OpenTofu Apply
+
 on:
   push:
-    branches: [ main ]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch or tag to apply
+        required: true
+        default: main
+        type: string
+      auto_approve:
+        description: Apply without waiting for GitHub environment approval
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tofu-state
+  cancel-in-progress: false
 
 jobs:
-  apply:
-    runs-on: [self-hosted, qoax-management]
+  apply-automatically:
+    if: github.event_name == 'push' || inputs.auto_approve
+    runs-on: [self-hosted, servacho-management-plane]
+
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.sha }}
 
-      - name: OpenTofu Init
-        run: tofu init
+      - name: OpenTofu init
+        run: tofu -chdir=tofu init
 
-      - name: OpenTofu Apply
-        # Automatically apply the configuration upon merge
-        run: tofu apply -auto-approve
+      - name: OpenTofu apply
+        run: tofu -chdir=tofu apply -auto-approve
+
+  apply-with-approval:
+    if: github.event_name == 'workflow_dispatch' && !inputs.auto_approve
+    runs-on: [self-hosted, servacho-management-plane]
+    environment:
+      name: tofu-apply
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.branch }}
+
+      - name: OpenTofu init
+        run: tofu -chdir=tofu init
+
+      - name: OpenTofu apply
+        run: tofu -chdir=tofu apply -auto-approve
 ```
 
 1. **Execute Declarative Imports via Git:**
@@ -437,7 +567,67 @@ Suggested conventions:
 - Keep host-specific NixOS in `nixos/hosts/` and shared behavior in `nixos/profiles/`.
 - Keep secrets out of Git and resolve credentials dynamically from OpenBao at runtime.
 
-## Phase 2: Network Orchestration and Unifi Infrastructure Configuration
+## Phase 2: Central Secrets Management (Root OpenBao)
+
+Before configuring networking and provisioning resources across the cluster, the root Management VM must establish a secure secrets store. Hardcoding credentials for Unifi or the Proxmox API in plaintext within Git is a severe security vulnerability.
+
+By leveraging the OpenBao instance installed in Phase 0 on the root Management VM, we create a secure vault to store infrastructure credentials. OpenTofu will read from this vault at runtime.
+
+### Implementation Steps
+
+1. **Initialize and Unseal OpenBao:** SSH into the root Management VM. Because TLS is disabled for local loopback connections, you must first tell the CLI to use HTTP by running `export BAO_ADDR="http://127.0.0.1:8200"`. Then, run `bao operator init`. 
+    - **Understanding Shamir's Secret Sharing:** OpenBao encrypts all data at rest and starts in a "sealed" state. To prevent a single point of compromise, the master unseal key is mathematically split into fragments.
+        - **Key Shares:** The total number of pieces the master key is split into.
+        - **Key Threshold:** The minimum number of pieces required to reconstruct the master key.
+    - **Choosing your Quorum:** 
+        - *Solo/Lab Environments:* You may append `-key-shares=1 -key-threshold=1` to generate a single unseal password for maximum convenience.
+        - *Production Environments:* Use the standard `-key-shares=5 -key-threshold=3`. This creates a quorum, ensuring no single administrator can unilaterally decrypt the vault, and provides resilience if someone loses their key.
+    - Securely store the generated unseal keys and root token offline. Unseal the vault with `bao operator unseal` (entering the required threshold of keys).
+2. **Store Infrastructure Secrets:** You can store your Proxmox API token (and any subsequent credentials) using either the Web UI or the Command Line.
+
+   **Option A: Using the Web UI**
+   Because the vault only listens on `127.0.0.1` (localhost), you must create a secure SSH tunnel from your workstation:
+   ```bash
+   ssh -L 8200:127.0.0.1:8200 servacho-managment-plane@<MANAGEMENT_VM_IP>
+   ```
+   - Open `http://127.0.0.1:8200/ui` in your web browser.
+   - **Unseal:** Enter the required threshold of Unseal Keys one by one.
+   - **Sign In:** Leave the `Namespace` field completely blank, select **Token** as the method, and paste your **Initial Root Token**.
+   - **Create Secrets:** 
+       - Navigate to **Secrets Engines** -> **Enable new engine** -> **KV**. Set the path to `secret`.
+       - Open the new `secret` engine, click **Create secret**, set the path to `proxmox`, and add an `api_token` key with your Proxmox token value (e.g., `tofu-provisioner@pve!token=...`).
+
+   **Option B: Using the CLI**
+   If you prefer to stay in the SSH terminal, log in using your root token and create the key-value secrets engine directly:
+   ```bash
+   bao login <Initial_Root_Token>
+   bao secrets enable -path=secret kv-v2
+   bao kv put secret/proxmox api_token="<Your_Proxmox_Token>"
+   ```
+3. **Configure the Vault Provider:** Update your OpenTofu `providers.tf` configuration to retrieve your Proxmox credentials dynamically from OpenBao, replacing the temporary plaintext token from Phase 1.
+
+OpenTofu Configuration for Phase 2 (Vault Provider Setup):
+
+```hcl
+provider "vault" {
+  address = "http://127.0.0.1:8200"
+  # Vault token is provided securely via the VAULT_TOKEN environment variable in CI
+}
+
+data "vault_kv_secret_v2" "proxmox_credentials" {
+  mount = "secret"
+  name  = "proxmox"
+}
+
+provider "proxmox" {
+  endpoint  = "https://192.168.5.10:8006/"
+  # The api_token is securely injected from OpenBao
+  api_token = data.vault_kv_secret_v2.proxmox_credentials.data["api_token"]
+  insecure  = true
+}
+```
+
+## Phase 3: Network Orchestration and Unifi Infrastructure Configuration
 
 With GitOps established, all further changes are handled via Pull Requests. A foundational element of a highly automated infrastructure is the deterministic mapping of network topologies to compute resources. The environment relies on a Unifi routing ecosystem to manage distinct Virtual Local Area Networks (VLANs), segregating traffic for different organizational units and exposure levels. This segregation is the physical and logical basis for the subsequent multi-tenant isolation strategy.
 
@@ -459,12 +649,18 @@ The following table outlines the prescribed VLAN architecture based on the speci
 
 ### Implementation Steps
 
-1. **Initialize Unifi Provider:** Configure the Unifi OpenTofu provider in your central network-management repository using API credentials for the Dream Machine.
-2. **Define Networks:** Create `unifi_network` resources for each VLAN, explicitly setting the `vlan_id`, `subnet`, and `dhcp_enabled` attributes according to the table above.
-3. **Export Network Outputs:** Use OpenTofu `output` variables to export the resulting Unifi network IDs and VLAN tags.
-4. **Map to Proxmox Bridges:** Ensure the Proxmox nodes are physically connected to a trunk port on the Unifi switch. Proxmox instances will utilize the standard `vmbr0` bridge, and the VLAN tagging will be handled at the VM network interface level within the OpenTofu `bpg/proxmox` provider.
+1. **Store Unifi Credentials:** Store your Unifi Dream Machine credentials securely in OpenBao.
+   - **Using the Web UI:** Access `http://127.0.0.1:8200/ui` (via SSH tunnel), navigate to your `secret` KV engine, click **Create secret**, set the path to `unifi`, and add the `username` and `password` keys.
+   - **Using the CLI:** 
+     ```bash
+     bao kv put secret/unifi username="admin" password="<SuperSecretPassword>"
+     ```
+2. **Initialize Unifi Provider:** Configure the Unifi OpenTofu provider in your central network-management repository to retrieve the credentials dynamically via the Vault provider.
+3. **Define Networks:** Create `unifi_network` resources for each VLAN, explicitly setting the `vlan_id`, `subnet`, and `dhcp_enabled` attributes according to the table above.
+4. **Export Network Outputs:** Use OpenTofu `output` variables to export the resulting Unifi network IDs and VLAN tags.
+5. **Map to Proxmox Bridges:** Ensure the Proxmox nodes are physically connected to a trunk port on the Unifi switch. Proxmox instances will utilize the standard `vmbr0` bridge, and the VLAN tagging will be handled at the VM network interface level within the OpenTofu `bpg/proxmox` provider.
 
-OpenTofu Configuration for Phase 2 (Unifi Networks Setup):
+OpenTofu Configuration for Phase 3 (Unifi Networks Setup):
 
 ```
 terraform {
@@ -477,8 +673,8 @@ terraform {
 }
 
 provider "unifi" {
-  username = "admin"
-  password = "your-unifi-password"
+  username = data.vault_generic_secret.unifi_credentials.data["username"]
+  password = data.vault_generic_secret.unifi_credentials.data["password"]
   api_url  = "https://unifi.local"
   insecure = true
 }
@@ -496,7 +692,7 @@ output "qoax_vps_vlan" {
 }
 ```
 
-## Phase 3: Proxmox Role-Based Access Control and Tenant Isolation
+## Phase 4: Proxmox Role-Based Access Control and Tenant Isolation
 
 Supporting multiple distinct organizations (Personal, Qoax, FMI{Codes}) on a single Proxmox cluster introduces complex security and isolation requirements. The architecture dictates that different Git repositories manage different sets of machines, and each repository must be strictly confined to its administrative domain. An OpenTofu run triggered by the Qoax repository must be physically and cryptographically incapable of modifying the Personal or FMI{Codes} environments.
 
@@ -504,13 +700,13 @@ To prevent organizational overreach, Proxmox Resource Pools and Role-Based Acces
 
 ### Implementation Steps
 
-1. **Manage Roles via Root OpenTofu:** Utilize the root OpenTofu instance to manage all Proxmox roles. The `TofuProvisioner` role is created declaratively in Phase 0 by this first instance and remains managed there for all future privilege adjustments or new custom roles.
+1. **Manage Roles via Root OpenTofu:** Utilize the root OpenTofu instance to manage all Proxmox roles. The `TofuProvisioner` role is created declaratively in Phase 0. While the root `tofu-provisioner@pve` user stays an `Administrator`, this `TofuProvisioner` role serves as the template for all organizational tenant access.
 2. **Create Resource Pools:** Use the root OpenTofu instance to codify organizational pools (e.g., `pool-qoax`, `pool-personal`).
 3. **Create the Users:** Generate distinct users for each tenant's automation using the root OpenTofu configuration. Note that the `bpg/proxmox` provider deprecates inline ACL blocks in favor of the dedicated `proxmox_acl` resource.
 4. **Apply Access Control Lists (ACLs):** Bind the user to their specific pool via the root OpenTofu instance, referencing the managed `TofuProvisioner` role to strictly enforce organizational boundaries.
 5. **Generate API Tokens:** From the Proxmox CLI, generate the specific tokens for each user utilizing `-privsep 0` so the token inherits the strictly scoped pool permissions.
 
-OpenTofu Configuration for Phase 3 (RBAC Setup via Root Management VM):
+OpenTofu Configuration for Phase 4 (RBAC Setup via Root Management VM):
 
 ```
 # Create the Resource Pool for the Qoax Organization
@@ -536,7 +732,7 @@ resource "proxmox_acl" "qoax_pool_acl" {
 }
 ```
 
-## Phase 4: The Dedicated Management Plane and State Isolation
+## Phase 5: The Dedicated Management Plane and State Isolation
 
 While software-defined RBAC provides the hypervisor-level barrier, the IaC state files and the execution environments themselves must be isolated. Relying solely on logical namespaces within a single, monolithic management instance increases the risk of cross-tenant contamination. The architectural solution is to deploy a dedicated "Management VM" for each Virtual Private Server (VPS) organization.
 
@@ -544,13 +740,13 @@ Each Management VM operates in an isolated VLAN (or a highly restricted manageme
 
 ### Implementation Steps
 
-1. **Provision Tenant Management VMs via Root OpenTofu:** Unlike the root Management VM (which was bootstrapped manually in Phase 0), the tenant-specific Management VMs (Personal, Qoax, and FMI) are provisioned entirely declaratively by the root OpenTofu instance. Define `proxmox_virtual_environment_vm` resources in your root `.tf` files for each tenant management node, assigning them directly to the resource pools created in Phase 3 (e.g., `pool_id = proxmox_virtual_environment_pool.pool_qoax.id`).
-2. **Strict Network Segregation:** Assign the network interfaces for these VMs to their respective, isolated VLANs using the dynamic ID calculation logic defined in Phase 6. For example, configure the Qoax Management VM with a static IP of `192.168.10.11` on VLAN `10` (yielding VM ID `10011`), and the FMI Management VM with `192.168.12.11` on VLAN `12` (yielding VM ID `12011`).
+1. **Provision Tenant Management VMs via Root OpenTofu:** Unlike the root Management VM (which was bootstrapped manually in Phase 0), the tenant-specific Management VMs (Personal, Qoax, and FMI) are provisioned entirely declaratively by the root OpenTofu instance. Define `proxmox_virtual_environment_vm` resources in your root `.tf` files for each tenant management node, assigning them directly to the resource pools created in Phase 4 (e.g., `pool_id = proxmox_virtual_environment_pool.pool_qoax.id`).
+2. **Strict Network Segregation:** Assign the network interfaces for these VMs to their respective, isolated VLANs using the dynamic ID calculation logic defined in Phase 7. For example, configure the Qoax Management VM with a static IP of `192.168.10.11` on VLAN `10` (yielding VM ID `10011`), and the FMI Management VM with `192.168.12.11` on VLAN `12` (yielding VM ID `12011`).
 3. **Deploy Core Tooling via Colmena:** From the root Management VM, execute a `colmena apply` deployment to push the NixOS operating system configurations to the newly created tenant Management VMs over SSH. The Nix flake configuration for these child management nodes must explicitly install the `opentofu` and `colmena` packages, and activate the `services.openbao` module configured to use a local Raft integrated storage backend.
 4. **Initialize and Unseal OpenBao:** Once the NixOS configuration is active, the OpenBao daemon on each tenant VM will start in a sealed, uninitialized state. SSH into the Qoax Management VM and execute `bao operator init -key-shares=5 -key-threshold=3`. This process outputs five unseal keys and one initial root token. Save these securely (e.g., in the root Management VM's secure offline storage). Finally, run `bao operator unseal` three consecutive times, inputting a different key each time, until the `Sealed` status changes to `false`. Repeat this manual unseal process for the FMI and Personal Management VMs.
 5. **Isolate State Backend Configuration:** In the isolated Git repository designated for the Qoax infrastructure, configure the OpenTofu `backend` to store its `.tfstate` locally on the Qoax Management VM's disk at a designated path (e.g., `/var/lib/opentofu/qoax-infrastructure.tfstate`). By executing the Qoax pipeline exclusively on the Qoax VM, the OpenTofu execution environment is physically and cryptographically prevented from reading the FMI or Personal state files.
 
-NixOS Configuration for Phase 4 (OpenBao Service Definition applied via Colmena):
+NixOS Configuration for Phase 5 (OpenBao Service Definition applied via Colmena):
 
 ```
 services.openbao = {
@@ -582,7 +778,7 @@ environment.systemPackages = with pkgs; [
 ];
 ```
 
-OpenTofu Configuration for Phase 4 (Root Provisioning & State Backend Isolation):
+OpenTofu Configuration for Phase 5 (Root Provisioning & State Backend Isolation):
 
 ```
 # 1. Provisioning the Qoax Management VM from the ROOT OpenTofu instance
@@ -591,6 +787,24 @@ resource "proxmox_virtual_environment_vm" "qoax_management_vm" {
   node_name = "pve-01"
   vm_id     = 10011 # Calculated as VLAN 10 + IP .011
   pool_id   = proxmox_virtual_environment_pool.pool_qoax.id
+
+  # Clone from NixOS template
+  clone {
+    vm_id = 9000
+    full  = true
+  }
+
+  initialization {
+    ip_config {
+      ipv4 {
+        address = "192.168.10.11/24"
+        gateway = "192.168.10.1"
+      }
+    }
+    user_account {
+      keys = ["ssh-ed25519 AAAAC3NzaC1... your-root-management-pub-key"]
+    }
+  }
 
   network_device {
     bridge  = "vmbr0"
@@ -612,13 +826,16 @@ terraform {
 }
 ```
 
-## Phase 5: Secrets Management and Google Workspace SSO Integration
+## Phase 6: Tenant Secrets Management and Authentication Strategies
 
 Secret management is a critical vector for securing the infrastructure pipeline, ensuring that credentials, API tokens, and SSH private keys are never hardcoded into the Git repositories. OpenBao, an open-source derivative of HashiCorp Vault, serves as the cryptographic heart of each Management VM.
 
-For specific organizations, notably the Qoax infrastructure, human operators require secure access to the OpenBao instance to rotate secrets, audit access, or retrieve manual credentials. Relying on static tokens for human access is an operational anti-pattern. Instead, OpenBao is configured to delegate authentication to a Google Workspace environment via Single Sign-On (SSO) using the OpenID Connect (OIDC) protocol.
+Because the infrastructure spans multiple environments (Root, Personal, Qoax, FMI), the authentication strategy must adapt to the operational context:
 
-### Implementation Steps
+- **Path A: Single Password/Token (Root & Personal Installations):** For the root management plane or isolated personal labs, operators can rely on the Initial Root Token generated during initialization, or enable the basic `userpass` auth method (`bao auth enable userpass`). This provides a simple, single-password login path without external dependencies, which is critical for disaster recovery and solo operations.
+- **Path B: SSO Integration (Production & Multi-Tenant Installations):** For organizational tenants (e.g., Qoax, FMI{Codes}), relying on static tokens or shared passwords for human access is an operational anti-pattern. Instead, tenant OpenBao instances are configured to delegate authentication to a Google Workspace environment via Single Sign-On (SSO) using the OpenID Connect (OIDC) protocol. This ensures centralized revocation, MFA enforcement, and accurate audit logging tied to real human identities.
+
+### Implementation Steps (SSO Path)
 
 1. **Configure Google Workspace OAuth:**
     - Navigate to the Google Cloud Console APIs & Services dashboard.
@@ -631,7 +848,7 @@ For specific organizations, notably the Qoax infrastructure, human operators req
 4. **Create Role Mappings:** Create the `qoax-engineers` role within OpenBao to map the Google authentication to specific internal policies.
 5. **Dynamic Provider Injection:** In your IaC code, utilize the HashiCorp Vault provider to fetch your Proxmox token dynamically at runtime so it is never committed to Git.
 
-OpenTofu Configuration for Phase 5 (Dynamic Credentials via Vault/OpenBao):
+OpenTofu Configuration for Phase 6 (Dynamic Credentials via Vault/OpenBao):
 
 ```
 provider "vault" {
@@ -647,12 +864,12 @@ data "vault_generic_secret" "proxmox_credentials" {
 provider "proxmox" {
   endpoint  = "https://<YOUR_PROXMOX_IP>:8006/"
   # Inject the dynamically fetched secret into the provider configuration
-  api_token = data.vault_generic_secret.proxmox_credentials.data["api_token"]
+  api_token = data.vault_kv_secret_v2.proxmox_credentials.data["api_token"]
   insecure  = true
 }
 ```
 
-## Phase 6: Dynamic Virtual Machine Identifier Calculation
+## Phase 7: Dynamic Virtual Machine Identifier Calculation
 
 With access controls, networks, and secrets handled, OpenTofu is ready to deploy tenant workloads. Proxmox VE requires a unique integer ID for every virtual machine across the cluster, which serves as the primary key for all API operations. In manually managed environments, these IDs are often assigned sequentially, leading to administrative overhead and cognitive disconnect when attempting to correlate a VM ID with its IP address or network segment.
 
@@ -664,7 +881,7 @@ To resolve this, a dynamic calculation methodology within OpenTofu generates det
 2. **Calculate the ID:** Use HCL `locals` to split the IP string, extract the final octet, format it to always strictly possess 3 digits via `format("%03d", ...)`, and finally concatenate the values.
 3. **Assign to VM Resource:** Pass the calculated variable to the `bpg/proxmox` provider block.
 
-OpenTofu Configuration for Phase 6 (Dynamic VM IDs):
+OpenTofu Configuration for Phase 7 (Dynamic VM IDs):
 
 ```
 variable "vm_ip_address" {
@@ -696,12 +913,22 @@ resource "proxmox_virtual_environment_vm" "node" {
   name  = "node-${local.calculated_vm_id}"
   vm_id = local.calculated_vm_id
 
+  # Clone from a pre-built NixOS template with qemu-guest-agent and cloud-init enabled
+  clone {
+    vm_id = 9000
+    full  = true
+  }
+
   initialization {
     ip_config {
       ipv4 {
         address = "${var.vm_ip_address}/24"
         gateway = "192.168.${var.vlan_id}.1"
       }
+    }
+    user_account {
+      # Inject SSH key so Colmena can deploy to the machine
+      keys = ["ssh-ed25519 AAAAC3NzaC1... your-management-pub-key"]
     }
   }
 
@@ -712,7 +939,7 @@ resource "proxmox_virtual_environment_vm" "node" {
 }
 ```
 
-## Phase 7: Declarative Operating System Configuration via NixOS and GitOps
+## Phase 8: Declarative Operating System Configuration via NixOS and GitOps
 
 The synergy between OpenTofu and NixOS provides an exceptionally powerful paradigm for infrastructure management. While OpenTofu excels at provisioning the underlying hardware, NixOS excels at declaratively defining the state of the operating system.
 
@@ -724,7 +951,7 @@ Each organization maintains a dedicated Git repository featuring a `/terraform` 
 2. **Cloud-Init Bootstrapping:** Inject an SSH public key via a Proxmox Cloud-Init snippet so the Management VM can access the newly cloned machine over SSH.
 3. **Colmena Invocation:** Utilize an OpenTofu `null_resource` block that triggers immediately after the VM creation. This block executes Colmena locally on the Management VM to build and push the NixOS configuration.
 
-OpenTofu Configuration for Phase 7 (GitOps NixOS Deployment):
+OpenTofu Configuration for Phase 8 (GitOps NixOS Deployment):
 
 ```
 resource "null_resource" "nixos_deploy" {
@@ -735,15 +962,22 @@ resource "null_resource" "nixos_deploy" {
   }
 
   provisioner "local-exec" {
-    # Execute colmena over SSH to build and activate the NixOS closure
-    command     = "colmena apply --on ${var.vm_ip_address}"
+    # Wait for SSH to become available before attempting to deploy
+    # to avoid race conditions right after Proxmox VM creation
+    command     = <<-EOT
+      echo "Waiting for SSH on ${var.vm_ip_address}..."
+      while ! nc -z ${var.vm_ip_address} 22; do
+        sleep 5
+      done
+      colmena apply --on ${var.vm_ip_address}
+    EOT
     # Target the nixos directory relative to the terraform execution path
     working_dir = "../nixos"
   }
 }
 ```
 
-## Phase 8: Kubernetes (K3s) Cluster Orchestration Templates
+## Phase 9: Kubernetes (K3s) Cluster Orchestration Templates
 
 To support microservices and containerized workloads across the different VPS environments, K3s (a lightweight, highly available Kubernetes distribution) is deployed directly via NixOS modules.
 
@@ -756,7 +990,7 @@ The architecture must support multiple distinct Kubernetes clusters per VPS by p
 3. **Deploy Native Manifests:** Manage Kubernetes workloads directly from the Git repository using the `services.k3s.manifests` NixOS option, which auto-deploys YAML directly into the cluster on startup.
 4. **Provision Hardware:** Use OpenTofu to provision the underlying Proxmox VMs, ensuring resources like `cpu` and `memory` are properly allocated for orchestration workloads.
 
-OpenTofu Configuration for Phase 8 (K3s Node Hardware Provisioning):
+OpenTofu Configuration for Phase 9 (K3s Node Hardware Provisioning):
 
 ```
 resource "proxmox_virtual_environment_vm" "k3s_master" {
@@ -764,6 +998,25 @@ resource "proxmox_virtual_environment_vm" "k3s_master" {
   node_name = "pve-01"
   vm_id     = local.calculated_vm_id
   tags      = ["qoax", "kubernetes", "control-plane"]
+
+  # Clone from a pre-built NixOS template
+  clone {
+    vm_id = 9000
+    full  = true
+  }
+
+  # Add cloud-init initialization so colmena has SSH access
+  initialization {
+    ip_config {
+      ipv4 {
+        address = "${var.vm_ip_address}/24"
+        gateway = "192.168.${var.vlan_id}.1"
+      }
+    }
+    user_account {
+      keys = ["ssh-ed25519 AAAAC3NzaC1... your-management-pub-key"]
+    }
+  }
 
   cpu {
     cores = 4
@@ -786,7 +1039,7 @@ resource "proxmox_virtual_environment_vm" "k3s_master" {
 }
 ```
 
-## Phase 9: Docker Swarm Orchestration Templates
+## Phase 10: Docker Swarm Orchestration Templates
 
 While Kubernetes is highly declarative, initializing a Docker Swarm historically relied on imperative SSH commands (e.g., `docker swarm init`). Because the native Docker OpenTofu provider (`kreuzwerker/docker`) lacks a `docker_swarm_cluster` resource, relying on shell provisioners is a common anti-pattern.
 
@@ -799,7 +1052,7 @@ To ensure the cluster is managed *entirely* by OpenTofu without any manual or `r
 3. **Fetch Join Tokens:** Use a REST data source in OpenTofu to `GET /swarm` from the manager and extract the worker join token.
 4. **Join Workers:** Use another REST resource to dynamically send `POST /swarm/join` to each worker's Docker API, supplying the manager's IP and the extracted token.
 
-NixOS Configuration for Phase 9 (Docker API Exposure):
+NixOS Configuration for Phase 10 (Docker API Exposure):
 
 ```
 virtualisation.docker = {
@@ -814,7 +1067,7 @@ networking.firewall.allowedTCPPorts = [ 2375 2377 7946 ];
 networking.firewall.allowedUDPPorts = [ 7946 4789 ];
 ```
 
-OpenTofu Configuration for Phase 9 (Declarative API-Driven Swarm Init):
+OpenTofu Configuration for Phase 10 (Declarative API-Driven Swarm Init):
 
 ```
 terraform {
@@ -832,6 +1085,11 @@ resource "terracurl_request" "swarm_init" {
   url            = "http://${var.manager_ip}:2375/swarm/init"
   method         = "POST"
   response_codes = [200, 406] # 406 means it's already part of a swarm
+  
+  # Allow the Docker daemon time to bind to TCP after the Colmena OS apply finishes
+  max_retry      = 5
+  retry_interval = 10 
+  
   request_body   = jsonencode({
     ListenAddr    = "0.0.0.0:2377"
     AdvertiseAddr = "${var.manager_ip}:2377"
@@ -857,6 +1115,11 @@ resource "terracurl_request" "swarm_join" {
   url            = "http://${var.worker_ip}:2375/swarm/join"
   method         = "POST"
   response_codes = [200, 406]
+  
+  # Allow the Docker daemon time to bind to TCP after the Colmena OS apply finishes
+  max_retry      = 5
+  retry_interval = 10 
+  
   request_body   = jsonencode({
     ListenAddr  = "0.0.0.0:2377"
     RemoteAddrs = ["${var.manager_ip}:2377"]
@@ -867,7 +1130,7 @@ resource "terracurl_request" "swarm_join" {
 }
 ```
 
-## Phase 10: Provisioning Non-NixOS Virtual Machines
+## Phase 11: Provisioning Non-NixOS Virtual Machines
 
 When a non-NixOS VM is required (e.g., an Ubuntu Cloud Image appliance), the workflow dynamically uploads a Cloud-Init configuration snippet to the Proxmox datastore and attaches it to the VM.
 
@@ -877,7 +1140,7 @@ When a non-NixOS VM is required (e.g., an Ubuntu Cloud Image appliance), the wor
 2. **Upload via OpenTofu:** Use the `proxmox_virtual_environment_file` resource to upload the snippet. Note that this requires the OpenTofu provider to have SSH access configured for the Proxmox host.
 3. **Attach to VM:** In the VM resource, reference the file ID.
 
-OpenTofu Configuration for Phase 10 (Cloud-Init Snippet and VM Attachment):
+OpenTofu Configuration for Phase 11 (Cloud-Init Snippet and VM Attachment):
 
 ```
 resource "proxmox_virtual_environment_file" "cloud_config" {
@@ -903,7 +1166,7 @@ resource "proxmox_virtual_environment_vm" "ubuntu_appliance" {
 }
 ```
 
-## Phase 11: Zero-Downtime Lifecycle Management and Automated Upgrades
+## Phase 12: Zero-Downtime Lifecycle Management and Automated Upgrades
 
 Achieving true zero downtime requires coordinated choreography at all levels of the hyperconverged stack. Uncoordinated automated reboots can destroy clustered quorum.
 
@@ -915,7 +1178,7 @@ Achieving true zero downtime requires coordinated choreography at all levels of 
 4. **Automate K3s Engine Upgrades:** Declare the Rancher `system-upgrade-controller` Custom Resources directly in your NixOS configuration using the `services.k3s.manifests` option, setting the `Plan` variable `concurrency: 1` to strictly upgrade nodes sequentially.
 5. **Apply OpenTofu Lifecycle Flags:** Instruct OpenTofu to ignore `node_name` changes. If Proxmox live-migrates a VM to another host during an update, subsequent `tofu apply` runs will not attempt to drag the VM back down or reboot it.
 
-NixOS Configuration for Phase 11 (Safe Reboot Service & K3s Upgrades):
+NixOS Configuration for Phase 12 (Safe Reboot Service & K3s Upgrades):
 
 ```
 # 1. Disable forced reboots during upgrades
@@ -983,7 +1246,7 @@ services.k3s.manifests.k3s-upgrade-plan.content = {
 };
 ```
 
-OpenTofu Configuration for Phase 11 (State Protection during Live Migrations):
+OpenTofu Configuration for Phase 12 (State Protection during Live Migrations):
 
 ```
 resource "proxmox_virtual_environment_vm" "ha_node" {

@@ -15,6 +15,9 @@ concurrency:
 jobs:
   plan:
     runs-on: [self-hosted, servacho-management-plane]
+    env:
+      VAULT_ADDR: http://127.0.0.1:8200
+      VAULT_TOKEN: ${{ secrets.OPENBAO_TOFU_TOKEN }}
 
     steps:
       - name: Checkout code
@@ -56,9 +59,11 @@ jobs:
             }
 
             const status = process.env.PLAN_EXIT_CODE === '0' ? 'Success' : 'Failed';
+            const timestamp = new Date().toUTCString();
             const body = [
               '### OpenTofu Plan Results',
-              `Status: **${status}**`,
+              `**Status:** ${status}`,
+              `**Generated:** ${timestamp}`,
               '',
               '```hcl',
               planOutput,
