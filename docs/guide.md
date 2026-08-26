@@ -80,7 +80,7 @@ The below steps are not explicitly nessary, check phase 1 before doing them:
 
 6. **Import the Management VM into OpenTofu:** Once OpenTofu is initialized and authenticated, bring the manually bootstrapped Management VM under IaC control. Define a `proxmox_virtual_environment_vm` resource block in your `main.tf`, then declare the import directly in code using an `import` block with the `<node_name>/<vm_id>` format. For bootstrap safety, use `lifecycle { ignore_changes = all }` so the first apply records state without mutating the VM.
 
-7. **Create the IaC Role in OpenTofu During Phase 0:** Define `TofuProvisioner` directly in `main.tf` with the provider privileges required for day-to-day VM lifecycle work. This keeps the role declarative from the beginning instead of creating it manually with `pveum`. During the first bootstrap apply, the API token can still authenticate as an administrator; after the role exists, bind `tofu-provisioner@pve` to `TofuProvisioner` and remove the broader bootstrap ACL.
+7. **Create the IaC Role in OpenTofu During Phase 0:** Define `TofuProvisioner` directly in `main.tf` with the provider privileges required for day-to-day VM lifecycle work. This keeps the role declarative from the beginning instead of creating it manually with `pveum`. The root `tofu-provisioner@pve` account will permanently retain the `Administrator` role on `/` to manage cluster-wide infrastructure, IAM, and networking. The custom `TofuProvisioner` role you create here is designed specifically for restricted organizational/tenant users later on.
 
 8. **Avoid Self-Interrupting Apply Runs:** If OpenTofu is executed from the same VM being imported (for example VM `5011`), in-place VM updates can restart the machine and terminate the SSH session mid-apply. During bootstrap, keep the VM resource import-only (`ignore_changes = all`) or execute applies from a different control host.
 
@@ -612,15 +612,15 @@ provider "vault" {
   # Vault token is provided securely via the VAULT_TOKEN environment variable in CI
 }
 
-data "vault_kv_secret_v2" "proxmox_credentials" {
-  mount = "secret"
-  name  = "proxmox"
+data "vault_generic_secret" "proxmox_credentials" {
+  # When using vault_generic_secret with a KV-V2 engine, you must inject '/data/' into the path.
+  path = "secret/data/proxmox"
 }
 
 provider "proxmox" {
   endpoint  = "https://192.168.5.10:8006/"
-  # The api_token is now securely injected from OpenBao
-  api_token = data.vault_kv_secret_v2.proxmox_credentials.data["api_token"]
+  # The api_token is securely injected from OpenBao
+  api_token = data.vault_generic_secret.proxmox_credentials.data["api_token"]
   insecure  = true
 }
 ```
@@ -698,7 +698,7 @@ To prevent organizational overreach, Proxmox Resource Pools and Role-Based Acces
 
 ### Implementation Steps
 
-1. **Manage Roles via Root OpenTofu:** Utilize the root OpenTofu instance to manage all Proxmox roles. The `TofuProvisioner` role is created declaratively in Phase 0 by this first instance and remains managed there for all future privilege adjustments or new custom roles.
+1. **Manage Roles via Root OpenTofu:** Utilize the root OpenTofu instance to manage all Proxmox roles. The `TofuProvisioner` role is created declaratively in Phase 0. While the root `tofu-provisioner@pve` user stays an `Administrator`, this `TofuProvisioner` role serves as the template for all organizational tenant access.
 2. **Create Resource Pools:** Use the root OpenTofu instance to codify organizational pools (e.g., `pool-qoax`, `pool-personal`).
 3. **Create the Users:** Generate distinct users for each tenant's automation using the root OpenTofu configuration. Note that the `bpg/proxmox` provider deprecates inline ACL blocks in favor of the dedicated `proxmox_acl` resource.
 4. **Apply Access Control Lists (ACLs):** Bind the user to their specific pool via the root OpenTofu instance, referencing the managed `TofuProvisioner` role to strictly enforce organizational boundaries.
