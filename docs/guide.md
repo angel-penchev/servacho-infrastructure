@@ -573,24 +573,54 @@ By leveraging the OpenBao instance installed in Phase 0 on the root Management V
 
 ### Implementation Steps
 
-1. **Initialize and Unseal OpenBao:** SSH into the root Management VM and run `bao operator init`. Securely store the generated unseal keys and root token offline. Unseal the vault with `bao operator unseal`.
-2. **Store Infrastructure Secrets:** Log in using the root token and create a key-value secrets engine. Store your Unifi and Proxmox credentials here:
+1. **Initialize and Unseal OpenBao:** SSH into the root Management VM. Because TLS is disabled for local loopback connections, you must first tell the CLI to use HTTP by running `export BAO_ADDR="http://127.0.0.1:8200"`. Then, run `bao operator init`. 
+    - **Understanding Shamir's Secret Sharing:** OpenBao encrypts all data at rest and starts in a "sealed" state. To prevent a single point of compromise, the master unseal key is mathematically split into fragments.
+        - **Key Shares:** The total number of pieces the master key is split into.
+        - **Key Threshold:** The minimum number of pieces required to reconstruct the master key.
+    - **Choosing your Quorum:** 
+        - *Solo/Lab Environments:* You may append `-key-shares=1 -key-threshold=1` to generate a single unseal password for maximum convenience.
+        - *Production Environments:* Use the standard `-key-shares=5 -key-threshold=3`. This creates a quorum, ensuring no single administrator can unilaterally decrypt the vault, and provides resilience if someone loses their key.
+    - Securely store the generated unseal keys and root token offline. Unseal the vault with `bao operator unseal` (entering the required threshold of keys).
+2. **Store Infrastructure Secrets:** You can store your Proxmox API token (and any subsequent credentials) using either the Web UI or the Command Line.
+
+   **Option A: Using the Web UI**
+   Because the vault only listens on `127.0.0.1` (localhost), you must create a secure SSH tunnel from your workstation:
    ```bash
-   bao secrets enable -path=secret kv-v2
-   bao kv put secret/unifi username="admin" password="<SuperSecretPassword>"
+   ssh -L 8200:127.0.0.1:8200 servacho-managment-plane@<MANAGEMENT_VM_IP>
    ```
-3. **Configure the Vault Provider:** In your OpenTofu configuration, configure the HashiCorp Vault provider to target the local OpenBao instance and retrieve the Unifi credentials dynamically.
+   - Open `http://127.0.0.1:8200/ui` in your web browser.
+   - **Unseal:** Enter the required threshold of Unseal Keys one by one.
+   - **Sign In:** Leave the `Namespace` field completely blank, select **Token** as the method, and paste your **Initial Root Token**.
+   - **Create Secrets:** 
+       - Navigate to **Secrets Engines** -> **Enable new engine** -> **KV**. Set the path to `secret`.
+       - Open the new `secret` engine, click **Create secret**, set the path to `proxmox`, and add an `api_token` key with your Proxmox token value (e.g., `tofu-provisioner@pve!token=...`).
+
+   **Option B: Using the CLI**
+   If you prefer to stay in the SSH terminal, log in using your root token and create the key-value secrets engine directly:
+   ```bash
+   bao login <Initial_Root_Token>
+   bao secrets enable -path=secret kv-v2
+   bao kv put secret/proxmox api_token="<Your_Proxmox_Token>"
+   ```
+3. **Configure the Vault Provider:** Update your OpenTofu `providers.tf` configuration to retrieve your Proxmox credentials dynamically from OpenBao, replacing the temporary plaintext token from Phase 1.
 
 OpenTofu Configuration for Phase 2 (Vault Provider Setup):
 
 ```hcl
 provider "vault" {
   address = "http://127.0.0.1:8200"
-  # Vault token is provided securely via the VAULT_TOKEN environment variable
+  # Vault token is provided securely via the VAULT_TOKEN environment variable in CI
 }
 
-data "vault_generic_secret" "unifi_credentials" {
-  path = "secret/unifi"
+data "vault_generic_secret" "proxmox_credentials" {
+  path = "secret/proxmox"
+}
+
+provider "proxmox" {
+  endpoint  = "https://192.168.5.10:8006/"
+  # The api_token is now securely injected from OpenBao
+  api_token = data.vault_generic_secret.proxmox_credentials.data["api_token"]
+  insecure  = true
 }
 ```
 
@@ -616,10 +646,16 @@ The following table outlines the prescribed VLAN architecture based on the speci
 
 ### Implementation Steps
 
-1. **Initialize Unifi Provider:** Configure the Unifi OpenTofu provider in your central network-management repository using API credentials for the Dream Machine.
-2. **Define Networks:** Create `unifi_network` resources for each VLAN, explicitly setting the `vlan_id`, `subnet`, and `dhcp_enabled` attributes according to the table above.
-3. **Export Network Outputs:** Use OpenTofu `output` variables to export the resulting Unifi network IDs and VLAN tags.
-4. **Map to Proxmox Bridges:** Ensure the Proxmox nodes are physically connected to a trunk port on the Unifi switch. Proxmox instances will utilize the standard `vmbr0` bridge, and the VLAN tagging will be handled at the VM network interface level within the OpenTofu `bpg/proxmox` provider.
+1. **Store Unifi Credentials:** Store your Unifi Dream Machine credentials securely in OpenBao.
+   - **Using the Web UI:** Access `http://127.0.0.1:8200/ui` (via SSH tunnel), navigate to your `secret` KV engine, click **Create secret**, set the path to `unifi`, and add the `username` and `password` keys.
+   - **Using the CLI:** 
+     ```bash
+     bao kv put secret/unifi username="admin" password="<SuperSecretPassword>"
+     ```
+2. **Initialize Unifi Provider:** Configure the Unifi OpenTofu provider in your central network-management repository to retrieve the credentials dynamically via the Vault provider.
+3. **Define Networks:** Create `unifi_network` resources for each VLAN, explicitly setting the `vlan_id`, `subnet`, and `dhcp_enabled` attributes according to the table above.
+4. **Export Network Outputs:** Use OpenTofu `output` variables to export the resulting Unifi network IDs and VLAN tags.
+5. **Map to Proxmox Bridges:** Ensure the Proxmox nodes are physically connected to a trunk port on the Unifi switch. Proxmox instances will utilize the standard `vmbr0` bridge, and the VLAN tagging will be handled at the VM network interface level within the OpenTofu `bpg/proxmox` provider.
 
 OpenTofu Configuration for Phase 3 (Unifi Networks Setup):
 
@@ -787,13 +823,16 @@ terraform {
 }
 ```
 
-## Phase 6: Tenant Secrets Management and Google Workspace SSO Integration
+## Phase 6: Tenant Secrets Management and Authentication Strategies
 
 Secret management is a critical vector for securing the infrastructure pipeline, ensuring that credentials, API tokens, and SSH private keys are never hardcoded into the Git repositories. OpenBao, an open-source derivative of HashiCorp Vault, serves as the cryptographic heart of each Management VM.
 
-For specific organizations, notably the Qoax infrastructure, human operators require secure access to the OpenBao instance to rotate secrets, audit access, or retrieve manual credentials. Relying on static tokens for human access is an operational anti-pattern. Instead, OpenBao is configured to delegate authentication to a Google Workspace environment via Single Sign-On (SSO) using the OpenID Connect (OIDC) protocol.
+Because the infrastructure spans multiple environments (Root, Personal, Qoax, FMI), the authentication strategy must adapt to the operational context:
 
-### Implementation Steps
+- **Path A: Single Password/Token (Root & Personal Installations):** For the root management plane or isolated personal labs, operators can rely on the Initial Root Token generated during initialization, or enable the basic `userpass` auth method (`bao auth enable userpass`). This provides a simple, single-password login path without external dependencies, which is critical for disaster recovery and solo operations.
+- **Path B: SSO Integration (Production & Multi-Tenant Installations):** For organizational tenants (e.g., Qoax, FMI{Codes}), relying on static tokens or shared passwords for human access is an operational anti-pattern. Instead, tenant OpenBao instances are configured to delegate authentication to a Google Workspace environment via Single Sign-On (SSO) using the OpenID Connect (OIDC) protocol. This ensures centralized revocation, MFA enforcement, and accurate audit logging tied to real human identities.
+
+### Implementation Steps (SSO Path)
 
 1. **Configure Google Workspace OAuth:**
     - Navigate to the Google Cloud Console APIs & Services dashboard.
