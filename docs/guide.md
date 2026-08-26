@@ -52,13 +52,15 @@ To begin managing a brand new Proxmox cluster with self-hosted OpenTofu, the ini
     settings = {
       ui = true;
       api_addr = "http://127.0.0.1:8200";
+      cluster_addr = "http://127.0.0.1:8201";
       listener.tcp = {
         type = "tcp";
         address = "127.0.0.1:8200";
         tls_disable = 1;
       };
-      storage.file = {
+      storage.raft = {
         path = "/var/lib/openbao";
+        node_id = "servacho-management-plane";
       };
     };
   };
@@ -612,15 +614,15 @@ provider "vault" {
   # Vault token is provided securely via the VAULT_TOKEN environment variable in CI
 }
 
-data "vault_generic_secret" "proxmox_credentials" {
-  # When using vault_generic_secret with a KV-V2 engine, you must inject '/data/' into the path.
-  path = "secret/data/proxmox"
+data "vault_kv_secret_v2" "proxmox_credentials" {
+  mount = "secret"
+  name  = "proxmox"
 }
 
 provider "proxmox" {
   endpoint  = "https://192.168.5.10:8006/"
   # The api_token is securely injected from OpenBao
-  api_token = data.vault_generic_secret.proxmox_credentials.data["api_token"]
+  api_token = data.vault_kv_secret_v2.proxmox_credentials.data["api_token"]
   insecure  = true
 }
 ```
@@ -862,7 +864,7 @@ data "vault_generic_secret" "proxmox_credentials" {
 provider "proxmox" {
   endpoint  = "https://<YOUR_PROXMOX_IP>:8006/"
   # Inject the dynamically fetched secret into the provider configuration
-  api_token = data.vault_generic_secret.proxmox_credentials.data["api_token"]
+  api_token = data.vault_kv_secret_v2.proxmox_credentials.data["api_token"]
   insecure  = true
 }
 ```
