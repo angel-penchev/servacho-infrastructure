@@ -612,14 +612,15 @@ provider "vault" {
   # Vault token is provided securely via the VAULT_TOKEN environment variable in CI
 }
 
-data "vault_generic_secret" "proxmox_credentials" {
-  path = "secret/proxmox"
+data "vault_kv_secret_v2" "proxmox_credentials" {
+  mount = "secret"
+  name  = "proxmox"
 }
 
 provider "proxmox" {
   endpoint  = "https://192.168.5.10:8006/"
   # The api_token is now securely injected from OpenBao
-  api_token = data.vault_generic_secret.proxmox_credentials.data["api_token"]
+  api_token = data.vault_kv_secret_v2.proxmox_credentials.data["api_token"]
   insecure  = true
 }
 ```
