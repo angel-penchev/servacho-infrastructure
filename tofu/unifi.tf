@@ -103,12 +103,12 @@ resource "unifi_network" "qoax_community_vps" {
 }
 
 import {
-  to = unifi_network.qoax_community_media_vps
+  to = unifi_network.qoax_community_broadcast_vps
   id = "69fbfb6c7d470ef53a7e1c10"
 }
 
-resource "unifi_network" "qoax_community_media_vps" {
-  name         = "Qoax Community Media VPS"
+resource "unifi_network" "qoax_community_broadcast_vps" {
+  name         = "Qoax Community Broadcast VPS"
   purpose      = "corporate"
   vlan_id      = 11
   subnet       = "192.168.11.1/24"

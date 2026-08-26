@@ -518,7 +518,7 @@ management-plane-qoax-community/
 │   │       └── outputs.tf
 │   └── env/
 │       ├── qoax-community.tfvars
-│       └── qoax-community-media.tfvars
+│       └── qoax-community-broadcast.tfvars
 ├── nixos/
 │   ├── flake.nix
 │   ├── flake.lock
@@ -644,7 +644,7 @@ The following table outlines the prescribed VLAN architecture based on the speci
 | Private Servers | 5 | 192.168.5.0/24 | Static/Reserved | Internal databases, management planes, and personal administration |
 | IoT | 6 | 192.168.6.0/24 | Server | Isolated smart devices and sensors |
 | Qoax Community VPS | 10 | 192.168.10.0/24 | Static/Reserved | Multi-tenant compute for the Qoax Community organization |
-| Qoax Community Media VPS | 11 | 192.168.11.0/24 | Static/Reserved | High-bandwidth media processing, transcoders, and object storage |
+| Qoax Community Broadcast VPS | 11 | 192.168.11.0/24 | Static/Reserved | High-bandwidth broadcast processing, transcoders, and object storage |
 | FMI{Codes} VPS | 12 | 192.168.12.0/24 | Static/Reserved | Isolated compute for the FMI educational/development organization |
 
 ### Implementation Steps
