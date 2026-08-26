@@ -88,12 +88,12 @@ resource "unifi_network" "iot" {
 }
 
 import {
-  to = unifi_network.qoax_vps
+  to = unifi_network.qoax_community_vps
   id = "69fbfb0e7d470ef53a7e1bbd"
 }
 
-resource "unifi_network" "qoax_vps" {
-  name         = "Qoax VPS"
+resource "unifi_network" "qoax_community_vps" {
+  name         = "Qoax Community VPS"
   purpose      = "corporate"
   vlan_id      = 10
   subnet       = "192.168.10.1/24"
@@ -103,12 +103,12 @@ resource "unifi_network" "qoax_vps" {
 }
 
 import {
-  to = unifi_network.qoax_media_vps
+  to = unifi_network.qoax_community_media_vps
   id = "69fbfb6c7d470ef53a7e1c10"
 }
 
-resource "unifi_network" "qoax_media_vps" {
-  name         = "Qoax Media VPS"
+resource "unifi_network" "qoax_community_media_vps" {
+  name         = "Qoax Community Media VPS"
   purpose      = "corporate"
   vlan_id      = 11
   subnet       = "192.168.11.1/24"
