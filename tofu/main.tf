@@ -75,9 +75,6 @@ resource "proxmox_virtual_environment_vm" "management_vm" {
     type = "l26"
   }
 
-  vga {
-    enabled = true
-  }
 
   # Commented out because we now WANT OpenTofu to actively manage this VM. 
   # Keeping 'ignore_changes = all' would prevent updating things like CPU or RAM
