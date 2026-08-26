@@ -118,11 +118,11 @@ resource "unifi_network" "qoax_community_broadcast_vps" {
 }
 
 import {
-  to = unifi_network.fmi_codes_vps
+  to = unifi_network.fmicodes_vps
   id = "69fbfb877d470ef53a7e1c51"
 }
 
-resource "unifi_network" "fmi_codes_vps" {
+resource "unifi_network" "fmicodes_vps" {
   name         = "FMI{Codes} VPS"
   purpose      = "corporate"
   vlan_id      = 12
