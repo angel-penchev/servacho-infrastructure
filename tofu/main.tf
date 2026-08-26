@@ -23,10 +23,10 @@ resource "proxmox_virtual_environment_role" "tofu_provisioner" {
 # Commented out because the import block is a one-time operation.
 # Once the VM is successfully imported into the OpenTofu state file, 
 # this block is no longer needed and can be safely disabled.
-import {
-  id = "Servacho-Alice/5011"
-  to = proxmox_virtual_environment_vm.management_vm
-}
+# import {
+#   id = "Servacho-Alice/5011"
+#   to = proxmox_virtual_environment_vm.management_vm
+# }
 
 resource "proxmox_virtual_environment_vm" "management_vm" {
   name          = "servacho-managment-plane"
