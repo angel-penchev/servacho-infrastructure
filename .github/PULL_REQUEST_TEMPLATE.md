@@ -2,7 +2,7 @@
 [Briefly describe the changes introduced by this pull request.]
 
 ### Referenced Issue
-Resolves #<issue_number>
+Resolves #<issue_number>.
 
 ### Type of Change
 - [ ] Bug fix
