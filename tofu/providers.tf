@@ -43,6 +43,6 @@ data "vault_kv_secret_v2" "unifi_credentials" {
 provider "unifi" {
   username = data.vault_kv_secret_v2.unifi_credentials.data["username"]
   password = data.vault_kv_secret_v2.unifi_credentials.data["password"]
-  api_url  = "https://192.168.1.1" # Change this if your Unifi controller is at a different IP
-  insecure = true
+  api_url  = "https://192.168.1.1"
+  allow_insecure = true
 }
