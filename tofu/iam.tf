@@ -22,7 +22,7 @@ resource "proxmox_virtual_environment_user" "tofu_qoax_community" {
   comment = "Qoax Community IaC Account"
 }
 
-resource "proxmox_acl" "qoax_community_pool_acl" {
+resource "proxmox_virtual_environment_acl" "qoax_community_pool_acl" {
   path      = "/pool/${proxmox_virtual_environment_pool.pool_qoax_community.pool_id}"
   role_id   = proxmox_virtual_environment_role.tofu_provisioner.role_id
   user_id   = proxmox_virtual_environment_user.tofu_qoax_community.user_id
@@ -56,7 +56,7 @@ resource "proxmox_virtual_environment_user" "tofu_qoax_community_broadcast" {
   comment = "Qoax Community Broadcast IaC Account"
 }
 
-resource "proxmox_acl" "qoax_community_broadcast_pool_acl" {
+resource "proxmox_virtual_environment_acl" "qoax_community_broadcast_pool_acl" {
   path      = "/pool/${proxmox_virtual_environment_pool.pool_qoax_community_broadcast.pool_id}"
   role_id   = proxmox_virtual_environment_role.tofu_provisioner.role_id
   user_id   = proxmox_virtual_environment_user.tofu_qoax_community_broadcast.user_id
@@ -90,7 +90,7 @@ resource "proxmox_virtual_environment_user" "tofu_fmicodes" {
   comment = "FMI{Codes} IaC Account"
 }
 
-resource "proxmox_acl" "fmicodes_pool_acl" {
+resource "proxmox_virtual_environment_acl" "fmicodes_pool_acl" {
   path      = "/pool/${proxmox_virtual_environment_pool.pool_fmicodes.pool_id}"
   role_id   = proxmox_virtual_environment_role.tofu_provisioner.role_id
   user_id   = proxmox_virtual_environment_user.tofu_fmicodes.user_id
