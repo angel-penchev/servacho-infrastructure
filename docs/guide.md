@@ -482,10 +482,10 @@ resource "proxmox_virtual_environment_vm" "legacy_database" {
 
 ### Example Git Repository File Tree (Management Plane)
 
-The following example shows a practical single-repository layout for a tenant-specific Management Plane (for example, Qoax). It keeps infrastructure provisioning (`terraform`) and operating system state (`nixos`) separated while sharing environment-specific values through clear boundaries.
+The following example shows a practical single-repository layout for a tenant-specific Management Plane (for example, Qoax Community). It keeps infrastructure provisioning (`terraform`) and operating system state (`nixos`) separated while sharing environment-specific values through clear boundaries.
 
 ```
-management-plane-qoax/
+management-plane-qoax-community/
 ├── .github/
 │   └── workflows/
 │       ├── tofu-plan.yaml
@@ -517,8 +517,8 @@ management-plane-qoax/
 │   │       ├── variables.tf
 │   │       └── outputs.tf
 │   └── env/
-│       ├── qoax.tfvars
-│       └── qoax-media.tfvars
+│       ├── qoax-community.tfvars
+│       └── qoax-community-broadcast.tfvars
 ├── nixos/
 │   ├── flake.nix
 │   ├── flake.lock
@@ -529,13 +529,13 @@ management-plane-qoax/
 │   │   ├── k3s-agent.nix
 │   │   └── docker-swarm-node.nix
 │   ├── hosts/
-│   │   ├── qoax-management-01/
+│   │   ├── qoax-community-management-01/
 │   │   │   ├── default.nix
 │   │   │   └── hardware-configuration.nix
-│   │   ├── qoax-k3s-01/
+│   │   ├── qoax-community-k3s-01/
 │   │   │   ├── default.nix
 │   │   │   └── hardware-configuration.nix
-│   │   └── qoax-k3s-02/
+│   │   └── qoax-community-k3s-02/
 │   │       ├── default.nix
 │   │       └── hardware-configuration.nix
 │   ├── manifests/
@@ -643,26 +643,29 @@ The following table outlines the prescribed VLAN architecture based on the speci
 | Public Servers | 4 | 192.168.4.0/24 | Static/Reserved | Externally facing services, reverse proxies, and ingress controllers |
 | Private Servers | 5 | 192.168.5.0/24 | Static/Reserved | Internal databases, management planes, and personal administration |
 | IoT | 6 | 192.168.6.0/24 | Server | Isolated smart devices and sensors |
-| Qoax VPS | 10 | 192.168.10.0/24 | Static/Reserved | Multi-tenant compute for the Qoax organization |
-| Qoax Media VPS | 11 | 192.168.11.0/24 | Static/Reserved | High-bandwidth media processing, transcoders, and object storage |
+| Qoax Community VPS | 10 | 192.168.10.0/24 | Static/Reserved | Multi-tenant compute for the Qoax Community organization |
+| Qoax Community Broadcast VPS | 11 | 192.168.11.0/24 | Static/Reserved | High-bandwidth broadcast processing, transcoders, and object storage |
 | FMI{Codes} VPS | 12 | 192.168.12.0/24 | Static/Reserved | Isolated compute for the FMI educational/development organization |
 
 ### Implementation Steps
 
-1. **Store Unifi Credentials:** Store your Unifi Dream Machine credentials securely in OpenBao.
-   - **Using the Web UI:** Access `http://127.0.0.1:8200/ui` (via SSH tunnel), navigate to your `secret` KV engine, click **Create secret**, set the path to `unifi`, and add the `username` and `password` keys.
-   - **Using the CLI:** 
-     ```bash
-     bao kv put secret/unifi username="admin" password="<SuperSecretPassword>"
-     ```
-2. **Initialize Unifi Provider:** Configure the Unifi OpenTofu provider in your central network-management repository to retrieve the credentials dynamically via the Vault provider.
-3. **Define Networks:** Create `unifi_network` resources for each VLAN, explicitly setting the `vlan_id`, `subnet`, and `dhcp_enabled` attributes according to the table above.
-4. **Export Network Outputs:** Use OpenTofu `output` variables to export the resulting Unifi network IDs and VLAN tags.
-5. **Map to Proxmox Bridges:** Ensure the Proxmox nodes are physically connected to a trunk port on the Unifi switch. Proxmox instances will utilize the standard `vmbr0` bridge, and the VLAN tagging will be handled at the VM network interface level within the OpenTofu `bpg/proxmox` provider.
+1. **Create a Local Admin Service Account (2FA Bypass):** 
+   The OpenTofu Unifi provider (`paultyng/unifi`) interacts with the internal Unifi Network API using cookie-based session authentication. It does not support interactive prompts for UI.com Cloud SSO or Two-Factor Authentication (2FA). To enable automation:
+   - Access your Unifi OS Console directly.
+   - Navigate to **OS Settings** -> **Admins & Users**.
+   - Create a new Admin user with the **Network Administrator** role.
+   - **Crucial:** Ensure this is a **Local Account** (uncheck any options for Ubiquiti SSO). This bypasses the cloud entirely and allows silent, programmatic login without 2FA blocks.
+2. **Store Unifi Credentials:** Store this new local account securely in OpenBao.
+   - Access `http://127.0.0.1:8200/ui` (via SSH tunnel), navigate to your `secret` KV engine, click **Create secret**, set the path to `unifi`, and add the `username` and `password` keys.
+3. **Initialize Unifi Provider:** Configure the Unifi OpenTofu provider in your central network-management repository to retrieve the credentials dynamically via the `vault_kv_secret_v2` data block. Note that to bypass local self-signed certificate errors, this provider uses `allow_insecure = true` (unlike Proxmox, which uses `insecure = true`).
+4. **Import Existing Networks:** If your VLANs are already configured on the physical router, you must perform state importation. Unifi uses 24-character hexadecimal MongoDB Object IDs (e.g., `679fb4c59e597221b4ff1906`) as network identifiers.
+   - You can extract these IDs directly from the Unifi Web UI (by clicking a network and inspecting the URL) or via an API dump.
+   - Use OpenTofu 1.5+ declarative `import {}` blocks to map these IDs to your `unifi_network` resources.
+5. **Align Existing Settings (Configuration Drift Prevention):** Ensure your `unifi_network` resource definitions exactly match the running state of the router. For example, if DHCP was manually enabled on VLANs intended for Static/Reserved IPs, you must set `dhcp_enabled = true` in OpenTofu to prevent the pipeline from forcing a state correction on its first apply.
 
 OpenTofu Configuration for Phase 3 (Unifi Networks Setup):
 
-```
+```hcl
 terraform {
   required_providers {
     unifi = {
@@ -672,36 +675,44 @@ terraform {
   }
 }
 
+data "vault_kv_secret_v2" "unifi_credentials" {
+  mount = "secret"
+  name  = "unifi"
+}
+
 provider "unifi" {
-  username = data.vault_generic_secret.unifi_credentials.data["username"]
-  password = data.vault_generic_secret.unifi_credentials.data["password"]
-  api_url  = "https://unifi.local"
-  insecure = true
+  username       = data.vault_kv_secret_v2.unifi_credentials.data["username"]
+  password       = data.vault_kv_secret_v2.unifi_credentials.data["password"]
+  api_url        = "https://192.168.1.1" # Change this if your Unifi controller is at a different IP
+  allow_insecure = true
 }
 
-resource "unifi_network" "qoax_vps" {
-  name         = "Qoax VPS"
+import {
+  to = unifi_network.main
+  id = "67a23bde9ff52218b23dfdcc" # Replace with your actual 24-character MongoDB ID
+}
+
+resource "unifi_network" "main" {
+  name         = "Main"
   purpose      = "corporate"
-  vlan_id      = 10
-  subnet       = "192.168.10.1/24"
-  dhcp_enabled = false
-}
-
-output "qoax_vps_vlan" {
-  value = unifi_network.qoax_vps.vlan_id
+  vlan_id      = 2
+  subnet       = "192.168.2.1/24"
+  dhcp_enabled = true
+  dhcp_start   = "192.168.2.6"
+  dhcp_stop    = "192.168.2.254"
 }
 ```
 
 ## Phase 4: Proxmox Role-Based Access Control and Tenant Isolation
 
-Supporting multiple distinct organizations (Personal, Qoax, FMI{Codes}) on a single Proxmox cluster introduces complex security and isolation requirements. The architecture dictates that different Git repositories manage different sets of machines, and each repository must be strictly confined to its administrative domain. An OpenTofu run triggered by the Qoax repository must be physically and cryptographically incapable of modifying the Personal or FMI{Codes} environments.
+Supporting multiple distinct organizations (Personal, Qoax Community, FMI{Codes}) on a single Proxmox cluster introduces complex security and isolation requirements. The architecture dictates that different Git repositories manage different sets of machines, and each repository must be strictly confined to its administrative domain. An OpenTofu run triggered by the Qoax Community repository must be physically and cryptographically incapable of modifying the Personal or FMI{Codes} environments.
 
 To prevent organizational overreach, Proxmox Resource Pools and Role-Based Access Control (RBAC) are utilized as the boundary mechanism. Crucially, the **first OpenTofu instance** (the root Management VM established in Phase 0) acts as the central Identity and Access Management (IAM) authority. It is exclusively responsible for defining all operational roles, users, and resource pools across the entire cluster.
 
 ### Implementation Steps
 
 1. **Manage Roles via Root OpenTofu:** Utilize the root OpenTofu instance to manage all Proxmox roles. The `TofuProvisioner` role is created declaratively in Phase 0. While the root `tofu-provisioner@pve` user stays an `Administrator`, this `TofuProvisioner` role serves as the template for all organizational tenant access.
-2. **Create Resource Pools:** Use the root OpenTofu instance to codify organizational pools (e.g., `pool-qoax`, `pool-personal`).
+2. **Create Resource Pools:** Use the root OpenTofu instance to codify organizational pools (e.g., `pool-qoax-community`, `pool-personal`).
 3. **Create the Users:** Generate distinct users for each tenant's automation using the root OpenTofu configuration. Note that the `bpg/proxmox` provider deprecates inline ACL blocks in favor of the dedicated `proxmox_acl` resource.
 4. **Apply Access Control Lists (ACLs):** Bind the user to their specific pool via the root OpenTofu instance, referencing the managed `TofuProvisioner` role to strictly enforce organizational boundaries.
 5. **Generate API Tokens:** From the Proxmox CLI, generate the specific tokens for each user utilizing `-privsep 0` so the token inherits the strictly scoped pool permissions.
@@ -709,25 +720,25 @@ To prevent organizational overreach, Proxmox Resource Pools and Role-Based Acces
 OpenTofu Configuration for Phase 4 (RBAC Setup via Root Management VM):
 
 ```
-# Create the Resource Pool for the Qoax Organization
-resource "proxmox_virtual_environment_pool" "pool_qoax" {
-  pool_id = "pool-qoax"
-  comment = "Isolated Resource Pool for Qoax Infrastructure"
+# Create the Resource Pool for the Qoax Community Organization
+resource "proxmox_virtual_environment_pool" "pool_qoax_community" {
+  pool_id = "pool-qoax-community"
+  comment = "Isolated Resource Pool for Qoax Community Infrastructure"
 }
 
-# Create the dedicated user for the Qoax organization
-resource "proxmox_virtual_environment_user" "tofu_qoax" {
-  user_id = "tofu-qoax@pve"
-  comment = "Qoax IaC Account"
+# Create the dedicated user for the Qoax Community organization
+resource "proxmox_virtual_environment_user" "tofu_qoax_community" {
+  user_id = "tofu-qoax-community@pve"
+  comment = "Qoax Community IaC Account"
 }
 
-# Bind the user and role explicitly to the Qoax resource pool.
+# Bind the user and role explicitly to the Qoax Community resource pool.
 # This references the `proxmox_virtual_environment_role.tofu_provisioner`
 # that is now managed by this root OpenTofu instance (from Phase 0).
-resource "proxmox_acl" "qoax_pool_acl" {
-  path      = "/pool/${proxmox_virtual_environment_pool.pool_qoax.pool_id}"
+resource "proxmox_acl" "qoax_community_pool_acl" {
+  path      = "/pool/${proxmox_virtual_environment_pool.pool_qoax_community.pool_id}"
   role_id   = proxmox_virtual_environment_role.tofu_provisioner.role_id
-  user_id   = proxmox_virtual_environment_user.tofu_qoax.user_id
+  user_id   = proxmox_virtual_environment_user.tofu_qoax_community.user_id
   propagate = true
 }
 ```
@@ -740,11 +751,11 @@ Each Management VM operates in an isolated VLAN (or a highly restricted manageme
 
 ### Implementation Steps
 
-1. **Provision Tenant Management VMs via Root OpenTofu:** Unlike the root Management VM (which was bootstrapped manually in Phase 0), the tenant-specific Management VMs (Personal, Qoax, and FMI) are provisioned entirely declaratively by the root OpenTofu instance. Define `proxmox_virtual_environment_vm` resources in your root `.tf` files for each tenant management node, assigning them directly to the resource pools created in Phase 4 (e.g., `pool_id = proxmox_virtual_environment_pool.pool_qoax.id`).
-2. **Strict Network Segregation:** Assign the network interfaces for these VMs to their respective, isolated VLANs using the dynamic ID calculation logic defined in Phase 7. For example, configure the Qoax Management VM with a static IP of `192.168.10.11` on VLAN `10` (yielding VM ID `10011`), and the FMI Management VM with `192.168.12.11` on VLAN `12` (yielding VM ID `12011`).
+1. **Provision Tenant Management VMs via Root OpenTofu:** Unlike the root Management VM (which was bootstrapped manually in Phase 0), the tenant-specific Management VMs (Personal, Qoax Community, and FMI) are provisioned entirely declaratively by the root OpenTofu instance. Define `proxmox_virtual_environment_vm` resources in your root `.tf` files for each tenant management node, assigning them directly to the resource pools created in Phase 4 (e.g., `pool_id = proxmox_virtual_environment_pool.pool_qoax_community.id`).
+2. **Strict Network Segregation:** Assign the network interfaces for these VMs to their respective, isolated VLANs using the dynamic ID calculation logic defined in Phase 7. For example, configure the Qoax Community Management VM with a static IP of `192.168.10.11` on VLAN `10` (yielding VM ID `10011`), and the FMI Management VM with `192.168.12.11` on VLAN `12` (yielding VM ID `12011`).
 3. **Deploy Core Tooling via Colmena:** From the root Management VM, execute a `colmena apply` deployment to push the NixOS operating system configurations to the newly created tenant Management VMs over SSH. The Nix flake configuration for these child management nodes must explicitly install the `opentofu` and `colmena` packages, and activate the `services.openbao` module configured to use a local Raft integrated storage backend.
-4. **Initialize and Unseal OpenBao:** Once the NixOS configuration is active, the OpenBao daemon on each tenant VM will start in a sealed, uninitialized state. SSH into the Qoax Management VM and execute `bao operator init -key-shares=5 -key-threshold=3`. This process outputs five unseal keys and one initial root token. Save these securely (e.g., in the root Management VM's secure offline storage). Finally, run `bao operator unseal` three consecutive times, inputting a different key each time, until the `Sealed` status changes to `false`. Repeat this manual unseal process for the FMI and Personal Management VMs.
-5. **Isolate State Backend Configuration:** In the isolated Git repository designated for the Qoax infrastructure, configure the OpenTofu `backend` to store its `.tfstate` locally on the Qoax Management VM's disk at a designated path (e.g., `/var/lib/opentofu/qoax-infrastructure.tfstate`). By executing the Qoax pipeline exclusively on the Qoax VM, the OpenTofu execution environment is physically and cryptographically prevented from reading the FMI or Personal state files.
+4. **Initialize and Unseal OpenBao:** Once the NixOS configuration is active, the OpenBao daemon on each tenant VM will start in a sealed, uninitialized state. SSH into the Qoax Community Management VM and execute `bao operator init -key-shares=5 -key-threshold=3`. This process outputs five unseal keys and one initial root token. Save these securely (e.g., in the root Management VM's secure offline storage). Finally, run `bao operator unseal` three consecutive times, inputting a different key each time, until the `Sealed` status changes to `false`. Repeat this manual unseal process for the FMI and Personal Management VMs.
+5. **Isolate State Backend Configuration:** In the isolated Git repository designated for the Qoax Community infrastructure, configure the OpenTofu `backend` to store its `.tfstate` locally on the Qoax Community Management VM's disk at a designated path (e.g., `/var/lib/opentofu/qoax-community-infrastructure.tfstate`). By executing the Qoax Community pipeline exclusively on the Qoax Community VM, the OpenTofu execution environment is physically and cryptographically prevented from reading the FMI or Personal state files.
 
 NixOS Configuration for Phase 5 (OpenBao Service Definition applied via Colmena):
 
@@ -781,12 +792,12 @@ environment.systemPackages = with pkgs; [
 OpenTofu Configuration for Phase 5 (Root Provisioning & State Backend Isolation):
 
 ```
-# 1. Provisioning the Qoax Management VM from the ROOT OpenTofu instance
-resource "proxmox_virtual_environment_vm" "qoax_management_vm" {
-  name      = "qoax-management-plane"
+# 1. Provisioning the Qoax Community Management VM from the ROOT OpenTofu instance
+resource "proxmox_virtual_environment_vm" "qoax_community_management_vm" {
+  name      = "qoax-community-management-plane"
   node_name = "pve-01"
   vm_id     = 10011 # Calculated as VLAN 10 + IP .011
-  pool_id   = proxmox_virtual_environment_pool.pool_qoax.id
+  pool_id   = proxmox_virtual_environment_pool.pool_qoax_community.id
 
   # Clone from NixOS template
   clone {
@@ -816,12 +827,12 @@ resource "proxmox_virtual_environment_vm" "qoax_management_vm" {
 
 # -------------------------------------------------------------------
 
-# 2. State Backend config inside the QOAX SPECIFIC Git repository.
-# This runs exclusively on the Qoax Management VM.
+# 2. State Backend config inside the QOAX COMMUNITY SPECIFIC Git repository.
+# This runs exclusively on the Qoax Community Management VM.
 terraform {
   backend "local" {
     # State file is securely stored on the isolated management plane disk
-    path = "/var/lib/opentofu/qoax-infrastructure.tfstate"
+    path = "/var/lib/opentofu/qoax-community-infrastructure.tfstate"
   }
 }
 ```
@@ -830,10 +841,10 @@ terraform {
 
 Secret management is a critical vector for securing the infrastructure pipeline, ensuring that credentials, API tokens, and SSH private keys are never hardcoded into the Git repositories. OpenBao, an open-source derivative of HashiCorp Vault, serves as the cryptographic heart of each Management VM.
 
-Because the infrastructure spans multiple environments (Root, Personal, Qoax, FMI), the authentication strategy must adapt to the operational context:
+Because the infrastructure spans multiple environments (Root, Personal, Qoax Community, FMI), the authentication strategy must adapt to the operational context:
 
 - **Path A: Single Password/Token (Root & Personal Installations):** For the root management plane or isolated personal labs, operators can rely on the Initial Root Token generated during initialization, or enable the basic `userpass` auth method (`bao auth enable userpass`). This provides a simple, single-password login path without external dependencies, which is critical for disaster recovery and solo operations.
-- **Path B: SSO Integration (Production & Multi-Tenant Installations):** For organizational tenants (e.g., Qoax, FMI{Codes}), relying on static tokens or shared passwords for human access is an operational anti-pattern. Instead, tenant OpenBao instances are configured to delegate authentication to a Google Workspace environment via Single Sign-On (SSO) using the OpenID Connect (OIDC) protocol. This ensures centralized revocation, MFA enforcement, and accurate audit logging tied to real human identities.
+- **Path B: SSO Integration (Production & Multi-Tenant Installations):** For organizational tenants (e.g., Qoax Community, FMI{Codes}), relying on static tokens or shared passwords for human access is an operational anti-pattern. Instead, tenant OpenBao instances are configured to delegate authentication to a Google Workspace environment via Single Sign-On (SSO) using the OpenID Connect (OIDC) protocol. This ensures centralized revocation, MFA enforcement, and accurate audit logging tied to real human identities.
 
 ### Implementation Steps (SSO Path)
 
@@ -843,9 +854,9 @@ Because the infrastructure spans multiple environments (Root, Personal, Qoax, FM
     - Create new OAuth 2.0 Client ID credentials (Web Application).
     - Set the Authorized Redirect URI to match the OpenBao instance callback (e.g., `http://127.0.0.1:8200/ui/vault/auth/oidc/oidc/callback`).
     - Note the Client ID and Client Secret.
-2. **Enable OIDC in OpenBao:** On the Qoax Management VM, execute `bao auth enable oidc`.
+2. **Enable OIDC in OpenBao:** On the Qoax Community Management VM, execute `bao auth enable oidc`.
 3. **Configure the Auth Method:** Set the OIDC provider settings in OpenBao, injecting the Google credentials.
-4. **Create Role Mappings:** Create the `qoax-engineers` role within OpenBao to map the Google authentication to specific internal policies.
+4. **Create Role Mappings:** Create the `qoax-community-engineers` role within OpenBao to map the Google authentication to specific internal policies.
 5. **Dynamic Provider Injection:** In your IaC code, utilize the HashiCorp Vault provider to fetch your Proxmox token dynamically at runtime so it is never committed to Git.
 
 OpenTofu Configuration for Phase 6 (Dynamic Credentials via Vault/OpenBao):
@@ -858,7 +869,7 @@ provider "vault" {
 }
 
 data "vault_generic_secret" "proxmox_credentials" {
-  path = "secret/proxmox/qoax_token"
+  path = "secret/proxmox/qoax_community_token"
 }
 
 provider "proxmox" {
@@ -997,7 +1008,7 @@ resource "proxmox_virtual_environment_vm" "k3s_master" {
   name      = "k3s-master-${local.calculated_vm_id}"
   node_name = "pve-01"
   vm_id     = local.calculated_vm_id
-  tags      = ["qoax", "kubernetes", "control-plane"]
+  tags      = ["qoax-community", "kubernetes", "control-plane"]
 
   # Clone from a pre-built NixOS template
   clone {
