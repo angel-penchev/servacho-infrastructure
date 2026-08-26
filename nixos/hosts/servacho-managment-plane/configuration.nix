@@ -45,21 +45,6 @@
     openbao
   ];
 
-  services.openbao = {
-    enable = true;
-    settings = {
-      ui = true;
-      api_addr = "http://127.0.0.1:8200";
-      listener.tcp = {
-        address = "127.0.0.1:8200";
-        tls_disable = 1;
-      };
-      storage.file = {
-        path = "/var/lib/openbao";
-      };
-    };
-  };
-
   environment.variables = {
     EDITOR = "nvim";
     VISUAL = "nvim";
@@ -75,6 +60,7 @@
       cluster_addr = "http://127.0.0.1:8201";
 
       listener.tcp = {
+        type = "tcp";
         address = "127.0.0.1:8200";
         tls_disable = 1;
       };

@@ -53,6 +53,7 @@ To begin managing a brand new Proxmox cluster with self-hosted OpenTofu, the ini
       ui = true;
       api_addr = "http://127.0.0.1:8200";
       listener.tcp = {
+        type = "tcp";
         address = "127.0.0.1:8200";
         tls_disable = 1;
       };
