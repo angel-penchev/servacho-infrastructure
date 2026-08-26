@@ -15,6 +15,8 @@ concurrency:
 jobs:
   plan:
     runs-on: [self-hosted, servacho-management-plane]
+    env:
+      VAULT_ADDR: http://127.0.0.1:8200
 
     steps:
       - name: Checkout code
@@ -22,14 +24,12 @@ jobs:
 
       - name: OpenTofu init
         env:
-          VAULT_ADDR: http://127.0.0.1:8200
           VAULT_TOKEN: ${{ secrets.OPENBAO_TOFU_TOKEN }}
         run: tofu -chdir=tofu init
 
       - name: OpenTofu plan
         id: plan
         env:
-          VAULT_ADDR: http://127.0.0.1:8200
           VAULT_TOKEN: ${{ secrets.OPENBAO_TOFU_TOKEN }}
         run: |
           # Use pipefail so that if tofu fails, the whole pipeline step registers the failure
