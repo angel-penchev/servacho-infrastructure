@@ -614,7 +614,7 @@ provider "vault" {
   # Vault token is provided securely via the VAULT_TOKEN environment variable in CI
 }
 
-ephemeral "vault_kv_secret_v2" "proxmox_credentials" {
+data "vault_kv_secret_v2" "proxmox_credentials" {
   mount = "secret"
   name  = "proxmox"
 }
@@ -622,7 +622,7 @@ ephemeral "vault_kv_secret_v2" "proxmox_credentials" {
 provider "proxmox" {
   endpoint  = "https://192.168.5.10:8006/"
   # The api_token is securely injected from OpenBao
-  api_token = ephemeral.vault_kv_secret_v2.proxmox_credentials.data["api_token"]
+  api_token = data.vault_kv_secret_v2.proxmox_credentials.data["api_token"]
   insecure  = true
 }
 ```
@@ -864,7 +864,7 @@ data "vault_generic_secret" "proxmox_credentials" {
 provider "proxmox" {
   endpoint  = "https://<YOUR_PROXMOX_IP>:8006/"
   # Inject the dynamically fetched secret into the provider configuration
-  api_token = ephemeral.vault_kv_secret_v2.proxmox_credentials.data["api_token"]
+  api_token = data.vault_kv_secret_v2.proxmox_credentials.data["api_token"]
   insecure  = true
 }
 ```
