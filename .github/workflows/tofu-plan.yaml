@@ -59,9 +59,11 @@ jobs:
             }
 
             const status = process.env.PLAN_EXIT_CODE === '0' ? 'Success' : 'Failed';
+            const timestamp = new Date().toUTCString();
             const body = [
               '### OpenTofu Plan Results',
-              `Status: **${status}**`,
+              `**Status:** ${status}`,
+              `**Generated:** ${timestamp}`,
               '',
               '```hcl',
               planOutput,
