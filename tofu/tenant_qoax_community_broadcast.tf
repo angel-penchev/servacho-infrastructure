@@ -1,0 +1,30 @@
+resource "proxmox_virtual_environment_pool" "pool_qoax_community_broadcast" {
+  pool_id = "pool-qoax-community-broadcast"
+  comment = "Isolated Resource Pool for Qoax Community Broadcast Media"
+}
+
+resource "proxmox_virtual_environment_user" "tofu_qoax_community_broadcast" {
+  user_id = "tofu-qoax-community-broadcast@pve"
+  comment = "Qoax Community Broadcast IaC Account"
+}
+
+resource "proxmox_virtual_environment_acl" "qoax_community_broadcast_pool_acl" {
+  path    = "/pool/${proxmox_virtual_environment_pool.pool_qoax_community_broadcast.pool_id}"
+  role_id = proxmox_virtual_environment_role.tofu_provisioner.role_id
+  user_id = proxmox_virtual_environment_user.tofu_qoax_community_broadcast.user_id
+}
+
+resource "proxmox_virtual_environment_user_token" "qoax_community_broadcast_token" {
+  comment               = "Qoax Community Broadcast Automation Token"
+  user_id               = proxmox_virtual_environment_user.tofu_qoax_community_broadcast.user_id
+  token_name            = "tofu-provisioner"
+  privileges_separation = false
+}
+
+resource "vault_kv_secret_v2" "qoax_community_broadcast_vault_secret" {
+  mount = "secret"
+  name  = "proxmox/qoax_community_broadcast_token"
+  data_json = jsonencode({
+    api_token = proxmox_virtual_environment_user_token.qoax_community_broadcast_token.value
+  })
+}
