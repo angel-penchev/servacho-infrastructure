@@ -9,9 +9,10 @@ resource "proxmox_virtual_environment_user" "tofu_qoax_community_broadcast" {
 }
 
 resource "proxmox_virtual_environment_acl" "qoax_community_broadcast_pool_acl" {
-  path    = "/pool/${proxmox_virtual_environment_pool.pool_qoax_community_broadcast.pool_id}"
-  role_id = proxmox_virtual_environment_role.tofu_provisioner.role_id
-  user_id = proxmox_virtual_environment_user.tofu_qoax_community_broadcast.user_id
+  path      = "/pool/${proxmox_virtual_environment_pool.pool_qoax_community_broadcast.pool_id}"
+  propagate = true
+  role_id   = proxmox_virtual_environment_role.tofu_provisioner.role_id
+  user_id   = proxmox_virtual_environment_user.tofu_qoax_community_broadcast.user_id
 }
 
 resource "proxmox_virtual_environment_user_token" "qoax_community_broadcast_token" {
