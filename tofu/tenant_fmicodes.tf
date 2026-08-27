@@ -6,13 +6,11 @@ resource "proxmox_virtual_environment_pool" "pool_fmicodes" {
 resource "proxmox_virtual_environment_user" "tofu_fmicodes" {
   user_id = "tofu-fmicodes@pve"
   comment = "FMI{Codes} IaC Account"
-}
-
-resource "proxmox_virtual_environment_acl" "fmicodes_pool_acl" {
-  path      = "/pool/${proxmox_virtual_environment_pool.pool_fmicodes.pool_id}"
-  propagate = true
-  role_id   = proxmox_virtual_environment_role.tofu_provisioner.role_id
-  user_id   = proxmox_virtual_environment_user.tofu_fmicodes.user_id
+  acl {
+    path      = "/pool/${proxmox_virtual_environment_pool.pool_fmicodes.pool_id}"
+    propagate = true
+    role_id   = proxmox_virtual_environment_role.tofu_provisioner.role_id
+  }
 }
 
 resource "proxmox_virtual_environment_user_token" "fmicodes_token" {
