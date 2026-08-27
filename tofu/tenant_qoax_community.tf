@@ -5,6 +5,9 @@ resource "proxmox_virtual_environment_pool" "pool_qoax_community" {
 
 resource "proxmox_virtual_environment_user" "tofu_qoax_community" {
   user_id = "tofu-qoax-community@pve"
+  lifecycle {
+    ignore_changes = [acl]
+  }
   comment = "Qoax Community IaC Account"
 }
 
