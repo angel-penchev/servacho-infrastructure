@@ -72,3 +72,23 @@ import {
   to = module.unifi.unifi_vpn_server.openvpn
   id = "67a24cc77c79ef7bcadce142"
 }
+
+import {
+  to = module.unifi.unifi_port_profile.main
+  id = "67a41ed87c79ef7bcadd09ba"
+}
+
+import {
+  to = module.unifi.unifi_port_profile.public_servers
+  id = "681cd7c4ae9ce463d904b026"
+}
+
+import {
+  to = module.unifi.unifi_port_profile.private_servers
+  id = "6880cd8d28574163a41fba08"
+}
+
+import {
+  to = module.unifi.unifi_port_profile.iot
+  id = "6880d0b328574163a41fbd06"
+}
