@@ -45,3 +45,13 @@ provider "unifi" {
   api_url        = "https://192.168.1.1"
   allow_insecure = true
 }
+
+data "vault_kv_secret_v2" "radius_profile" {
+  mount = "secret"
+  name  = "unifi/radius/profile"
+}
+
+data "vault_kv_secret_v2" "radius_users" {
+  mount = "secret"
+  name  = "unifi/radius/users"
+}

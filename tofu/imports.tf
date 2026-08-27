@@ -27,3 +27,23 @@ import {
   to = module.unifi.unifi_radius_profile.default
   id = "679fb4c59e597221b4ff18fe"
 }
+
+import {
+  to = module.unifi.unifi_radius_user.users["a.penchev"]
+  id = "67a240417c79ef7bcadcdfcb"
+}
+
+import {
+  to = module.unifi.unifi_radius_user.users["e.pencheva"]
+  id = "67a240947c79ef7bcadcdfdc"
+}
+
+import {
+  to = module.unifi.unifi_radius_user.users["vl.penchev"]
+  id = "67cc795a33d7a4773c4a8d97"
+}
+
+import {
+  to = module.unifi.unifi_radius_user.users["v.todorova"]
+  id = "67e0902933d7a4773c4c23c0"
+}
