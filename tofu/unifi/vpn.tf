@@ -13,3 +13,19 @@ resource "unifi_vpn_server" "wireguard" {
     private_key = var.wireguard_private_key
   }
 }
+
+resource "unifi_vpn_server" "openvpn" {
+  name             = "StKr OpenVPN Server"
+  enabled          = true
+  subnet           = "192.168.8.1/24"
+  radiusprofile_id = unifi_radius_profile.default.id
+
+  wan = {
+    interface = "wan"
+    ip        = "any"
+  }
+
+  openvpn = {
+    port = 1194
+  }
+}
