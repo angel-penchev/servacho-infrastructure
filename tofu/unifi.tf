@@ -15,7 +15,7 @@ resource "unifi_network" "default" {
   ipv6_pd_start    = "::2"
   ipv6_pd_stop     = "::7d1"
   ipv6_ra_priority = "high"
-  multicast_dns    = true
+  multicast_dns    = false
 }
 
 import {
@@ -78,7 +78,7 @@ resource "unifi_network" "public_servers" {
   ipv6_pd_start    = "::2"
   ipv6_pd_stop     = "::7d1"
   ipv6_ra_priority = "high"
-  multicast_dns    = true
+  multicast_dns    = false
 }
 
 import {
@@ -99,7 +99,7 @@ resource "unifi_network" "private_servers" {
   ipv6_pd_start    = "::2"
   ipv6_pd_stop     = "::7d1"
   ipv6_ra_priority = "high"
-  multicast_dns    = true
+  multicast_dns    = false
 }
 
 import {
