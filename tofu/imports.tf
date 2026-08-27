@@ -125,10 +125,10 @@ import {
 
 import {
   id = "679fb4c59e597221b4ff1904"
-  to = module.unifi.unifi_wan.primary
+  to = module.unifi.unifi_wan.vivacom-primary
 }
 
 import {
   id = "679fb4c59e597221b4ff1905"
-  to = module.unifi.unifi_wan.secondary
+  to = module.unifi.unifi_wan.vivacom-secondary
 }
