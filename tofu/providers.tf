@@ -29,3 +29,15 @@ provider "proxmox" {
   api_token = data.vault_kv_secret_v2.proxmox_credentials.data["api_token"]
   insecure  = true
 }
+
+data "vault_kv_secret_v2" "unifi_credentials" {
+  mount = "secret"
+  name  = "unifi"
+}
+
+provider "unifi" {
+  username       = data.vault_kv_secret_v2.unifi_credentials.data["username"]
+  password       = data.vault_kv_secret_v2.unifi_credentials.data["password"]
+  api_url        = "https://192.168.1.1"
+  allow_insecure = true
+}
