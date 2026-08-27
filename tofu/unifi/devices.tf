@@ -23,6 +23,22 @@ resource "unifi_device" "usw_pro_max_24_poe" {
   config_network = {
     type = "dhcp"
   }
+
+  # ----------------------------------------------------------------------------
+  # Note: As of v0.55.0, the ubiquiti-community/unifi provider does not yet have 
+  # support for the ether_lighting block on devices or site settings. 
+  #
+  # PR in progress: https://github.com/ubiquiti-community/terraform-provider-unifi/pull/463
+  # ----------------------------------------------------------------------------
+  /*
+  # Once merged, the following can be added to the resource below:
+  #  ether_lighting {
+  #    mode       = "speed"
+  #    brightness = 100
+  #    behavior   = "steady"
+  #    led_mode   = "etherlighting"
+  #  }
+  */
 }
 
 resource "unifi_device" "u7_pro_bedroom" {
