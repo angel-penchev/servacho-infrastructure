@@ -141,7 +141,7 @@ resource "unifi_network" "qoax_community_vps" {
   ipv6_pd_start    = "::2"
   ipv6_pd_stop     = "::7d1"
   ipv6_ra_priority = "high"
-  multicast_dns    = true
+  multicast_dns    = false
 }
 
 import {
@@ -162,7 +162,7 @@ resource "unifi_network" "qoax_community_broadcast_vps" {
   ipv6_pd_start    = "::2"
   ipv6_pd_stop     = "::7d1"
   ipv6_ra_priority = "high"
-  multicast_dns    = true
+  multicast_dns    = false
 }
 
 import {
@@ -183,5 +183,5 @@ resource "unifi_network" "fmicodes_vps" {
   ipv6_pd_start    = "::2"
   ipv6_pd_stop     = "::7d1"
   ipv6_ra_priority = "high"
-  multicast_dns    = true
+  multicast_dns    = false
 }
