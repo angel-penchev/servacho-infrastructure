@@ -122,3 +122,13 @@ import {
   to = module.unifi.unifi_port_forward.fmicodes_intercom
   id = "69b5ffabbc1c54fe2f5287a1"
 }
+
+import {
+  id = "679fb4c59e597221b4ff1904"
+  to = module.unifi.unifi_wan.primary
+}
+
+import {
+  id = "679fb4c59e597221b4ff1905"
+  to = module.unifi.unifi_wan.secondary
+}
