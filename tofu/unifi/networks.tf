@@ -7,13 +7,13 @@ resource "unifi_network" "default" {
   ipv6_ra_priority = "high"
   multicast_dns    = false
 
-  dhcp_server {
+  dhcp_server = {
     enabled = true
     start   = "192.168.1.6"
     stop    = "192.168.1.254"
   }
 
-  dhcp_v6_server {
+  dhcp_v6_server = {
     enabled = false
     start   = "::2"
     stop    = "::7d1"
@@ -30,13 +30,13 @@ resource "unifi_network" "main" {
   ipv6_ra_priority = "high"
   multicast_dns    = true
 
-  dhcp_server {
+  dhcp_server = {
     enabled = true
     start   = "192.168.2.6"
     stop    = "192.168.2.254"
   }
 
-  dhcp_v6_server {
+  dhcp_v6_server = {
     enabled = false
     start   = "::2"
     stop    = "::7d1"
@@ -53,13 +53,13 @@ resource "unifi_network" "guest" {
   ipv6_ra_priority = "high"
   multicast_dns    = true
 
-  dhcp_server {
+  dhcp_server = {
     enabled = true
     start   = "192.168.3.6"
     stop    = "192.168.3.254"
   }
 
-  dhcp_v6_server {
+  dhcp_v6_server = {
     enabled = false
     start   = "::2"
     stop    = "::7d1"
@@ -76,13 +76,13 @@ resource "unifi_network" "public_servers" {
   ipv6_ra_priority = "high"
   multicast_dns    = false
 
-  dhcp_server {
+  dhcp_server = {
     enabled = true
     start   = "192.168.4.6"
     stop    = "192.168.4.254"
   }
 
-  dhcp_v6_server {
+  dhcp_v6_server = {
     enabled = false
     start   = "::2"
     stop    = "::7d1"
@@ -99,13 +99,13 @@ resource "unifi_network" "private_servers" {
   ipv6_ra_priority = "high"
   multicast_dns    = false
 
-  dhcp_server {
+  dhcp_server = {
     enabled = true
     start   = "192.168.5.6"
     stop    = "192.168.5.254"
   }
 
-  dhcp_v6_server {
+  dhcp_v6_server = {
     enabled = false
     start   = "::2"
     stop    = "::7d1"
@@ -122,13 +122,13 @@ resource "unifi_network" "iot" {
   ipv6_ra_priority = "high"
   multicast_dns    = true
 
-  dhcp_server {
+  dhcp_server = {
     enabled = true
     start   = "192.168.6.6"
     stop    = "192.168.6.254"
   }
 
-  dhcp_v6_server {
+  dhcp_v6_server = {
     enabled = false
     start   = "::2"
     stop    = "::7d1"
@@ -145,13 +145,13 @@ resource "unifi_network" "qoax_community_vps" {
   ipv6_ra_priority = "high"
   multicast_dns    = false
 
-  dhcp_server {
+  dhcp_server = {
     enabled = true
     start   = "192.168.10.6"
     stop    = "192.168.10.254"
   }
 
-  dhcp_v6_server {
+  dhcp_v6_server = {
     enabled = false
     start   = "::2"
     stop    = "::7d1"
@@ -168,13 +168,13 @@ resource "unifi_network" "qoax_community_broadcast_vps" {
   ipv6_ra_priority = "high"
   multicast_dns    = false
 
-  dhcp_server {
+  dhcp_server = {
     enabled = true
     start   = "192.168.11.6"
     stop    = "192.168.11.254"
   }
 
-  dhcp_v6_server {
+  dhcp_v6_server = {
     enabled = false
     start   = "::2"
     stop    = "::7d1"
@@ -191,13 +191,13 @@ resource "unifi_network" "fmicodes_vps" {
   ipv6_ra_priority = "high"
   multicast_dns    = false
 
-  dhcp_server {
+  dhcp_server = {
     enabled = true
     start   = "192.168.12.6"
     stop    = "192.168.12.254"
   }
 
-  dhcp_v6_server {
+  dhcp_v6_server = {
     enabled = false
     start   = "::2"
     stop    = "::7d1"
