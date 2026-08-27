@@ -9,7 +9,6 @@ resource "unifi_network" "default" {
     start   = "192.168.1.6"
     stop    = "192.168.1.254"
   }
-
 }
 
 resource "unifi_network" "main" {
@@ -24,7 +23,6 @@ resource "unifi_network" "main" {
     start   = "192.168.2.6"
     stop    = "192.168.2.254"
   }
-
 }
 
 resource "unifi_network" "guest" {
@@ -39,7 +37,6 @@ resource "unifi_network" "guest" {
     start   = "192.168.3.6"
     stop    = "192.168.3.254"
   }
-
 }
 
 resource "unifi_network" "public_servers" {
@@ -54,7 +51,6 @@ resource "unifi_network" "public_servers" {
     start   = "192.168.4.6"
     stop    = "192.168.4.254"
   }
-
 }
 
 resource "unifi_network" "private_servers" {
@@ -69,7 +65,6 @@ resource "unifi_network" "private_servers" {
     start   = "192.168.5.6"
     stop    = "192.168.5.254"
   }
-
 }
 
 resource "unifi_network" "iot" {
@@ -84,7 +79,6 @@ resource "unifi_network" "iot" {
     start   = "192.168.6.6"
     stop    = "192.168.6.254"
   }
-
 }
 
 resource "unifi_network" "qoax_community_vps" {
@@ -99,7 +93,6 @@ resource "unifi_network" "qoax_community_vps" {
     start   = "192.168.10.6"
     stop    = "192.168.10.254"
   }
-
 }
 
 resource "unifi_network" "qoax_community_broadcast_vps" {
@@ -114,7 +107,6 @@ resource "unifi_network" "qoax_community_broadcast_vps" {
     start   = "192.168.11.6"
     stop    = "192.168.11.254"
   }
-
 }
 
 resource "unifi_network" "fmicodes_vps" {
@@ -129,5 +121,4 @@ resource "unifi_network" "fmicodes_vps" {
     start   = "192.168.12.6"
     stop    = "192.168.12.254"
   }
-
 }
