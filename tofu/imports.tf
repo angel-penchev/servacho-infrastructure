@@ -47,3 +47,18 @@ import {
   to = module.unifi.unifi_radius_user.users["v.todorova"]
   id = "67e0902933d7a4773c4c23c0"
 }
+
+import {
+  to = module.unifi.unifi_wlan.stkr
+  id = "679f972a82d6dc6a35bb00e0"
+}
+
+import {
+  to = module.unifi.unifi_wlan.stkr_guest
+  id = "67a241f07c79ef7bcadcdff8"
+}
+
+import {
+  to = module.unifi.unifi_wlan.stkr_iot
+  id = "67a242927c79ef7bcadce000"
+}

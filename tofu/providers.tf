@@ -55,3 +55,8 @@ data "vault_kv_secret_v2" "radius_users" {
   mount = "secret"
   name  = "unifi/radius/users"
 }
+
+data "vault_kv_secret_v2" "wlan_passphrases" {
+  mount = "secret"
+  name  = "unifi/wlan/passphrases"
+}
