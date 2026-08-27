@@ -5,9 +5,6 @@ resource "proxmox_virtual_environment_pool" "pool_fmicodes" {
 
 resource "proxmox_virtual_environment_user" "tofu_fmicodes" {
   user_id = "tofu-fmicodes@pve"
-  lifecycle {
-    ignore_changes = [acl]
-  }
   comment = "FMI{Codes} IaC Account"
   acl {
     path      = "/pool/${proxmox_virtual_environment_pool.pool_fmicodes.pool_id}"
