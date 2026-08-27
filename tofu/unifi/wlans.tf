@@ -55,5 +55,6 @@ resource "unifi_wlan" "stkr_iot" {
   wpa3_transition = true
   pmf_mode        = "optional"
 
-  is_guest = false
+  is_guest  = false
+  hide_ssid = true
 }
