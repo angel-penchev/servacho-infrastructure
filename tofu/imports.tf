@@ -62,3 +62,8 @@ import {
   to = module.unifi.unifi_wlan.stkr_iot
   id = "67a242927c79ef7bcadce000"
 }
+
+import {
+  to = module.unifi.unifi_vpn_server.wireguard
+  id = "67a24c607c79ef7bcadce140"
+}

@@ -21,3 +21,9 @@ variable "wlan_iot_passphrase" {
   description = "Passphrase for the IoT WLAN"
   sensitive   = true
 }
+
+variable "wireguard_private_key" {
+  type        = string
+  description = "Private key for the WireGuard VPN Server"
+  sensitive   = true
+}

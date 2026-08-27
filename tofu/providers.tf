@@ -60,3 +60,8 @@ data "vault_kv_secret_v2" "wlan_passphrases" {
   mount = "secret"
   name  = "unifi/wlan/passphrases"
 }
+
+data "vault_kv_secret_v2" "wireguard_server" {
+  mount = "secret"
+  name  = "unifi/vpn/wireguard"
+}
