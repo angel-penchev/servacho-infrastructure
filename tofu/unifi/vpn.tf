@@ -3,12 +3,12 @@ resource "unifi_vpn_server" "wireguard" {
   enabled = true
   subnet  = "192.168.7.1/24"
 
-  wan {
+  wan = {
     interface = "wan"
     ip        = "any"
   }
 
-  wireguard {
+  wireguard = {
     port        = 51820
     private_key = var.wireguard_private_key
   }

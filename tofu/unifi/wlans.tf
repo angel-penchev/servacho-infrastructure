@@ -2,13 +2,18 @@ data "unifi_ap_group" "default" {
   name = "All APs"
 }
 
+data "unifi_client_qos_rate" "default" {
+  name = "Default"
+}
+
 resource "unifi_wlan" "stkr" {
   name       = "StKr"
   security   = "wpaeap"
   network_id = unifi_network.main.id
 
-  wlan_bands   = ["2g", "5g", "6g"]
-  ap_group_ids = [data.unifi_ap_group.default.id]
+  wlan_bands    = ["2g", "5g", "6g"]
+  ap_group_ids  = [data.unifi_ap_group.default.id]
+  user_group_id = data.unifi_client_qos_rate.default.id
 
   radius_profile_id = unifi_radius_profile.default.id
 
@@ -25,8 +30,9 @@ resource "unifi_wlan" "stkr_guest" {
   passphrase = var.wlan_guest_passphrase
   network_id = unifi_network.guest.id
 
-  wlan_bands   = ["2g", "5g", "6g"]
-  ap_group_ids = [data.unifi_ap_group.default.id]
+  wlan_bands    = ["2g", "5g", "6g"]
+  ap_group_ids  = [data.unifi_ap_group.default.id]
+  user_group_id = data.unifi_client_qos_rate.default.id
 
   wpa3_support    = true
   wpa3_transition = true
@@ -41,8 +47,9 @@ resource "unifi_wlan" "stkr_iot" {
   passphrase = var.wlan_iot_passphrase
   network_id = unifi_network.iot.id
 
-  wlan_bands   = ["2g", "5g", "6g"]
-  ap_group_ids = [data.unifi_ap_group.default.id]
+  wlan_bands    = ["2g", "5g", "6g"]
+  ap_group_ids  = [data.unifi_ap_group.default.id]
+  user_group_id = data.unifi_client_qos_rate.default.id
 
   wpa3_support    = true
   wpa3_transition = true
