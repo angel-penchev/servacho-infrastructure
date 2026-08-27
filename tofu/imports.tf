@@ -92,3 +92,33 @@ import {
   to = module.unifi.unifi_port_profile.iot
   id = "6880d0b328574163a41fbd06"
 }
+
+import {
+  to = module.unifi.unifi_port_forward.minecraft_server
+  id = "6910cb061a46a667d4a1a397"
+}
+
+import {
+  to = module.unifi.unifi_port_forward.nginx_proxy
+  id = "692af55b3c6a3344b195696d"
+}
+
+import {
+  to = module.unifi.unifi_port_forward.fmicodes_db
+  id = "69b33bcabc1c54fe2f4d60ba"
+}
+
+import {
+  to = module.unifi.unifi_port_forward.fmicodes_ssh
+  id = "69b33bf6bc1c54fe2f4d60d6"
+}
+
+import {
+  to = module.unifi.unifi_port_forward.fmicodes_ssh_worker
+  id = "69b499eabc1c54fe2f4f9ec0"
+}
+
+import {
+  to = module.unifi.unifi_port_forward.fmicodes_intercom
+  id = "69b5ffabbc1c54fe2f5287a1"
+}
