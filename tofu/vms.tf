@@ -1,25 +1,3 @@
-resource "proxmox_virtual_environment_role" "tofu_provisioner" {
-  role_id = "TofuProvisioner"
-  privileges = [
-    "VM.Allocate",
-    "VM.Audit",
-    "VM.Clone",
-    "VM.Config.CPU",
-    "VM.Config.Memory",
-    "VM.Config.Network",
-    "VM.Config.HWType",
-    "VM.Config.Disk",
-    "VM.Config.Options",
-    "VM.Config.Cloudinit",
-    "VM.PowerMgmt",
-    "VM.GuestAgent.Audit",
-    "Datastore.AllocateSpace",
-    "Datastore.Audit",
-    "SDN.Use",
-    "Pool.Audit"
-  ]
-}
-
 # Commented out because the import block is a one-time operation.
 # Once the VM is successfully imported into the OpenTofu state file, 
 # this block is no longer needed and can be safely disabled.
@@ -73,10 +51,6 @@ resource "proxmox_virtual_environment_vm" "management_vm" {
 
   operating_system {
     type = "l26"
-  }
-
-  vga {
-    enabled = true
   }
 
   # Commented out because we now WANT OpenTofu to actively manage this VM. 

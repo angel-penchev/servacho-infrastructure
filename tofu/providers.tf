@@ -6,7 +6,7 @@ terraform {
   required_providers {
     proxmox = {
       source  = "bpg/proxmox"
-      version = "~> 0.46.0"
+      version = "~> 0.69.0"
     }
     unifi = {
       source  = "paultyng/unifi"
@@ -34,15 +34,14 @@ provider "proxmox" {
   insecure  = true
 }
 
-
 data "vault_kv_secret_v2" "unifi_credentials" {
   mount = "secret"
   name  = "unifi"
 }
 
 provider "unifi" {
-  username = data.vault_kv_secret_v2.unifi_credentials.data["username"]
-  password = data.vault_kv_secret_v2.unifi_credentials.data["password"]
-  api_url  = "https://192.168.1.1"
+  username       = data.vault_kv_secret_v2.unifi_credentials.data["username"]
+  password       = data.vault_kv_secret_v2.unifi_credentials.data["password"]
+  api_url        = "https://192.168.1.1"
   allow_insecure = true
 }
