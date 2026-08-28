@@ -4,22 +4,6 @@ resource "unifi_device" "usw_aggregation" {
   forget_on_destroy = false
   disabled          = false
 
-
-  # -------------------------------------------------------------------------
-  # FIXME(unifi): Port Overrides Temporarily Unmanaged
-  #
-  # The ubiquiti-community/unifi provider has a bug where SFP+ fiber ports 
-  # omit RJ45-specific attributes (autoneg, stormctrl_*, lldpmed_enabled) 
-  # from the API response. This causes OpenTofu's schema validation to crash 
-  # with "inconsistent result after apply" because the expected schema does 
-  # not match the returned API structure.
-  #
-  # Until the upstream provider is patched to handle SFP+ ports correctly, 
-  # we must use `ignore_changes = [port_override]` to prevent pipeline crashes.
-  # The port_override blocks below are kept as documentation, but because of the ignore_changes block, OpenTofu will ignore any drift or changes to them. 
-  #
-  #
-  # -------------------------------------------------------------------------
   port_override {
     index           = 1
     name            = "SFP+ 1"
@@ -27,7 +11,48 @@ resource "unifi_device" "usw_aggregation" {
     op_mode         = "switch"
   }
 
-  # TODO: double check this and open a PR for ubiquiti-community/unifi
+  port_override {
+    index   = 2
+    name    = "SFP+ 2"
+    op_mode = "switch"
+  }
+
+  port_override {
+    index   = 3
+    name    = "SFP+ 3"
+    op_mode = "switch"
+  }
+
+  port_override {
+    index   = 4
+    name    = "SFP+ 4"
+    op_mode = "switch"
+  }
+
+  port_override {
+    index   = 5
+    name    = "SFP+ 5"
+    op_mode = "switch"
+  }
+
+  port_override {
+    index   = 6
+    name    = "SFP+ 6"
+    op_mode = "switch"
+  }
+
+  port_override {
+    index   = 7
+    name    = "SFP+ 7"
+    op_mode = "switch"
+  }
+
+  port_override {
+    index   = 8
+    name    = "SFP+ 8"
+    op_mode = "switch"
+  }
+
   lifecycle {
     ignore_changes = [port_override]
   }
