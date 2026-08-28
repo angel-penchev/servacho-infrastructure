@@ -1,6 +1,6 @@
 resource "unifi_port_forward" "minecraft_server" {
   name     = "Minecraft Server"
-  enabled  = false
+  count    = 0
   protocol = "tcp_udp"
 
   wan = {
@@ -21,7 +21,6 @@ resource "unifi_port_forward" "minecraft_server" {
 
 resource "unifi_port_forward" "nginx_proxy" {
   name     = "Personal Server Nginx Proxy Manager"
-  enabled  = true
   protocol = "tcp_udp"
 
   wan = {
@@ -42,7 +41,6 @@ resource "unifi_port_forward" "nginx_proxy" {
 
 resource "unifi_port_forward" "fmicodes_db" {
   name     = "fmicodes db"
-  enabled  = true
   protocol = "tcp_udp"
 
   wan = {
@@ -63,7 +61,6 @@ resource "unifi_port_forward" "fmicodes_db" {
 
 resource "unifi_port_forward" "fmicodes_ssh" {
   name     = "fmicodes ssh"
-  enabled  = true
   protocol = "tcp_udp"
 
   wan = {
@@ -84,7 +81,6 @@ resource "unifi_port_forward" "fmicodes_ssh" {
 
 resource "unifi_port_forward" "fmicodes_ssh_worker" {
   name     = "fmicodes ssh (worker)"
-  enabled  = true
   protocol = "tcp_udp"
 
   wan = {
@@ -105,7 +101,7 @@ resource "unifi_port_forward" "fmicodes_ssh_worker" {
 
 resource "unifi_port_forward" "fmicodes_intercom" {
   name     = "fmicodes intercom bullshit"
-  enabled  = false
+  count    = 0
   protocol = "udp"
 
   wan = {

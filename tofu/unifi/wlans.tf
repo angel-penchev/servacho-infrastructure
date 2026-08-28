@@ -7,6 +7,9 @@ data "unifi_client_qos_rate" "default" {
 }
 
 resource "unifi_wlan" "stkr" {
+  lifecycle {
+    ignore_changes = [passphrase, wlan_bands]
+  }
   name       = "StKr"
   security   = "wpaeap"
   network_id = unifi_network.main.id
@@ -26,6 +29,9 @@ resource "unifi_wlan" "stkr" {
 }
 
 resource "unifi_wlan" "stkr_guest" {
+  lifecycle {
+    ignore_changes = [passphrase, wlan_bands]
+  }
   name       = "StKr_Guest"
   security   = "wpapsk"
   passphrase = var.wlan_guest_passphrase
@@ -44,6 +50,9 @@ resource "unifi_wlan" "stkr_guest" {
 }
 
 resource "unifi_wlan" "stkr_iot" {
+  lifecycle {
+    ignore_changes = [passphrase, wlan_bands]
+  }
   name       = "StKr_IoT"
   security   = "wpapsk"
   passphrase = var.wlan_iot_passphrase
