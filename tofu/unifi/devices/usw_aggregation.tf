@@ -16,16 +16,16 @@ resource "unifi_device" "usw_aggregation" {
   #
   # Until the upstream provider is patched to handle SFP+ ports correctly, 
   # we must use `ignore_changes = [port_override]` to prevent pipeline crashes.
-  # The port_override blocks below are commented out so it's clear they are 
-  # currently unmanaged by OpenTofu. They remain here as documentation for 
-  # when the provider is fixed.
+  # The port_override blocks below are kept as documentation, but because of the ignore_changes block, OpenTofu will ignore any drift or changes to them. 
+  #
+  #
   # -------------------------------------------------------------------------
-#   port_override {
-#     index           = 1
-#     name            = "SFP+ 1"
-#     port_profile_id = var.port_profile_private_servers_id
-#     op_mode         = "switch"
-#   }
+  port_override {
+    index           = 1
+    name            = "SFP+ 1"
+    port_profile_id = var.port_profile_private_servers_id
+    op_mode         = "switch"
+  }
 
   # TODO: double check this and open a PR for ubiquiti-community/unifi
   lifecycle {
