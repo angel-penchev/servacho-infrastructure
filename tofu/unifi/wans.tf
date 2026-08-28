@@ -1,4 +1,4 @@
-resource "unifi_wan" "vivacom-primary" {
+resource "unifi_wan" "vivacom_primary" {
   name         = "Vivacom Primary"
   networkgroup = "WAN"
   type         = "dhcp"
@@ -16,7 +16,7 @@ resource "unifi_wan" "vivacom-primary" {
   }
 }
 
-resource "unifi_wan" "vivacom-secondary" {
+resource "unifi_wan" "vivacom_secondary" {
   name         = "Vivacom Secondary"
   networkgroup = "WAN2"
   type         = "dhcp"

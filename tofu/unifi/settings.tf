@@ -1,3 +1,9 @@
+locals {
+  unifi_country_codes = {
+    "Bulgaria"       = 100
+  }
+}
+
 resource "unifi_setting" "default" {
   site = "default"
 
@@ -9,6 +15,14 @@ resource "unifi_setting" "default" {
   auto_speedtest = {
     enabled   = true
     cron_expr = "0 4 * * *"
+  }
+
+  country = {
+    code = local.unifi_country_codes["Bulgaria"]
+  }
+
+  ntp = {
+    setting_preference = "auto"
   }
 }
 

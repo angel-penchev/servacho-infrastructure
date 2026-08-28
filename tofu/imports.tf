@@ -125,12 +125,12 @@ import {
 
 import {
   id = "679fb4c59e597221b4ff1904"
-  to = module.unifi.unifi_wan.vivacom-primary
+  to = module.unifi.unifi_wan.vivacom_primary
 }
 
 import {
   id = "679fb4c59e597221b4ff1905"
-  to = module.unifi.unifi_wan.vivacom-secondary
+  to = module.unifi.unifi_wan.vivacom_secondary
 }
 
 data "unifi_firewall_zone" "dmz_lookup" {
