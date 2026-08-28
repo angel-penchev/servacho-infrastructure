@@ -133,11 +133,3 @@ import {
   to = module.unifi.unifi_wan.vivacom_secondary
 }
 
-data "unifi_firewall_zone" "dmz_lookup" {
-  name = "DMZ"
-}
-
-import {
-  id = data.unifi_firewall_zone.dmz_lookup.id
-  to = module.unifi.unifi_firewall_zone.dmz
-}
