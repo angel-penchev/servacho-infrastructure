@@ -122,7 +122,3 @@ import {
 }
 
 
-import {
-  to = module.unifi.unifi_vpn_server.openvpn
-  id = "67a24cc77c79ef7bcadce142"
-}
