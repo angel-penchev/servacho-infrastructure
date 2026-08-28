@@ -24,6 +24,10 @@ resource "unifi_vpn_server" "openvpn" {
     ip        = "any"
   }
 
+  lifecycle {
+    ignore_changes = [openvpn]
+  }
+
   openvpn = {
     port = 1194
   }

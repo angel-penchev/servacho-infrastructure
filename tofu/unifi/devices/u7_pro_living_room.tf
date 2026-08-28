@@ -3,4 +3,7 @@ resource "unifi_device" "u7_pro_living_room" {
   name              = "Living Room U7-Pro"
   forget_on_destroy = false
   disabled          = false
+  lifecycle {
+    ignore_changes = [disabled]
+  }
 }
