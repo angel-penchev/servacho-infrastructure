@@ -9,7 +9,7 @@ data "unifi_client_qos_rate" "default" {
 resource "unifi_wlan" "stkr" {
   name       = "StKr"
   security   = "wpaeap"
-  network_id = unifi_network.main.id
+  network_id = var.network_main_id
 
   wlan_bands    = ["2g", "5g", "6g"]
   ap_group_ids  = [data.unifi_ap_group.default.id]
@@ -36,7 +36,7 @@ resource "unifi_wlan" "stkr_guest" {
   name       = "StKr_Guest"
   security   = "wpapsk"
   passphrase = var.wlan_guest_passphrase
-  network_id = unifi_network.guest.id
+  network_id = var.network_guest_id
 
   wlan_bands    = ["2g", "5g", "6g"]
   ap_group_ids  = [data.unifi_ap_group.default.id]
@@ -61,7 +61,7 @@ resource "unifi_wlan" "stkr_iot" {
   name       = "StKr_IoT"
   security   = "wpapsk"
   passphrase = var.wlan_iot_passphrase
-  network_id = unifi_network.iot.id
+  network_id = var.network_iot_id
 
   wlan_bands    = ["2g", "5g", "6g"]
   ap_group_ids  = [data.unifi_ap_group.default.id]

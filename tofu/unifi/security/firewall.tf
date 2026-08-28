@@ -12,7 +12,7 @@ resource "unifi_firewall_zone" "dmz" {
   name = "DMZ"
 
   network_ids = [
-    unifi_network.public_servers.id
+    var.network_public_servers_id
   ]
 }
 
@@ -32,7 +32,7 @@ resource "unifi_firewall_policy" "allow_main_to_iot" {
     zone_id         = data.unifi_firewall_zone.internal.id
     matching_target = "NETWORK"
     network_ids = [
-      unifi_network.main.id
+      var.network_main_id
     ]
   }
 
@@ -40,7 +40,7 @@ resource "unifi_firewall_policy" "allow_main_to_iot" {
     zone_id         = data.unifi_firewall_zone.internal.id
     matching_target = "NETWORK"
     network_ids = [
-      unifi_network.iot.id
+      var.network_iot_id
     ]
   }
 }
