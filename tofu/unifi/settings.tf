@@ -1,6 +1,6 @@
 locals {
   unifi_country_codes = {
-    "Bulgaria"       = 100
+    "Bulgaria" = 100
   }
 }
 

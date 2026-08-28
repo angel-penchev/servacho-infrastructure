@@ -23,6 +23,7 @@ resource "unifi_wlan" "stkr" {
   bss_transition  = true
 
   is_guest = false
+
   # FIXME(unifi): The provider often returns different structures for passphrase 
   # (redacted vs unredacted) and wlan_bands than what is defined in state.
   # We must ignore these to prevent "inconsistent result after apply" crashes.
@@ -47,6 +48,7 @@ resource "unifi_wlan" "stkr_guest" {
   bss_transition  = true
 
   is_guest = true
+
   # FIXME(unifi): The provider often returns different structures for passphrase 
   # (redacted vs unredacted) and wlan_bands than what is defined in state.
   # We must ignore these to prevent "inconsistent result after apply" crashes.
@@ -72,6 +74,7 @@ resource "unifi_wlan" "stkr_iot" {
 
   is_guest  = false
   hide_ssid = true
+
   # FIXME(unifi): The provider often returns different structures for passphrase 
   # (redacted vs unredacted) and wlan_bands than what is defined in state.
   # We must ignore these to prevent "inconsistent result after apply" crashes.

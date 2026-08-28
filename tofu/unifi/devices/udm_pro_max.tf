@@ -81,7 +81,7 @@ resource "unifi_device" "udm_pro_max" {
     native_networkconf_id = var.network_default_id
   }
 
-    # FIXME(unifi): The UniFi API throws an error when trying to override WAN ports (Port 1 and Port 9).
+  # FIXME(unifi): The UniFi API throws an error when trying to override WAN ports (Port 1 and Port 9).
   # We must ignore changes to port_override to avoid pipeline crashes until the provider
   # or API properly handles WAN port exclusions.
   lifecycle {

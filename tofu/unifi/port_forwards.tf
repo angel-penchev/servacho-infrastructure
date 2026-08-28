@@ -13,7 +13,6 @@ resource "unifi_port_forward" "minecraft_server" {
     ip   = "192.168.4.20"
     port = "25565"
   }
-
 }
 
 resource "unifi_port_forward" "nginx_proxy" {
@@ -30,7 +29,6 @@ resource "unifi_port_forward" "nginx_proxy" {
     ip   = "192.168.5.102"
     port = "80,443"
   }
-
 }
 
 resource "unifi_port_forward" "fmicodes_db" {
@@ -47,7 +45,6 @@ resource "unifi_port_forward" "fmicodes_db" {
     ip   = "192.168.5.200"
     port = "5432"
   }
-
 }
 
 resource "unifi_port_forward" "fmicodes_ssh" {
@@ -64,7 +61,6 @@ resource "unifi_port_forward" "fmicodes_ssh" {
     ip   = "192.168.5.200"
     port = "22"
   }
-
 }
 
 resource "unifi_port_forward" "fmicodes_ssh_worker" {
@@ -81,7 +77,6 @@ resource "unifi_port_forward" "fmicodes_ssh_worker" {
     ip   = "192.168.5.201"
     port = "22"
   }
-
 }
 
 resource "unifi_port_forward" "fmicodes_intercom" {
@@ -99,5 +94,4 @@ resource "unifi_port_forward" "fmicodes_intercom" {
     ip   = "192.168.5.215"
     port = "10000-11433,11435-25564,25566-51819,51821-60000"
   }
-
 }

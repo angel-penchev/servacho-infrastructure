@@ -14,7 +14,10 @@ resource "unifi_vpn_server" "wireguard" {
   }
 }
 
-# # resource "unifi_vpn_server" "openvpn" {
+# FIXME(unifi): The OpenVPN server block below is commented out because the upstream provider 
+# has a bug where CustomizeDiff forcibly bypasses ignore_changes, causing constant 400 
+# Invalid Payload API errors during PUT requests. Needs to be fixed upstream.
+# resource "unifi_vpn_server" "openvpn" {
 #   name             = "StKr OpenVPN Server"
 #   enabled          = true
 #   subnet           = "192.168.8.1/24"
@@ -23,10 +26,6 @@ resource "unifi_vpn_server" "wireguard" {
 #   wan = {
 #     interface = "wan"
 #     ip        = "any"
-#   }
-# 
-#   lifecycle {
-#     ignore_changes = all
 #   }
 # 
 #   openvpn = {
