@@ -15,7 +15,7 @@ resource "unifi_wlan" "stkr" {
   ap_group_ids  = [data.unifi_ap_group.default.id]
   user_group_id = data.unifi_client_qos_rate.default.id
 
-  radius_profile_id = unifi_radius_profile.default.id
+  radius_profile_id = data.unifi_radius_profile.default.id
 
   wpa3_support    = true
   wpa3_transition = true
