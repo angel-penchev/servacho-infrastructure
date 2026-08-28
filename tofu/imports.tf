@@ -89,10 +89,6 @@ import {
   id = "6880d0b328574163a41fbd06"
 }
 
-import {
-  to = module.unifi.unifi_port_forward.minecraft_server
-  id = "6910cb061a46a667d4a1a397"
-}
 
 import {
   to = module.unifi.unifi_port_forward.nginx_proxy
@@ -114,10 +110,6 @@ import {
   id = "69b499eabc1c54fe2f4f9ec0"
 }
 
-import {
-  to = module.unifi.unifi_port_forward.fmicodes_intercom
-  id = "69b5ffabbc1c54fe2f5287a1"
-}
 
 import {
   id = "679fb4c59e597221b4ff1904"
