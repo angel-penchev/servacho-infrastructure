@@ -12,9 +12,9 @@ resource "unifi_setting_mdns" "gateway_proxy" {
   mode = "custom"
   
   vlan_scope = [
-    unifi_network.main.id,
-    unifi_network.guest.id,
-    unifi_network.iot.id
+    var.network_main_id,
+    var.network_guest_id,
+    var.network_iot_id
   ]
   
   service_scope = "specific"

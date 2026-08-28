@@ -46,7 +46,7 @@ resource "unifi_setting_switch" "global" {
   dot1x_control {
     enabled           = true
     credential_source = "local"
-    fallback_vlan_id  = unifi_network.guest.id
+    fallback_vlan_id  = var.network_guest_id
   }
 }
 
