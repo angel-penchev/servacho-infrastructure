@@ -29,6 +29,8 @@ resource "unifi_vpn_server" "openvpn" {
   }
 
   openvpn = {
-    port = 1194
+    encryption_cipher = "AES_256_GCM"
+    mode              = "server"
+    port              = 1194
   }
 }
