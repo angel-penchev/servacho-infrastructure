@@ -20,6 +20,7 @@ resource "unifi_wlan" "stkr" {
   wpa3_support    = true
   wpa3_transition = true
   pmf_mode        = "optional"
+  bss_transition  = true
 
   is_guest = false
 }
@@ -37,6 +38,7 @@ resource "unifi_wlan" "stkr_guest" {
   wpa3_support    = true
   wpa3_transition = true
   pmf_mode        = "optional"
+  bss_transition  = true
 
   is_guest = true
 }
@@ -54,6 +56,7 @@ resource "unifi_wlan" "stkr_iot" {
   wpa3_support    = true
   wpa3_transition = true
   pmf_mode        = "optional"
+  bss_transition  = true
 
   is_guest  = false
   hide_ssid = true
