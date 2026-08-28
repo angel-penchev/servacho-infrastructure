@@ -1,40 +1,9 @@
 module "unifi" {
   source = "./unifi"
-}
 
-moved {
-  from = unifi_network.default
-  to   = module.unifi.unifi_network.default
-}
-moved {
-  from = unifi_network.main
-  to   = module.unifi.unifi_network.main
-}
-moved {
-  from = unifi_network.guest
-  to   = module.unifi.unifi_network.guest
-}
-moved {
-  from = unifi_network.public_servers
-  to   = module.unifi.unifi_network.public_servers
-}
-moved {
-  from = unifi_network.private_servers
-  to   = module.unifi.unifi_network.private_servers
-}
-moved {
-  from = unifi_network.iot
-  to   = module.unifi.unifi_network.iot
-}
-moved {
-  from = unifi_network.qoax_community_vps
-  to   = module.unifi.unifi_network.qoax_community_vps
-}
-moved {
-  from = unifi_network.qoax_community_broadcast_vps
-  to   = module.unifi.unifi_network.qoax_community_broadcast_vps
-}
-moved {
-  from = unifi_network.fmicodes_vps
-  to   = module.unifi.unifi_network.fmicodes_vps
+  radius_profile_secret  = data.vault_kv_secret_v2.radius_profile.data["secret"]
+  radius_users_passwords = data.vault_kv_secret_v2.radius_users.data
+  wlan_guest_passphrase  = data.vault_kv_secret_v2.wlan_passphrases.data["guest"]
+  wlan_iot_passphrase    = data.vault_kv_secret_v2.wlan_passphrases.data["iot"]
+  wireguard_private_key  = data.vault_kv_secret_v2.wireguard_server.data["private_key"]
 }

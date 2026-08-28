@@ -58,7 +58,7 @@ jobs:
 
             const maxLen = 60000;
             if (planOutput.length > maxLen) {
-              planOutput = `${planOutput.slice(0, maxLen)}\n\n...truncated...`;
+              planOutput = `...truncated...\n\n${planOutput.slice(-maxLen)}`;
             }
 
             const status = process.env.PLAN_EXIT_CODE === '0' ? 'Success' : 'Failed';

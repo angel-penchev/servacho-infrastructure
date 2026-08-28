@@ -5,8 +5,8 @@ terraform {
 
   required_providers {
     unifi = {
-      source  = "paultyng/unifi"
-      version = "~> 0.41.0"
+      source  = "ubiquiti-community/unifi"
+      version = "~> 0.55.0"
     }
     proxmox = {
       source  = "bpg/proxmox"
@@ -44,4 +44,24 @@ provider "unifi" {
   password       = data.vault_kv_secret_v2.unifi_credentials.data["password"]
   api_url        = "https://192.168.1.1"
   allow_insecure = true
+}
+
+data "vault_kv_secret_v2" "radius_profile" {
+  mount = "secret"
+  name  = "unifi/radius/profile"
+}
+
+data "vault_kv_secret_v2" "radius_users" {
+  mount = "secret"
+  name  = "unifi/radius/users"
+}
+
+data "vault_kv_secret_v2" "wlan_passphrases" {
+  mount = "secret"
+  name  = "unifi/wlan/passphrases"
+}
+
+data "vault_kv_secret_v2" "wireguard_server" {
+  mount = "secret"
+  name  = "unifi/vpn/wireguard"
 }
