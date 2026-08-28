@@ -6,6 +6,10 @@ resource "unifi_device" "usw_pro_max_24_poe" {
   flowctrl_enabled   = false
   jumboframe_enabled = false
 
+  lifecycle {
+    ignore_changes = [port_override]
+  }
+
   config_network = {
     type = "dhcp"
   }

@@ -1,17 +1,5 @@
-resource "unifi_radius_profile" "default" {
-  name                = "Default"
-  vlan_enabled        = true
-  vlan_wlan_mode      = "optional"
-  use_usg_auth_server = true
-
-  lifecycle {
-    ignore_changes = all
-  }
-
-  auth_server {
-    port   = 1812
-    secret = var.radius_profile_secret
-  }
+data "unifi_radius_profile" "default" {
+  name = "Default"
 }
 
 locals {
