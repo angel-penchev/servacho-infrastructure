@@ -5,6 +5,11 @@ resource "unifi_setting" "default" {
   igmp_snooping = {
     enabled = false
   }
+
+  auto_speedtest = {
+    enabled   = true
+    cron_expr = "0 4 * * *"
+  }
 }
 
 # ----------------------------------------------------------------------------

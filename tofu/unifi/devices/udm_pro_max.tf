@@ -12,27 +12,6 @@ resource "unifi_device" "udm_pro_max" {
   }
 
   port_override {
-    index                 = 9
-    name                  = "Port 9"
-    op_mode               = "switch"
-    native_networkconf_id = var.wan_primary_id
-  }
-
-  port_override {
-    index           = 10
-    name            = "SFP+ 1"
-    port_profile_id = var.port_profile_private_servers_id
-    op_mode         = "switch"
-  }
-
-  port_override {
-    index                 = 11
-    name                  = "SFP+ 2"
-    op_mode               = "switch"
-    native_networkconf_id = var.network_default_id
-  }
-
-  port_override {
     index                 = 2
     name                  = "Port 2"
     op_mode               = "switch"
@@ -77,6 +56,27 @@ resource "unifi_device" "udm_pro_max" {
   port_override {
     index                 = 8
     name                  = "Port 8"
+    op_mode               = "switch"
+    native_networkconf_id = var.network_default_id
+  }
+
+  port_override {
+    index                 = 9
+    name                  = "Port 9"
+    op_mode               = "switch"
+    native_networkconf_id = var.wan_primary_id
+  }
+
+  port_override {
+    index           = 10
+    name            = "SFP+ 1"
+    port_profile_id = var.port_profile_private_servers_id
+    op_mode         = "switch"
+  }
+
+  port_override {
+    index                 = 11
+    name                  = "SFP+ 2"
     op_mode               = "switch"
     native_networkconf_id = var.network_default_id
   }
