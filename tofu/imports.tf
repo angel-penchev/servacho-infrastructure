@@ -23,10 +23,6 @@ import {
   id = "9c:05:d6:d9:ad:79"
 }
 
-import {
-  to = module.unifi.unifi_radius_profile.default
-  id = "679fb4c59e597221b4ff18fe"
-}
 
 import {
   to = module.unifi.unifi_radius_user.users["a.penchev"]
