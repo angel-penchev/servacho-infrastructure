@@ -6,6 +6,11 @@ resource "unifi_device" "usw_pro_max_24_poe" {
   flowctrl_enabled   = false
   jumboframe_enabled = false
 
+
+  # FIXME(unifi): The ubiquiti-community/unifi provider has a bug where SFP+ fiber ports
+  # omit RJ45-specific attributes (autoneg, stormctrl_*, lldpmed_enabled) from the API response.
+  # This causes schema validation crashes ("inconsistent result after apply").
+  # Keep this ignore_changes block until the provider is patched.
   lifecycle {
     ignore_changes = [port_override]
   }
@@ -31,21 +36,6 @@ resource "unifi_device" "usw_pro_max_24_poe" {
   */
 
 
-  # -------------------------------------------------------------------------
-  # FIXME(unifi): Port Overrides Temporarily Unmanaged
-  #
-  # The ubiquiti-community/unifi provider has a bug where SFP+ fiber ports 
-  # omit RJ45-specific attributes (autoneg, stormctrl_*, lldpmed_enabled) 
-  # from the API response. This causes OpenTofu's schema validation to crash 
-  # with "inconsistent result after apply" because the expected schema does 
-  # not match the returned API structure.
-  #
-  # Until the upstream provider is patched to handle SFP+ ports correctly, 
-  # we must use `ignore_changes = [port_override]` to prevent pipeline crashes.
-  # The port_override blocks below are kept as documentation, but because of the ignore_changes block, OpenTofu will ignore any drift or changes to them. 
-  #
-  #
-  # -------------------------------------------------------------------------
   port_override {
     index           = 1
     name            = "LR-01"

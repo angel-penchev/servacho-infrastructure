@@ -1,7 +1,4 @@
 resource "unifi_network" "default" {
-  lifecycle {
-    ignore_changes = [domain_name]
-  }
   name          = "Default"
   purpose       = "corporate"
   subnet        = "192.168.1.1/24"
@@ -15,9 +12,6 @@ resource "unifi_network" "default" {
 }
 
 resource "unifi_network" "main" {
-  lifecycle {
-    ignore_changes = [domain_name]
-  }
   name          = "Main"
   purpose       = "corporate"
   vlan          = 2
@@ -32,9 +26,6 @@ resource "unifi_network" "main" {
 }
 
 resource "unifi_network" "guest" {
-  lifecycle {
-    ignore_changes = [domain_name]
-  }
   name          = "Guest"
   purpose       = "guest"
   vlan          = 3
@@ -49,9 +40,6 @@ resource "unifi_network" "guest" {
 }
 
 resource "unifi_network" "public_servers" {
-  lifecycle {
-    ignore_changes = [domain_name]
-  }
   name          = "Public Servers"
   purpose       = "corporate"
   vlan          = 4
@@ -66,9 +54,6 @@ resource "unifi_network" "public_servers" {
 }
 
 resource "unifi_network" "private_servers" {
-  lifecycle {
-    ignore_changes = [domain_name]
-  }
   name          = "Private Servers"
   purpose       = "corporate"
   vlan          = 5
@@ -83,9 +68,6 @@ resource "unifi_network" "private_servers" {
 }
 
 resource "unifi_network" "iot" {
-  lifecycle {
-    ignore_changes = [domain_name]
-  }
   name          = "IoT"
   purpose       = "corporate"
   vlan          = 6
@@ -100,9 +82,6 @@ resource "unifi_network" "iot" {
 }
 
 resource "unifi_network" "qoax_community_vps" {
-  lifecycle {
-    ignore_changes = [domain_name]
-  }
   name          = "Qoax Community VPS"
   purpose       = "corporate"
   vlan          = 10
@@ -117,9 +96,6 @@ resource "unifi_network" "qoax_community_vps" {
 }
 
 resource "unifi_network" "qoax_community_broadcast_vps" {
-  lifecycle {
-    ignore_changes = [domain_name]
-  }
   name          = "Qoax Community Broadcast VPS"
   purpose       = "corporate"
   vlan          = 11
@@ -134,9 +110,6 @@ resource "unifi_network" "qoax_community_broadcast_vps" {
 }
 
 resource "unifi_network" "fmicodes_vps" {
-  lifecycle {
-    ignore_changes = [domain_name]
-  }
   name          = "FMI{Codes} VPS"
   purpose       = "corporate"
   vlan          = 12
