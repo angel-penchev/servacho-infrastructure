@@ -3,6 +3,7 @@ resource "unifi_network" "default" {
   purpose       = "corporate"
   subnet        = "192.168.1.1/24"
   multicast_dns = false
+  domain_name   = "localdomain"
 
   dhcp_server = {
     enabled = true
@@ -45,6 +46,7 @@ resource "unifi_network" "public_servers" {
   vlan          = 4
   subnet        = "192.168.4.1/24"
   multicast_dns = false
+  domain_name   = "localdomain"
 
   dhcp_server = {
     enabled = true
@@ -59,6 +61,7 @@ resource "unifi_network" "private_servers" {
   vlan          = 5
   subnet        = "192.168.5.1/24"
   multicast_dns = false
+  domain_name   = "localdomain"
 
   dhcp_server = {
     enabled = true
@@ -87,6 +90,7 @@ resource "unifi_network" "qoax_community_vps" {
   vlan          = 10
   subnet        = "192.168.10.1/24"
   multicast_dns = false
+  domain_name   = "localdomain"
 
   dhcp_server = {
     enabled = true
@@ -101,6 +105,7 @@ resource "unifi_network" "qoax_community_broadcast_vps" {
   vlan          = 11
   subnet        = "192.168.11.1/24"
   multicast_dns = false
+  domain_name   = "localdomain"
 
   dhcp_server = {
     enabled = true
@@ -115,6 +120,7 @@ resource "unifi_network" "fmicodes_vps" {
   vlan          = 12
   subnet        = "192.168.12.1/24"
   multicast_dns = false
+  domain_name   = "localdomain"
 
   dhcp_server = {
     enabled = true
