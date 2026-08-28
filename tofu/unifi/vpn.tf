@@ -25,7 +25,7 @@ resource "unifi_vpn_server" "openvpn" {
   }
 
   lifecycle {
-    ignore_changes = [openvpn]
+    ignore_changes = all
   }
 
   openvpn = {
