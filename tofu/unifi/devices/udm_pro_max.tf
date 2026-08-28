@@ -5,13 +5,6 @@ resource "unifi_device" "udm_pro_max" {
   disabled          = false
 
   port_override {
-    index                 = 1
-    name                  = "Port 1"
-    op_mode               = "switch"
-    native_networkconf_id = var.wan_secondary_id
-  }
-
-  port_override {
     index                 = 2
     name                  = "Port 2"
     op_mode               = "switch"
@@ -58,13 +51,6 @@ resource "unifi_device" "udm_pro_max" {
     name                  = "Port 8"
     op_mode               = "switch"
     native_networkconf_id = var.network_default_id
-  }
-
-  port_override {
-    index                 = 9
-    name                  = "Port 9"
-    op_mode               = "switch"
-    native_networkconf_id = var.wan_primary_id
   }
 
   port_override {
