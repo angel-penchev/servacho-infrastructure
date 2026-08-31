@@ -82,3 +82,26 @@ resource "unifi_wlan" "stkr_iot" {
     ignore_changes = [passphrase, wlan_bands]
   }
 }
+
+resource "unifi_wlan" "stkr_iot2_4" {
+  name       = "StKr_IoT2.4"
+  security   = "wpapsk"
+  passphrase = var.wlan_iot_passphrase
+  network_id = var.network_iot_id
+
+  wlan_bands    = ["2g"]
+  ap_group_ids  = [data.unifi_ap_group.default.id]
+  user_group_id = data.unifi_client_qos_rate.default.id
+
+  wpa3_support    = false
+  wpa3_transition = false
+  pmf_mode        = "disabled"
+  bss_transition  = true
+
+  is_guest  = false
+  hide_ssid = false
+
+  lifecycle {
+    ignore_changes = [passphrase, wlan_bands]
+  }
+}
