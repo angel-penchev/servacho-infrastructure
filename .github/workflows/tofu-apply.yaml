@@ -40,7 +40,8 @@ jobs:
         env:
           UNSEAL_KEYS: ${{ secrets.OPENBAO_UNSEAL_KEYS }}
         run: |
-          if curl -s http://127.0.0.1:8200/v1/sys/health | grep -q '"sealed":true'; then
+          if command -v curl >/dev/null 2>&1; then CURL_CMD="curl -s"; else CURL_CMD="nix run nixpkgs#curl -- -s"; fi
+          if $CURL_CMD http://127.0.0.1:8200/v1/sys/health | grep -q '"sealed":true'; then
             echo "OpenBao is sealed. Attempting to auto-unseal..."
             if [ -z "$UNSEAL_KEYS" ]; then
               echo "Error: OPENBAO_UNSEAL_KEYS secret is not set. Please add it to GitHub repository secrets."
@@ -48,11 +49,11 @@ jobs:
             fi
             for key in $(echo "$UNSEAL_KEYS" | tr ',' ' ' | tr '\n' ' '); do
               if [ -n "$key" ]; then
-                curl -s --request PUT --data "{\"key\": \"$key\"}" http://127.0.0.1:8200/v1/sys/unseal > /dev/null
+                $CURL_CMD --request PUT --data "{\"key\": \"$key\"}" http://127.0.0.1:8200/v1/sys/unseal > /dev/null
               fi
             done
-            if curl -s http://127.0.0.1:8200/v1/sys/health | grep -q '"sealed":true'; then
-              echo "OpenBao is still sealed. Ensure you provided enough valid keys in OPENBAO_UNSEAL_KEYS."
+            if $CURL_CMD http://127.0.0.1:8200/v1/sys/health | grep -q '"sealed":true'; then
+              echo "OpenBao is still sealed. Ensure you provided enough valid keys."
               exit 1
             else
               echo "OpenBao successfully unsealed!"
@@ -89,7 +90,8 @@ jobs:
         env:
           UNSEAL_KEYS: ${{ secrets.OPENBAO_UNSEAL_KEYS }}
         run: |
-          if curl -s http://127.0.0.1:8200/v1/sys/health | grep -q '"sealed":true'; then
+          if command -v curl >/dev/null 2>&1; then CURL_CMD="curl -s"; else CURL_CMD="nix run nixpkgs#curl -- -s"; fi
+          if $CURL_CMD http://127.0.0.1:8200/v1/sys/health | grep -q '"sealed":true'; then
             echo "OpenBao is sealed. Attempting to auto-unseal..."
             if [ -z "$UNSEAL_KEYS" ]; then
               echo "Error: OPENBAO_UNSEAL_KEYS secret is not set. Please add it to GitHub repository secrets."
@@ -97,11 +99,11 @@ jobs:
             fi
             for key in $(echo "$UNSEAL_KEYS" | tr ',' ' ' | tr '\n' ' '); do
               if [ -n "$key" ]; then
-                curl -s --request PUT --data "{\"key\": \"$key\"}" http://127.0.0.1:8200/v1/sys/unseal > /dev/null
+                $CURL_CMD --request PUT --data "{\"key\": \"$key\"}" http://127.0.0.1:8200/v1/sys/unseal > /dev/null
               fi
             done
-            if curl -s http://127.0.0.1:8200/v1/sys/health | grep -q '"sealed":true'; then
-              echo "OpenBao is still sealed. Ensure you provided enough valid keys in OPENBAO_UNSEAL_KEYS."
+            if $CURL_CMD http://127.0.0.1:8200/v1/sys/health | grep -q '"sealed":true'; then
+              echo "OpenBao is still sealed. Ensure you provided enough valid keys."
               exit 1
             else
               echo "OpenBao successfully unsealed!"
