@@ -36,6 +36,31 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.sha }}
 
+      - name: Auto-Unseal OpenBao (if sealed)
+        env:
+          UNSEAL_KEYS: ${{ secrets.OPENBAO_UNSEAL_KEYS }}
+        run: |
+          if curl -s http://127.0.0.1:8200/v1/sys/health | grep -q '"sealed":true'; then
+            echo "OpenBao is sealed. Attempting to auto-unseal..."
+            if [ -z "$UNSEAL_KEYS" ]; then
+              echo "Error: OPENBAO_UNSEAL_KEYS secret is not set. Please add it to GitHub repository secrets."
+              exit 1
+            fi
+            for key in $(echo "$UNSEAL_KEYS" | tr ',' ' ' | tr '\n' ' '); do
+              if [ -n "$key" ]; then
+                curl -s --request PUT --data "{\"key\": \"$key\"}" http://127.0.0.1:8200/v1/sys/unseal > /dev/null
+              fi
+            done
+            if curl -s http://127.0.0.1:8200/v1/sys/health | grep -q '"sealed":true'; then
+              echo "OpenBao is still sealed. Ensure you provided enough valid keys in OPENBAO_UNSEAL_KEYS."
+              exit 1
+            else
+              echo "OpenBao successfully unsealed!"
+            fi
+          else
+            echo "OpenBao is already unsealed."
+          fi
+
       - name: OpenTofu init
         env:
           VAULT_TOKEN: ${{ secrets.OPENBAO_TOFU_TOKEN }}
@@ -59,6 +84,31 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ inputs.branch }}
+
+      - name: Auto-Unseal OpenBao (if sealed)
+        env:
+          UNSEAL_KEYS: ${{ secrets.OPENBAO_UNSEAL_KEYS }}
+        run: |
+          if curl -s http://127.0.0.1:8200/v1/sys/health | grep -q '"sealed":true'; then
+            echo "OpenBao is sealed. Attempting to auto-unseal..."
+            if [ -z "$UNSEAL_KEYS" ]; then
+              echo "Error: OPENBAO_UNSEAL_KEYS secret is not set. Please add it to GitHub repository secrets."
+              exit 1
+            fi
+            for key in $(echo "$UNSEAL_KEYS" | tr ',' ' ' | tr '\n' ' '); do
+              if [ -n "$key" ]; then
+                curl -s --request PUT --data "{\"key\": \"$key\"}" http://127.0.0.1:8200/v1/sys/unseal > /dev/null
+              fi
+            done
+            if curl -s http://127.0.0.1:8200/v1/sys/health | grep -q '"sealed":true'; then
+              echo "OpenBao is still sealed. Ensure you provided enough valid keys in OPENBAO_UNSEAL_KEYS."
+              exit 1
+            else
+              echo "OpenBao successfully unsealed!"
+            fi
+          else
+            echo "OpenBao is already unsealed."
+          fi
 
       - name: OpenTofu init
         env:
