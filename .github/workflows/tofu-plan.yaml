@@ -25,18 +25,18 @@ jobs:
       - name: Auto-Unseal OpenBao (if sealed)
         uses: ./.github/actions/auto-unseal
         with:
-          unseal_keys: ${{ secrets.OPENBAO_UNSEAL_KEYS }}
+          unseal_key: ${{ secrets.OPENBAO_UNSEAL_KEY }}
           vault_addr: ${{ env.VAULT_ADDR }}
 
       - name: OpenTofu init
         env:
-          VAULT_TOKEN: ${{ secrets.OPENBAO_TOFU_TOKEN }}
+          VAULT_TOKEN: ${{ secrets.OPENBAO_ROOT_TOKEN }}
         run: tofu -chdir=tofu init
 
       - name: OpenTofu plan
         id: plan
         env:
-          VAULT_TOKEN: ${{ secrets.OPENBAO_TOFU_TOKEN }}
+          VAULT_TOKEN: ${{ secrets.OPENBAO_ROOT_TOKEN }}
         run: |
           set -o pipefail
           tofu -chdir=tofu plan -no-color -input=false -out=tfplan 2>&1 | tee plan_output.txt

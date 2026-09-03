@@ -1,7 +1,7 @@
 name: "Auto-Unseal OpenBao"
 description: "Automatically detects if OpenBao is sealed and unseals it using provided keys."
 inputs:
-  unseal_keys:
+  unseal_key:
     description: "The unseal keys for OpenBao (space, comma, or newline separated)"
     required: true
   vault_addr:
@@ -15,7 +15,7 @@ runs:
     - name: Unseal OpenBao
       shell: bash
       env:
-        UNSEAL_KEYS: ${{ inputs.unseal_keys }}
+        UNSEAL_KEY: ${{ inputs.unseal_key }}
         VAULT_ADDR: ${{ inputs.vault_addr }}
       run: |
         if command -v curl >/dev/null 2>&1; then
@@ -41,11 +41,11 @@ runs:
         
         if echo "$HEALTH" | grep -q '"sealed":true'; then
           echo "OpenBao is sealed. Attempting to auto-unseal..."
-          if [ -z "$UNSEAL_KEYS" ]; then
-            echo "Error: UNSEAL_KEYS input is not set. Please provide the keys."
+          if [ -z "$UNSEAL_KEY" ]; then
+            echo "Error: UNSEAL_KEY input is not set. Please provide the keys."
             exit 1
           fi
-          for key in $(echo "$UNSEAL_KEYS" | tr ',' ' ' | tr '\n' ' '); do
+          for key in $(echo "$UNSEAL_KEY" | tr ',' ' ' | tr '\n' ' '); do
             if [ -n "$key" ]; then
               curl_cmd --request PUT --data "{\"key\": \"$key\"}" $VAULT_ADDR/v1/sys/unseal > /dev/null
             fi
