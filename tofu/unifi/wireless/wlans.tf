@@ -84,7 +84,7 @@ resource "unifi_wlan" "stkr_iot" {
 }
 
 resource "unifi_wlan" "stkr_iot_2_4ghz" {
-  name       = "StKr_IoT_2.4Ghz"
+  name       = "StKr_IoT_2.4GHz"
   security   = "wpapsk"
   passphrase = var.wlan_iot_passphrase
   network_id = var.network_iot_id
