@@ -37,37 +37,10 @@ jobs:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.sha }}
 
       - name: Auto-Unseal OpenBao (if sealed)
-        env:
-          UNSEAL_KEYS: ${{ secrets.OPENBAO_UNSEAL_KEYS }}
-        run: |
-          if command -v curl >/dev/null 2>&1; then CURL_CMD="curl -s"; else CURL_CMD="nix run nixpkgs#curl -- -s"; fi
-          HEALTH=$($CURL_CMD $VAULT_ADDR/v1/sys/health || true)
-          if [ -z "$HEALTH" ]; then
-            echo "Error: OpenBao is unreachable at $VAULT_ADDR"
-            exit 1
-          fi
-          
-          if echo "$HEALTH" | grep -q '"sealed":true'; then
-            echo "OpenBao is sealed. Attempting to auto-unseal..."
-            if [ -z "$UNSEAL_KEYS" ]; then
-              echo "Error: OPENBAO_UNSEAL_KEYS secret is not set. Please add it to GitHub repository secrets."
-              exit 1
-            fi
-            for key in $(echo "$UNSEAL_KEYS" | tr ',' ' ' | tr '\n' ' '); do
-              if [ -n "$key" ]; then
-                $CURL_CMD --request PUT --data "{\"key\": \"$key\"}" $VAULT_ADDR/v1/sys/unseal > /dev/null
-              fi
-            done
-            HEALTH=$($CURL_CMD $VAULT_ADDR/v1/sys/health || true)
-            if echo "$HEALTH" | grep -q '"sealed":true'; then
-              echo "OpenBao is still sealed. Ensure you provided enough valid keys."
-              exit 1
-            else
-              echo "OpenBao successfully unsealed!"
-            fi
-          else
-            echo "OpenBao is already unsealed."
-          fi
+        uses: ./.github/actions/auto-unseal
+        with:
+          unseal_keys: ${{ secrets.OPENBAO_UNSEAL_KEYS }}
+          vault_addr: ${{ env.VAULT_ADDR }}
 
       - name: OpenTofu init
         env:
@@ -94,37 +67,10 @@ jobs:
           ref: ${{ inputs.branch }}
 
       - name: Auto-Unseal OpenBao (if sealed)
-        env:
-          UNSEAL_KEYS: ${{ secrets.OPENBAO_UNSEAL_KEYS }}
-        run: |
-          if command -v curl >/dev/null 2>&1; then CURL_CMD="curl -s"; else CURL_CMD="nix run nixpkgs#curl -- -s"; fi
-          HEALTH=$($CURL_CMD $VAULT_ADDR/v1/sys/health || true)
-          if [ -z "$HEALTH" ]; then
-            echo "Error: OpenBao is unreachable at $VAULT_ADDR"
-            exit 1
-          fi
-          
-          if echo "$HEALTH" | grep -q '"sealed":true'; then
-            echo "OpenBao is sealed. Attempting to auto-unseal..."
-            if [ -z "$UNSEAL_KEYS" ]; then
-              echo "Error: OPENBAO_UNSEAL_KEYS secret is not set. Please add it to GitHub repository secrets."
-              exit 1
-            fi
-            for key in $(echo "$UNSEAL_KEYS" | tr ',' ' ' | tr '\n' ' '); do
-              if [ -n "$key" ]; then
-                $CURL_CMD --request PUT --data "{\"key\": \"$key\"}" $VAULT_ADDR/v1/sys/unseal > /dev/null
-              fi
-            done
-            HEALTH=$($CURL_CMD $VAULT_ADDR/v1/sys/health || true)
-            if echo "$HEALTH" | grep -q '"sealed":true'; then
-              echo "OpenBao is still sealed. Ensure you provided enough valid keys."
-              exit 1
-            else
-              echo "OpenBao successfully unsealed!"
-            fi
-          else
-            echo "OpenBao is already unsealed."
-          fi
+        uses: ./.github/actions/auto-unseal
+        with:
+          unseal_keys: ${{ secrets.OPENBAO_UNSEAL_KEYS }}
+          vault_addr: ${{ env.VAULT_ADDR }}
 
       - name: OpenTofu init
         env:
