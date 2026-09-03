@@ -105,17 +105,17 @@ resource "unifi_device" "usw_pro_max_24_poe" {
   }
 
   port_override {
-    index           = 11
-    name            = "Port 11"
-    port_profile_id = var.port_profile_public_servers_id
-    op_mode         = "switch"
+    index   = 11
+    name    = "Port 11"
+    forward = "disabled"
+    op_mode = "switch"
   }
 
   port_override {
-    index                 = 12
-    name                  = "Port 12"
-    op_mode               = "switch"
-    native_networkconf_id = var.network_default_id
+    index           = 12
+    name            = "Servacho-Gosho-JetKVM"
+    port_profile_id = var.port_profile_private_servers_id
+    op_mode         = "switch"
   }
 
   port_override {

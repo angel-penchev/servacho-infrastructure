@@ -12,52 +12,52 @@ resource "unifi_device" "udm_pro_max" {
   }
 
   port_override {
-    index                 = 2
-    name                  = "Port 2"
-    op_mode               = "switch"
-    native_networkconf_id = var.network_default_id
+    index   = 2
+    name    = "Port 2"
+    forward = "disabled"
+    op_mode = "switch"
   }
 
   port_override {
-    index                 = 3
-    name                  = "Port 3"
-    op_mode               = "switch"
-    native_networkconf_id = var.network_default_id
+    index   = 3
+    name    = "Port 3"
+    forward = "disabled"
+    op_mode = "switch"
   }
 
   port_override {
-    index                 = 4
-    name                  = "Port 4"
-    op_mode               = "switch"
-    native_networkconf_id = var.network_default_id
+    index   = 4
+    name    = "Port 4"
+    forward = "disabled"
+    op_mode = "switch"
   }
 
   port_override {
-    index                 = 5
-    name                  = "Port 5"
-    op_mode               = "switch"
-    native_networkconf_id = var.network_default_id
+    index   = 5
+    name    = "Port 5"
+    forward = "disabled"
+    op_mode = "switch"
   }
 
   port_override {
-    index                 = 6
-    name                  = "Port 6"
-    op_mode               = "switch"
-    native_networkconf_id = var.network_default_id
+    index   = 6
+    name    = "Port 6"
+    forward = "disabled"
+    op_mode = "switch"
   }
 
   port_override {
-    index                 = 7
-    name                  = "Port 7"
-    op_mode               = "switch"
-    native_networkconf_id = var.network_default_id
+    index   = 7
+    name    = "Port 7"
+    forward = "disabled"
+    op_mode = "switch"
   }
 
   port_override {
-    index                 = 8
-    name                  = "Port 8"
-    op_mode               = "switch"
-    native_networkconf_id = var.network_default_id
+    index   = 8
+    name    = "Port 8"
+    forward = "disabled"
+    op_mode = "switch"
   }
 
   port_override {

@@ -6,6 +6,7 @@ resource "unifi_port_profile" "main" {
   autoneg               = true
   dot1x_ctrl            = "auto"
   tagged_vlan_mgmt      = "auto"
+  stp_port_mode         = false
 }
 
 resource "unifi_port_profile" "public_servers" {
@@ -16,6 +17,7 @@ resource "unifi_port_profile" "public_servers" {
   autoneg               = true
   dot1x_ctrl            = "force_authorized"
   tagged_vlan_mgmt      = "auto"
+  stp_port_mode         = false
 }
 
 resource "unifi_port_profile" "private_servers" {
@@ -26,6 +28,7 @@ resource "unifi_port_profile" "private_servers" {
   autoneg               = true
   dot1x_ctrl            = "force_authorized"
   tagged_vlan_mgmt      = "auto"
+  stp_port_mode         = false
 }
 
 resource "unifi_port_profile" "iot" {
@@ -36,4 +39,5 @@ resource "unifi_port_profile" "iot" {
   autoneg               = true
   dot1x_ctrl            = "force_authorized"
   tagged_vlan_mgmt      = "auto"
+  stp_port_mode         = false
 }

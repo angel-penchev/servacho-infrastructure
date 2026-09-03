@@ -27,11 +27,11 @@ module "security" {
 module "wireless" {
   source = "./wireless"
 
-  network_main_id        = module.core.network_main_id
-  network_guest_id       = module.core.network_guest_id
-  network_iot_id         = module.core.network_iot_id
-  wlan_guest_passphrase  = var.wlan_guest_passphrase
-  wlan_iot_passphrase    = var.wlan_iot_passphrase
+  network_main_id       = module.core.network_main_id
+  network_guest_id      = module.core.network_guest_id
+  network_iot_id        = module.core.network_iot_id
+  wlan_guest_passphrase = var.wlan_guest_passphrase
+  wlan_iot_passphrase   = var.wlan_iot_passphrase
 }
 
 module "system" {

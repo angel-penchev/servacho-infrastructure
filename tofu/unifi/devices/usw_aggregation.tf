@@ -20,30 +20,35 @@ resource "unifi_device" "usw_aggregation" {
   port_override {
     index   = 3
     name    = "SFP+ 3"
+    forward = "disabled"
     op_mode = "switch"
   }
 
   port_override {
     index   = 4
     name    = "SFP+ 4"
+    forward = "disabled"
     op_mode = "switch"
   }
 
   port_override {
     index   = 5
     name    = "SFP+ 5"
+    forward = "disabled"
     op_mode = "switch"
   }
 
   port_override {
     index   = 6
     name    = "SFP+ 6"
+    forward = "disabled"
     op_mode = "switch"
   }
 
   port_override {
     index   = 7
     name    = "SFP+ 7"
+    forward = "disabled"
     op_mode = "switch"
   }
 
