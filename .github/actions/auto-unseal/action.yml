@@ -18,8 +18,22 @@ runs:
         UNSEAL_KEYS: ${{ inputs.unseal_keys }}
         VAULT_ADDR: ${{ inputs.vault_addr }}
       run: |
-        if command -v curl >/dev/null 2>&1; then CURL_CMD="curl -s"; else CURL_CMD="nix run nixpkgs#curl -- -s"; fi
-        HEALTH=$($CURL_CMD $VAULT_ADDR/v1/sys/health || true)
+        if command -v curl >/dev/null 2>&1; then
+          curl_cmd() { curl -s "$@"; }
+        elif command -v wget >/dev/null 2>&1; then
+          curl_cmd() {
+            # Map curl arguments to wget where possible
+            if [ "$1" = "--request" ] && [ "$2" = "PUT" ] && [ "$3" = "--data" ]; then
+              wget -qO- --method=PUT --body-data="$4" "$5"
+            else
+              wget -qO- "$@"
+            fi
+          }
+        else
+          curl_cmd() { nix --extra-experimental-features 'nix-command flakes' run nixpkgs#curl -- -s "$@"; }
+        fi
+        
+        HEALTH=$(curl_cmd $VAULT_ADDR/v1/sys/health || true)
         if [ -z "$HEALTH" ]; then
           echo "Error: OpenBao is unreachable at $VAULT_ADDR"
           exit 1
@@ -33,10 +47,10 @@ runs:
           fi
           for key in $(echo "$UNSEAL_KEYS" | tr ',' ' ' | tr '\n' ' '); do
             if [ -n "$key" ]; then
-              $CURL_CMD --request PUT --data "{\"key\": \"$key\"}" $VAULT_ADDR/v1/sys/unseal > /dev/null
+              curl_cmd --request PUT --data "{\"key\": \"$key\"}" $VAULT_ADDR/v1/sys/unseal > /dev/null
             fi
           done
-          HEALTH=$($CURL_CMD $VAULT_ADDR/v1/sys/health || true)
+          HEALTH=$(curl_cmd $VAULT_ADDR/v1/sys/health || true)
           if echo "$HEALTH" | grep -q '"sealed":true'; then
             echo "OpenBao is still sealed. Ensure you provided enough valid keys."
             exit 1
