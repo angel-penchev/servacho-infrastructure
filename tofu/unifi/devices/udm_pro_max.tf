@@ -8,6 +8,7 @@ resource "unifi_device" "udm_pro_max" {
     index                 = 1
     name                  = "Port 1"
     op_mode               = "switch"
+    forward               = "customize"
     native_networkconf_id = var.wan_secondary_id
   }
 
@@ -64,6 +65,7 @@ resource "unifi_device" "udm_pro_max" {
     index                 = 9
     name                  = "Port 9"
     op_mode               = "switch"
+    forward               = "customize"
     native_networkconf_id = var.wan_primary_id
   }
 
@@ -71,6 +73,7 @@ resource "unifi_device" "udm_pro_max" {
     index           = 10
     name            = "SFP+ 1"
     op_mode         = "switch"
+    forward         = "customize"
     port_profile_id = var.port_profile_private_servers_id
   }
 
@@ -78,6 +81,7 @@ resource "unifi_device" "udm_pro_max" {
     index                 = 11
     name                  = "SFP+ 2"
     op_mode               = "switch"
+    forward               = "customize"
     native_networkconf_id = var.network_default_id
   }
 

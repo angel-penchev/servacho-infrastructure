@@ -38,6 +38,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index           = 1
     name            = "LR-01"
     op_mode         = "switch"
+    forward         = "customize"
     port_profile_id = var.port_profile_main_id
   }
 
@@ -45,6 +46,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index           = 2
     name            = "LR-02"
     op_mode         = "switch"
+    forward         = "customize"
     port_profile_id = var.port_profile_main_id
   }
 
@@ -52,6 +54,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index           = 3
     name            = "LR-03"
     op_mode         = "switch"
+    forward         = "customize"
     port_profile_id = var.port_profile_main_id
   }
 
@@ -59,6 +62,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index           = 4
     name            = "LR-04"
     op_mode         = "switch"
+    forward         = "customize"
     port_profile_id = var.port_profile_main_id
   }
 
@@ -66,6 +70,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index           = 5
     name            = "LR-05"
     op_mode         = "switch"
+    forward         = "customize"
     port_profile_id = var.port_profile_main_id
   }
 
@@ -73,6 +78,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index           = 6
     name            = "LR-06"
     op_mode         = "switch"
+    forward         = "customize"
     port_profile_id = var.port_profile_iot_id
   }
 
@@ -80,6 +86,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index           = 7
     name            = "Balc-01"
     op_mode         = "switch"
+    forward         = "customize"
     port_profile_id = var.port_profile_main_id
   }
 
@@ -87,6 +94,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index           = 8
     name            = "Balc-02"
     op_mode         = "switch"
+    forward         = "customize"
     port_profile_id = var.port_profile_main_id
   }
 
@@ -115,6 +123,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index           = 12
     name            = "Servacho-Gosho-JetKVM"
     op_mode         = "switch"
+    forward         = "customize"
     port_profile_id = var.port_profile_private_servers_id
   }
 
@@ -122,6 +131,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index           = 13
     name            = "K-01"
     op_mode         = "switch"
+    forward         = "customize"
     port_profile_id = var.port_profile_main_id
   }
 
@@ -129,6 +139,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index           = 14
     name            = "K-02"
     op_mode         = "switch"
+    forward         = "customize"
     port_profile_id = var.port_profile_main_id
   }
 
@@ -136,6 +147,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index           = 15
     name            = "BR-07"
     op_mode         = "switch"
+    forward         = "customize"
     port_profile_id = var.port_profile_main_id
   }
 
@@ -143,6 +155,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index           = 16
     name            = "BR-08"
     op_mode         = "switch"
+    forward         = "customize"
     port_profile_id = var.port_profile_main_id
   }
 
@@ -150,6 +163,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index           = 17
     name            = "BR-01"
     op_mode         = "switch"
+    forward         = "customize"
     port_profile_id = var.port_profile_main_id
   }
 
@@ -157,6 +171,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index                 = 18
     name                  = "BR-02"
     op_mode               = "switch"
+    forward               = "customize"
     native_networkconf_id = var.network_public_servers_id
   }
 
@@ -164,6 +179,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index           = 19
     name            = "BR-03"
     op_mode         = "switch"
+    forward         = "customize"
     port_profile_id = var.port_profile_main_id
   }
 
@@ -171,6 +187,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index           = 20
     name            = "BR-04"
     op_mode         = "switch"
+    forward         = "customize"
     port_profile_id = var.port_profile_public_servers_id
   }
 
@@ -178,6 +195,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index           = 21
     name            = "BR-05"
     op_mode         = "switch"
+    forward         = "customize"
     port_profile_id = var.port_profile_main_id
   }
 
@@ -185,6 +203,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index           = 22
     name            = "BR-06"
     op_mode         = "switch"
+    forward         = "customize"
     port_profile_id = var.port_profile_main_id
   }
 
@@ -192,6 +211,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index                 = 23
     name                  = "LR-WiFi"
     op_mode               = "switch"
+    forward               = "customize"
     native_networkconf_id = var.network_default_id
   }
 
@@ -199,6 +219,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index                 = 24
     name                  = "BR-WiFi"
     op_mode               = "switch"
+    forward               = "customize"
     native_networkconf_id = var.network_default_id
   }
 
@@ -206,11 +227,13 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index   = 25
     name    = "SFP+ 1"
     op_mode = "switch"
+    forward = "customize"
   }
 
   port_override {
     index   = 26
     name    = "SFP+ 2"
     op_mode = "switch"
+    forward = "customize"
   }
 }

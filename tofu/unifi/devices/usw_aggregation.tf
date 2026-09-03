@@ -8,6 +8,7 @@ resource "unifi_device" "usw_aggregation" {
     index           = 1
     name            = "SFP+ 1"
     op_mode         = "switch"
+    forward         = "customize"
     port_profile_id = var.port_profile_private_servers_id
   }
 
@@ -15,6 +16,7 @@ resource "unifi_device" "usw_aggregation" {
     index   = 2
     name    = "SFP+ 2"
     op_mode = "switch"
+    forward = "customize"
   }
 
   port_override {
@@ -56,6 +58,7 @@ resource "unifi_device" "usw_aggregation" {
     index   = 8
     name    = "SFP+ 8"
     op_mode = "switch"
+    forward = "customize"
   }
 
   # FIXME(unifi): The ubiquiti-community/unifi provider has a bug where SFP+ fiber ports
