@@ -28,7 +28,7 @@ resource "unifi_wlan" "stkr" {
   # (redacted vs unredacted) and wlan_bands than what is defined in state.
   # We must ignore these to prevent "inconsistent result after apply" crashes.
   lifecycle {
-    ignore_changes = [passphrase, wlan_bands]
+    ignore_changes = [passphrase, wlan_bands, wlan_band]
   }
 }
 
@@ -53,7 +53,7 @@ resource "unifi_wlan" "stkr_guest" {
   # (redacted vs unredacted) and wlan_bands than what is defined in state.
   # We must ignore these to prevent "inconsistent result after apply" crashes.
   lifecycle {
-    ignore_changes = [passphrase, wlan_bands]
+    ignore_changes = [passphrase, wlan_bands, wlan_band]
   }
 }
 
@@ -79,12 +79,12 @@ resource "unifi_wlan" "stkr_iot" {
   # (redacted vs unredacted) and wlan_bands than what is defined in state.
   # We must ignore these to prevent "inconsistent result after apply" crashes.
   lifecycle {
-    ignore_changes = [passphrase, wlan_bands]
+    ignore_changes = [passphrase, wlan_bands, wlan_band]
   }
 }
 
-resource "unifi_wlan" "stkr_iot2_4" {
-  name       = "StKr_IoT2.4"
+resource "unifi_wlan" "stkr_iot_2_4ghz" {
+  name       = "StKr_IoT_2.4GHz"
   security   = "wpapsk"
   passphrase = var.wlan_iot_passphrase
   network_id = var.network_iot_id
@@ -102,6 +102,8 @@ resource "unifi_wlan" "stkr_iot2_4" {
   hide_ssid = false
 
   lifecycle {
-    ignore_changes = [passphrase, wlan_bands]
+    ignore_changes = [passphrase, wlan_bands, wlan_band]
   }
 }
+
+

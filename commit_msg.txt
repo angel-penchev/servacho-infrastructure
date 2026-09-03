@@ -1,0 +1,7 @@
+fix: address Copilot review comments
+
+- Rename "Ghz" to "GHz" in UniFi WLAN SSID for consistency.
+- Change GitHub Action branch filter from "*" to "**" to match sub-branches.
+- Quote VAULT_ADDR in auto-unseal action to prevent word splitting.
+- Use grep -E for resilient JSON "sealed" matching in health checks.
+- Disable glob expansion (set -f) when iterating over unseal keys.

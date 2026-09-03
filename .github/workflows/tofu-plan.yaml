@@ -2,7 +2,7 @@ name: OpenTofu Plan
 
 on:
   pull_request:
-    branches: [main]
+    branches: ["**"]
 
 permissions:
   contents: read
@@ -22,27 +22,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
+      - name: Auto-Unseal OpenBao (if sealed)
+        uses: ./.github/actions/auto-unseal
+        with:
+          unseal_key: ${{ secrets.OPENBAO_UNSEAL_KEY }}
+          vault_addr: ${{ env.VAULT_ADDR }}
+
       - name: OpenTofu init
         env:
-          VAULT_TOKEN: ${{ secrets.OPENBAO_TOFU_TOKEN }}
+          VAULT_TOKEN: ${{ secrets.OPENBAO_ROOT_TOKEN }}
         run: tofu -chdir=tofu init
 
       - name: OpenTofu plan
         id: plan
         env:
-          VAULT_TOKEN: ${{ secrets.OPENBAO_TOFU_TOKEN }}
+          VAULT_TOKEN: ${{ secrets.OPENBAO_ROOT_TOKEN }}
         run: |
-          # Use pipefail so that if tofu fails, the whole pipeline step registers the failure
           set -o pipefail
-          
-          # Run tofu with -input=false, and use 'tee' to show logs in real-time while saving to the file
           tofu -chdir=tofu plan -no-color -input=false -out=tfplan 2>&1 | tee plan_output.txt
-          
-          # Capture the exit code of the tofu command (not the tee command)
           exit_code=${PIPESTATUS[0]}
           echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
-          
-          # Don't fail the step here so the next PR comment step can run
           exit 0
 
       - name: Post plan to PR
@@ -55,12 +54,10 @@ jobs:
             const fs = require('fs');
             const path = 'plan_output.txt';
             let planOutput = fs.existsSync(path) ? fs.readFileSync(path, 'utf8') : 'No plan output found.';
-
             const maxLen = 60000;
             if (planOutput.length > maxLen) {
               planOutput = `...truncated...\n\n${planOutput.slice(-maxLen)}`;
             }
-
             const status = process.env.PLAN_EXIT_CODE === '0' ? 'Success' : 'Failed';
             const timestamp = new Date().toUTCString();
             const body = [
@@ -72,20 +69,14 @@ jobs:
               planOutput,
               '```'
             ].join('\n');
-
-            // 1. Get every existing comment, not just GitHub's first page.
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
             });
-
-            // 2. Find the comment made by the bot that contains our header
             const botComment = comments.find(comment => {
               return comment.user.type === 'Bot' && comment.body.includes('### OpenTofu Plan Results');
             });
-
-            // 3. Update if found, otherwise create a new one
             if (botComment) {
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,

@@ -36,14 +36,20 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.sha }}
 
+      - name: Auto-Unseal OpenBao (if sealed)
+        uses: ./.github/actions/auto-unseal
+        with:
+          unseal_key: ${{ secrets.OPENBAO_UNSEAL_KEY }}
+          vault_addr: ${{ env.VAULT_ADDR }}
+
       - name: OpenTofu init
         env:
-          VAULT_TOKEN: ${{ secrets.OPENBAO_TOFU_TOKEN }}
+          VAULT_TOKEN: ${{ secrets.OPENBAO_ROOT_TOKEN }}
         run: tofu -chdir=tofu init
 
       - name: OpenTofu apply
         env:
-          VAULT_TOKEN: ${{ secrets.OPENBAO_TOFU_TOKEN }}
+          VAULT_TOKEN: ${{ secrets.OPENBAO_ROOT_TOKEN }}
         run: tofu -chdir=tofu apply -auto-approve
 
   apply-with-approval:
@@ -60,12 +66,18 @@ jobs:
         with:
           ref: ${{ inputs.branch }}
 
+      - name: Auto-Unseal OpenBao (if sealed)
+        uses: ./.github/actions/auto-unseal
+        with:
+          unseal_key: ${{ secrets.OPENBAO_UNSEAL_KEY }}
+          vault_addr: ${{ env.VAULT_ADDR }}
+
       - name: OpenTofu init
         env:
-          VAULT_TOKEN: ${{ secrets.OPENBAO_TOFU_TOKEN }}
+          VAULT_TOKEN: ${{ secrets.OPENBAO_ROOT_TOKEN }}
         run: tofu -chdir=tofu init
 
       - name: OpenTofu apply
         env:
-          VAULT_TOKEN: ${{ secrets.OPENBAO_TOFU_TOKEN }}
+          VAULT_TOKEN: ${{ secrets.OPENBAO_ROOT_TOKEN }}
         run: tofu -chdir=tofu apply -auto-approve
