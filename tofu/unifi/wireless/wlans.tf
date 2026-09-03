@@ -106,8 +106,4 @@ resource "unifi_wlan" "stkr_iot_2_4ghz" {
   }
 }
 
-moved {
-  from = unifi_wlan.stkr_iot2_4
-  to   = unifi_wlan.stkr_iot_2_4ghz
-}
 
