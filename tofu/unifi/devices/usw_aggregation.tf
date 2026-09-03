@@ -7,8 +7,8 @@ resource "unifi_device" "usw_aggregation" {
   port_override {
     index           = 1
     name            = "SFP+ 1"
-    port_profile_id = var.port_profile_private_servers_id
     op_mode         = "switch"
+    port_profile_id = var.port_profile_private_servers_id
   }
 
   port_override {
@@ -20,36 +20,36 @@ resource "unifi_device" "usw_aggregation" {
   port_override {
     index   = 3
     name    = "SFP+ 3"
-    forward = "disabled"
     op_mode = "switch"
+    forward = "disabled"
   }
 
   port_override {
     index   = 4
     name    = "SFP+ 4"
-    forward = "disabled"
     op_mode = "switch"
+    forward = "disabled"
   }
 
   port_override {
     index   = 5
     name    = "SFP+ 5"
-    forward = "disabled"
     op_mode = "switch"
+    forward = "disabled"
   }
 
   port_override {
     index   = 6
     name    = "SFP+ 6"
-    forward = "disabled"
     op_mode = "switch"
+    forward = "disabled"
   }
 
   port_override {
     index   = 7
     name    = "SFP+ 7"
-    forward = "disabled"
     op_mode = "switch"
+    forward = "disabled"
   }
 
   port_override {

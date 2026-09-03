@@ -14,50 +14,50 @@ resource "unifi_device" "udm_pro_max" {
   port_override {
     index   = 2
     name    = "Port 2"
-    forward = "disabled"
     op_mode = "switch"
+    forward = "disabled"
   }
 
   port_override {
     index   = 3
     name    = "Port 3"
-    forward = "disabled"
     op_mode = "switch"
+    forward = "disabled"
   }
 
   port_override {
     index   = 4
     name    = "Port 4"
-    forward = "disabled"
     op_mode = "switch"
+    forward = "disabled"
   }
 
   port_override {
     index   = 5
     name    = "Port 5"
-    forward = "disabled"
     op_mode = "switch"
+    forward = "disabled"
   }
 
   port_override {
     index   = 6
     name    = "Port 6"
-    forward = "disabled"
     op_mode = "switch"
+    forward = "disabled"
   }
 
   port_override {
     index   = 7
     name    = "Port 7"
-    forward = "disabled"
     op_mode = "switch"
+    forward = "disabled"
   }
 
   port_override {
     index   = 8
     name    = "Port 8"
-    forward = "disabled"
     op_mode = "switch"
+    forward = "disabled"
   }
 
   port_override {
@@ -70,8 +70,8 @@ resource "unifi_device" "udm_pro_max" {
   port_override {
     index           = 10
     name            = "SFP+ 1"
-    port_profile_id = var.port_profile_private_servers_id
     op_mode         = "switch"
+    port_profile_id = var.port_profile_private_servers_id
   }
 
   port_override {
