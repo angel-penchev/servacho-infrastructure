@@ -7,6 +7,7 @@ module "devices" {
   port_profile_iot_id             = module.core.port_profile_iot_id
   port_profile_public_servers_id  = module.core.port_profile_public_servers_id
   port_profile_private_servers_id = module.core.port_profile_private_servers_id
+  port_profile_unifi_devices_id   = module.core.port_profile_unifi_devices_id
   wan_primary_id                  = module.core.wan_vivacom_primary_id
   wan_secondary_id                = module.core.wan_vivacom_secondary_id
 }
@@ -27,11 +28,11 @@ module "security" {
 module "wireless" {
   source = "./wireless"
 
-  network_main_id        = module.core.network_main_id
-  network_guest_id       = module.core.network_guest_id
-  network_iot_id         = module.core.network_iot_id
-  wlan_guest_passphrase  = var.wlan_guest_passphrase
-  wlan_iot_passphrase    = var.wlan_iot_passphrase
+  network_main_id       = module.core.network_main_id
+  network_guest_id      = module.core.network_guest_id
+  network_iot_id        = module.core.network_iot_id
+  wlan_guest_passphrase = var.wlan_guest_passphrase
+  wlan_iot_passphrase   = var.wlan_iot_passphrase
 }
 
 module "system" {

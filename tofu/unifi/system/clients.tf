@@ -69,3 +69,11 @@ resource "unifi_client" "minecraft_fabric_server" {
   network_id     = var.network_public_servers_id
   allow_existing = true
 }
+
+resource "unifi_client" "servacho_gosho_jetkvm" {
+  mac            = "38:52:53:0a:09:87"
+  name           = "Servacho-Gosho-JetKVM"
+  fixed_ip       = "192.168.5.20"
+  network_id     = var.network_private_servers_id
+  allow_existing = true
+}

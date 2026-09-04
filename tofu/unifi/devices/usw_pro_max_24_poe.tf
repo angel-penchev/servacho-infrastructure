@@ -5,15 +5,6 @@ resource "unifi_device" "usw_pro_max_24_poe" {
   disabled           = false
   flowctrl_enabled   = false
   jumboframe_enabled = false
-
-  # FIXME(unifi): The ubiquiti-community/unifi provider has a bug where SFP+ fiber ports
-  # omit RJ45-specific attributes (autoneg, stormctrl_*, lldpmed_enabled) from the API response.
-  # This causes schema validation crashes ("inconsistent result after apply").
-  # Keep this ignore_changes block until the provider is patched.
-  lifecycle {
-    ignore_changes = [port_override]
-  }
-
   config_network = {
     type = "dhcp"
   }
@@ -34,183 +25,219 @@ resource "unifi_device" "usw_pro_max_24_poe" {
   #  }
   */
 
+  # FIXME(unifi): The ubiquiti-community/unifi provider crashes on apply when attempting 
+  # to disable ports due to a bug parsing the empty MAC allowlist required for the new
+  # UniFi OS Port State toggles.
+  # Tracking PR: https://github.com/ubiquiti-community/terraform-provider-unifi/pull/470
+  # Until it is merged, we must ignore port_override changes so they can be disabled via the UI.
+  lifecycle {
+    ignore_changes = [port_override]
+  }
+
   port_override {
     index           = 1
     name            = "LR-01"
-    port_profile_id = var.port_profile_main_id
     op_mode         = "switch"
+    forward         = "customize"
+    port_profile_id = var.port_profile_main_id
   }
 
   port_override {
     index           = 2
     name            = "LR-02"
-    port_profile_id = var.port_profile_main_id
     op_mode         = "switch"
+    forward         = "customize"
+    port_profile_id = var.port_profile_main_id
   }
 
   port_override {
     index           = 3
     name            = "LR-03"
-    port_profile_id = var.port_profile_main_id
     op_mode         = "switch"
+    forward         = "customize"
+    port_profile_id = var.port_profile_main_id
   }
 
   port_override {
     index           = 4
     name            = "LR-04"
-    port_profile_id = var.port_profile_main_id
     op_mode         = "switch"
+    forward         = "customize"
+    port_profile_id = var.port_profile_main_id
   }
 
   port_override {
     index           = 5
     name            = "LR-05"
-    port_profile_id = var.port_profile_main_id
     op_mode         = "switch"
+    forward         = "customize"
+    port_profile_id = var.port_profile_main_id
   }
 
   port_override {
     index           = 6
     name            = "LR-06"
-    port_profile_id = var.port_profile_iot_id
     op_mode         = "switch"
+    forward         = "customize"
+    port_profile_id = var.port_profile_iot_id
   }
 
   port_override {
     index           = 7
     name            = "Balc-01"
-    port_profile_id = var.port_profile_main_id
     op_mode         = "switch"
+    forward         = "customize"
+    port_profile_id = var.port_profile_main_id
   }
 
   port_override {
     index           = 8
     name            = "Balc-02"
+    op_mode         = "switch"
+    forward         = "customize"
     port_profile_id = var.port_profile_main_id
+  }
+
+  port_override {
+    index    = 9
+    name     = "Port 9"
+    op_mode  = "switch"
+    forward  = "disabled"
+    poe_mode = "off"
+  }
+
+  port_override {
+    index    = 10
+    name     = "Port 10"
+    op_mode  = "switch"
+    forward  = "disabled"
+    poe_mode = "off"
+  }
+
+  port_override {
+    index    = 11
+    name     = "Port 11"
+    op_mode  = "switch"
+    forward  = "disabled"
+    poe_mode = "off"
+  }
+
+  port_override {
+    index           = 12
+    name            = "Servacho-Gosho-JetKVM"
     op_mode         = "switch"
-  }
-
-  port_override {
-    index   = 9
-    name    = "Port 9"
-    forward = "disabled"
-    op_mode = "switch"
-  }
-
-  port_override {
-    index   = 10
-    name    = "Port 10"
-    forward = "disabled"
-    op_mode = "switch"
-  }
-
-  port_override {
-    index           = 11
-    name            = "Port 11"
-    port_profile_id = var.port_profile_public_servers_id
-    op_mode         = "switch"
-  }
-
-  port_override {
-    index                 = 12
-    name                  = "Port 12"
-    op_mode               = "switch"
-    native_networkconf_id = var.network_default_id
+    forward         = "customize"
+    port_profile_id = var.port_profile_private_servers_id
   }
 
   port_override {
     index           = 13
     name            = "K-01"
-    port_profile_id = var.port_profile_main_id
     op_mode         = "switch"
+    forward         = "customize"
+    port_profile_id = var.port_profile_main_id
   }
 
   port_override {
     index           = 14
     name            = "K-02"
-    port_profile_id = var.port_profile_main_id
     op_mode         = "switch"
+    forward         = "customize"
+    port_profile_id = var.port_profile_main_id
   }
 
   port_override {
     index           = 15
     name            = "BR-07"
-    port_profile_id = var.port_profile_main_id
     op_mode         = "switch"
+    forward         = "customize"
+    port_profile_id = var.port_profile_main_id
   }
 
   port_override {
     index           = 16
     name            = "BR-08"
-    port_profile_id = var.port_profile_main_id
     op_mode         = "switch"
+    forward         = "customize"
+    port_profile_id = var.port_profile_main_id
   }
 
   port_override {
     index           = 17
     name            = "BR-01"
-    port_profile_id = var.port_profile_main_id
     op_mode         = "switch"
+    forward         = "customize"
+    port_profile_id = var.port_profile_main_id
   }
 
   port_override {
     index                 = 18
     name                  = "BR-02"
     op_mode               = "switch"
+    forward               = "customize"
     native_networkconf_id = var.network_public_servers_id
   }
 
   port_override {
     index           = 19
     name            = "BR-03"
-    port_profile_id = var.port_profile_main_id
     op_mode         = "switch"
+    forward         = "customize"
+    port_profile_id = var.port_profile_main_id
   }
 
   port_override {
     index           = 20
     name            = "BR-04"
-    port_profile_id = var.port_profile_public_servers_id
     op_mode         = "switch"
+    forward         = "customize"
+    port_profile_id = var.port_profile_public_servers_id
   }
 
   port_override {
     index           = 21
     name            = "BR-05"
-    port_profile_id = var.port_profile_main_id
     op_mode         = "switch"
+    forward         = "customize"
+    port_profile_id = var.port_profile_main_id
   }
 
   port_override {
     index           = 22
     name            = "BR-06"
-    port_profile_id = var.port_profile_main_id
     op_mode         = "switch"
+    forward         = "customize"
+    port_profile_id = var.port_profile_main_id
   }
 
   port_override {
-    index                 = 23
-    name                  = "LR-WiFi"
-    op_mode               = "switch"
-    native_networkconf_id = var.network_default_id
+    index           = 23
+    name            = "LR-WiFi"
+    op_mode         = "switch"
+    forward         = "customize"
+    port_profile_id = var.port_profile_unifi_devices_id
   }
 
   port_override {
-    index                 = 24
-    name                  = "BR-WiFi"
-    op_mode               = "switch"
-    native_networkconf_id = var.network_default_id
+    index           = 24
+    name            = "BR-WiFi"
+    op_mode         = "switch"
+    forward         = "customize"
+    port_profile_id = var.port_profile_unifi_devices_id
   }
 
   port_override {
     index   = 25
     name    = "SFP+ 1"
     op_mode = "switch"
+    forward = "customize"
   }
 
   port_override {
-    index   = 26
-    name    = "SFP+ 2"
-    op_mode = "switch"
+    index           = 26
+    name            = "UDM-Pro-Max"
+    op_mode         = "switch"
+    forward         = "customize"
+    port_profile_id = var.port_profile_unifi_devices_id
   }
 }

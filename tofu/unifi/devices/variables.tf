@@ -29,3 +29,6 @@ variable "wan_primary_id" {
 variable "wan_secondary_id" {
   type = string
 }
+variable "port_profile_unifi_devices_id" { type = string }
+
+
