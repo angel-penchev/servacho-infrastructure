@@ -7,6 +7,7 @@ module "devices" {
   port_profile_iot_id             = module.core.port_profile_iot_id
   port_profile_public_servers_id  = module.core.port_profile_public_servers_id
   port_profile_private_servers_id = module.core.port_profile_private_servers_id
+  port_profile_unifi_devices_id   = module.core.port_profile_unifi_devices_id
   wan_primary_id                  = module.core.wan_vivacom_primary_id
   wan_secondary_id                = module.core.wan_vivacom_secondary_id
 }

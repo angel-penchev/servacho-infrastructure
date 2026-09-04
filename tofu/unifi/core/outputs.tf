@@ -15,3 +15,4 @@ output "port_profile_private_servers_id" { value = unifi_port_profile.private_se
 
 output "wan_vivacom_primary_id" { value = unifi_wan.vivacom_primary.id }
 output "wan_vivacom_secondary_id" { value = unifi_wan.vivacom_secondary.id }
+output "port_profile_unifi_devices_id" { value = unifi_port_profile.unifi_devices.id }

@@ -41,3 +41,14 @@ resource "unifi_port_profile" "iot" {
   tagged_vlan_mgmt      = "auto"
   stp_port_mode         = false
 }
+
+resource "unifi_port_profile" "unifi_devices" {
+  name                  = "UniFi Devices"
+  forward               = "customize"
+  native_networkconf_id = unifi_network.default.id
+  poe_mode              = "auto"
+  autoneg               = true
+  dot1x_ctrl            = "auto"
+  tagged_vlan_mgmt      = "auto"
+  stp_port_mode         = true
+}

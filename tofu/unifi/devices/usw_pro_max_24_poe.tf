@@ -208,19 +208,19 @@ resource "unifi_device" "usw_pro_max_24_poe" {
   }
 
   port_override {
-    index                 = 23
-    name                  = "LR-WiFi"
-    op_mode               = "switch"
-    forward               = "customize"
-    native_networkconf_id = var.network_default_id
+    index           = 23
+    name            = "LR-WiFi"
+    op_mode         = "switch"
+    forward         = "customize"
+    port_profile_id = var.port_profile_unifi_devices_id
   }
 
   port_override {
-    index                 = 24
-    name                  = "BR-WiFi"
-    op_mode               = "switch"
-    forward               = "customize"
-    native_networkconf_id = var.network_default_id
+    index           = 24
+    name            = "BR-WiFi"
+    op_mode         = "switch"
+    forward         = "customize"
+    port_profile_id = var.port_profile_unifi_devices_id
   }
 
   port_override {
@@ -231,9 +231,10 @@ resource "unifi_device" "usw_pro_max_24_poe" {
   }
 
   port_override {
-    index   = 26
-    name    = "SFP+ 2"
-    op_mode = "switch"
-    forward = "customize"
+    index           = 26
+    name            = "SFP+ 2"
+    op_mode         = "switch"
+    forward         = "customize"
+    port_profile_id = var.port_profile_unifi_devices_id
   }
 }

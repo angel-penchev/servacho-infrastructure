@@ -78,11 +78,11 @@ resource "unifi_device" "udm_pro_max" {
   }
 
   port_override {
-    index                 = 11
-    name                  = "SFP+ 2"
-    op_mode               = "switch"
-    forward               = "customize"
-    native_networkconf_id = var.network_default_id
+    index           = 11
+    name            = "SFP+ 2"
+    op_mode         = "switch"
+    forward         = "customize"
+    port_profile_id = var.port_profile_unifi_devices_id
   }
 
   # FIXME(unifi): The UniFi API throws an error when trying to override WAN ports (Port 1 and Port 9).
