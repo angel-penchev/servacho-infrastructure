@@ -91,7 +91,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
 
   port_override {
     index    = 9
-    name     = "Port 9 (Disabled)"
+    name     = "Port 9"
     op_mode  = "switch"
     forward  = "disabled"
     poe_mode = "off"
@@ -99,7 +99,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
 
   port_override {
     index    = 10
-    name     = "Port 10 (Disabled)"
+    name     = "Port 10"
     op_mode  = "switch"
     forward  = "disabled"
     poe_mode = "off"
@@ -107,7 +107,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
 
   port_override {
     index    = 11
-    name     = "Port 11 (Disabled)"
+    name     = "Port 11"
     op_mode  = "switch"
     forward  = "disabled"
     poe_mode = "off"

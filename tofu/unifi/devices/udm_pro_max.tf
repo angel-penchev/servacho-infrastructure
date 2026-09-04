@@ -14,7 +14,7 @@ resource "unifi_device" "udm_pro_max" {
 
   port_override {
     index    = 2
-    name     = "Port 2 (Disabled)"
+    name     = "Port 2"
     op_mode  = "switch"
     forward  = "disabled"
     poe_mode = "off"
@@ -22,7 +22,7 @@ resource "unifi_device" "udm_pro_max" {
 
   port_override {
     index    = 3
-    name     = "Port 3 (Disabled)"
+    name     = "Port 3"
     op_mode  = "switch"
     forward  = "disabled"
     poe_mode = "off"
@@ -30,7 +30,7 @@ resource "unifi_device" "udm_pro_max" {
 
   port_override {
     index    = 4
-    name     = "Port 4 (Disabled)"
+    name     = "Port 4"
     op_mode  = "switch"
     forward  = "disabled"
     poe_mode = "off"
@@ -38,7 +38,7 @@ resource "unifi_device" "udm_pro_max" {
 
   port_override {
     index    = 5
-    name     = "Port 5 (Disabled)"
+    name     = "Port 5"
     op_mode  = "switch"
     forward  = "disabled"
     poe_mode = "off"
@@ -46,7 +46,7 @@ resource "unifi_device" "udm_pro_max" {
 
   port_override {
     index    = 6
-    name     = "Port 6 (Disabled)"
+    name     = "Port 6"
     op_mode  = "switch"
     forward  = "disabled"
     poe_mode = "off"
@@ -54,7 +54,7 @@ resource "unifi_device" "udm_pro_max" {
 
   port_override {
     index    = 7
-    name     = "Port 7 (Disabled)"
+    name     = "Port 7"
     op_mode  = "switch"
     forward  = "disabled"
     poe_mode = "off"
@@ -62,7 +62,7 @@ resource "unifi_device" "udm_pro_max" {
 
   port_override {
     index    = 8
-    name     = "Port 8 (Disabled)"
+    name     = "Port 8"
     op_mode  = "switch"
     forward  = "disabled"
     poe_mode = "off"
