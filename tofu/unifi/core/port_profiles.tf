@@ -44,7 +44,7 @@ resource "unifi_port_profile" "iot" {
 
 resource "unifi_port_profile" "unifi_devices" {
   name                  = "UniFi Devices"
-  forward               = "customize"
+  forward               = "all"
   native_networkconf_id = unifi_network.default.id
   poe_mode              = "auto"
   autoneg               = true
