@@ -61,12 +61,4 @@ resource "unifi_device" "usw_aggregation" {
     forward         = "customize"
     port_profile_id = var.port_profile_unifi_devices_id
   }
-
-  # FIXME(unifi): The ubiquiti-community/unifi provider has a bug where SFP+ fiber ports
-  # omit RJ45-specific attributes (autoneg, stormctrl_*, lldpmed_enabled) from the API response.
-  # This causes schema validation crashes ("inconsistent result after apply").
-  # Keep this ignore_changes block until the provider is patched.
-  lifecycle {
-    ignore_changes = [port_override]
-  }
 }
