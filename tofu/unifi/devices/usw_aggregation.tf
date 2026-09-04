@@ -13,45 +13,51 @@ resource "unifi_device" "usw_aggregation" {
   }
 
   port_override {
-    index           = 2
-    name            = "SFP+ 2"
-    op_mode         = "switch"
-    port_profile_id = var.port_profile_disabled_id
+    index    = 2
+    name     = "SFP+ 2 (Disabled)"
+    op_mode  = "switch"
+    forward  = "disabled"
+    poe_mode = "off"
   }
 
   port_override {
-    index           = 3
-    name            = "SFP+ 3"
-    op_mode         = "switch"
-    port_profile_id = var.port_profile_disabled_id
+    index    = 3
+    name     = "SFP+ 3 (Disabled)"
+    op_mode  = "switch"
+    forward  = "disabled"
+    poe_mode = "off"
   }
 
   port_override {
-    index           = 4
-    name            = "SFP+ 4"
-    op_mode         = "switch"
-    port_profile_id = var.port_profile_disabled_id
+    index    = 4
+    name     = "SFP+ 4 (Disabled)"
+    op_mode  = "switch"
+    forward  = "disabled"
+    poe_mode = "off"
   }
 
   port_override {
-    index           = 5
-    name            = "SFP+ 5"
-    op_mode         = "switch"
-    port_profile_id = var.port_profile_disabled_id
+    index    = 5
+    name     = "SFP+ 5 (Disabled)"
+    op_mode  = "switch"
+    forward  = "disabled"
+    poe_mode = "off"
   }
 
   port_override {
-    index           = 6
-    name            = "SFP+ 6"
-    op_mode         = "switch"
-    port_profile_id = var.port_profile_disabled_id
+    index    = 6
+    name     = "SFP+ 6 (Disabled)"
+    op_mode  = "switch"
+    forward  = "disabled"
+    poe_mode = "off"
   }
 
   port_override {
-    index           = 7
-    name            = "SFP+ 7"
-    op_mode         = "switch"
-    port_profile_id = var.port_profile_disabled_id
+    index    = 7
+    name     = "SFP+ 7 (Disabled)"
+    op_mode  = "switch"
+    forward  = "disabled"
+    poe_mode = "off"
   }
 
   port_override {
