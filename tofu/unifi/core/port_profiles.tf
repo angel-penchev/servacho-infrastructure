@@ -54,8 +54,4 @@ resource "unifi_port_profile" "unifi_devices" {
 }
 
 
-resource "unifi_port_profile" "disabled" {
-  name     = "Disabled Port"
-  forward  = "disabled"
-  poe_mode = "off"
-}
+
