@@ -4,6 +4,15 @@ resource "unifi_device" "usw_aggregation" {
   forget_on_destroy = false
   disabled          = false
 
+  # FIXME(unifi): The ubiquiti-community/unifi provider crashes on apply when attempting 
+  # to disable ports due to a bug parsing the empty MAC allowlist required for the new
+  # UniFi OS Port State toggles.
+  # Tracking PR: https://github.com/ubiquiti-community/terraform-provider-unifi/pull/470
+  # Until it is merged, we must ignore port_override changes so they can be disabled via the UI.
+  lifecycle {
+    ignore_changes = [port_override]
+  }
+
   port_override {
     index           = 1
     name            = "Servacho-Gosho"
