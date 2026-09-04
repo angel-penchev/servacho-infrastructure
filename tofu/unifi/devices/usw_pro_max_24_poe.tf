@@ -232,7 +232,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
 
   port_override {
     index           = 26
-    name            = "SFP+ 2"
+    name            = "UDM-Pro-Max"
     op_mode         = "switch"
     forward         = "customize"
     port_profile_id = var.port_profile_unifi_devices_id

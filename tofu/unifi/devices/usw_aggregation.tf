@@ -6,7 +6,7 @@ resource "unifi_device" "usw_aggregation" {
 
   port_override {
     index           = 1
-    name            = "SFP+ 1"
+    name            = "Servacho-Gosho"
     op_mode         = "switch"
     forward         = "customize"
     port_profile_id = var.port_profile_private_servers_id
@@ -16,7 +16,7 @@ resource "unifi_device" "usw_aggregation" {
     index   = 2
     name    = "SFP+ 2"
     op_mode = "switch"
-    forward = "customize"
+    forward = "disabled"
   }
 
   port_override {
@@ -56,7 +56,7 @@ resource "unifi_device" "usw_aggregation" {
 
   port_override {
     index           = 8
-    name            = "SFP+ 8"
+    name            = "UDM-Pro-Max"
     op_mode         = "switch"
     forward         = "customize"
     port_profile_id = var.port_profile_unifi_devices_id

@@ -79,7 +79,7 @@ resource "unifi_device" "udm_pro_max" {
 
   port_override {
     index           = 11
-    name            = "SFP+ 2"
+    name            = "USW-Aggregation"
     op_mode         = "switch"
     forward         = "customize"
     port_profile_id = var.port_profile_unifi_devices_id
