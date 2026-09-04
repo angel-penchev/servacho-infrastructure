@@ -17,4 +17,4 @@ output "wan_vivacom_primary_id" { value = unifi_wan.vivacom_primary.id }
 output "wan_vivacom_secondary_id" { value = unifi_wan.vivacom_secondary.id }
 output "port_profile_unifi_devices_id" { value = unifi_port_profile.unifi_devices.id }
 
-output "port_profile_disabled_id" { value = data.unifi_port_profile.disabled.id }
+output "port_profile_disabled_id" { value = unifi_port_profile.disabled.id }
