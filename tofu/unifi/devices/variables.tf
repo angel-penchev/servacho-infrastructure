@@ -30,3 +30,5 @@ variable "wan_secondary_id" {
   type = string
 }
 variable "port_profile_unifi_devices_id" { type = string }
+
+variable "port_profile_disabled_id" { type = string }

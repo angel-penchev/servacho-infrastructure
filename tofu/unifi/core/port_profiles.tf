@@ -52,3 +52,8 @@ resource "unifi_port_profile" "unifi_devices" {
   tagged_vlan_mgmt      = "auto"
   stp_port_mode         = true
 }
+
+
+data "unifi_port_profile" "disabled" {
+  name = "Disabled"
+}

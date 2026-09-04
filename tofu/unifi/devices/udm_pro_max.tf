@@ -13,52 +13,52 @@ resource "unifi_device" "udm_pro_max" {
   }
 
   port_override {
-    index   = 2
-    name    = "Port 2"
-    op_mode = "switch"
-    forward = "disabled"
+    index           = 2
+    name            = "Port 2"
+    op_mode         = "switch"
+    port_profile_id = var.port_profile_disabled_id
   }
 
   port_override {
-    index   = 3
-    name    = "Port 3"
-    op_mode = "switch"
-    forward = "disabled"
+    index           = 3
+    name            = "Port 3"
+    op_mode         = "switch"
+    port_profile_id = var.port_profile_disabled_id
   }
 
   port_override {
-    index   = 4
-    name    = "Port 4"
-    op_mode = "switch"
-    forward = "disabled"
+    index           = 4
+    name            = "Port 4"
+    op_mode         = "switch"
+    port_profile_id = var.port_profile_disabled_id
   }
 
   port_override {
-    index   = 5
-    name    = "Port 5"
-    op_mode = "switch"
-    forward = "disabled"
+    index           = 5
+    name            = "Port 5"
+    op_mode         = "switch"
+    port_profile_id = var.port_profile_disabled_id
   }
 
   port_override {
-    index   = 6
-    name    = "Port 6"
-    op_mode = "switch"
-    forward = "disabled"
+    index           = 6
+    name            = "Port 6"
+    op_mode         = "switch"
+    port_profile_id = var.port_profile_disabled_id
   }
 
   port_override {
-    index   = 7
-    name    = "Port 7"
-    op_mode = "switch"
-    forward = "disabled"
+    index           = 7
+    name            = "Port 7"
+    op_mode         = "switch"
+    port_profile_id = var.port_profile_disabled_id
   }
 
   port_override {
-    index   = 8
-    name    = "Port 8"
-    op_mode = "switch"
-    forward = "disabled"
+    index           = 8
+    name            = "Port 8"
+    op_mode         = "switch"
+    port_profile_id = var.port_profile_disabled_id
   }
 
   port_override {

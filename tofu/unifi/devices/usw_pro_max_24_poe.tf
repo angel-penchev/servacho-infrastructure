@@ -90,24 +90,24 @@ resource "unifi_device" "usw_pro_max_24_poe" {
   }
 
   port_override {
-    index   = 9
-    name    = "Port 9"
-    op_mode = "switch"
-    forward = "disabled"
+    index           = 9
+    name            = "Port 9"
+    op_mode         = "switch"
+    port_profile_id = var.port_profile_disabled_id
   }
 
   port_override {
-    index   = 10
-    name    = "Port 10"
-    op_mode = "switch"
-    forward = "disabled"
+    index           = 10
+    name            = "Port 10"
+    op_mode         = "switch"
+    port_profile_id = var.port_profile_disabled_id
   }
 
   port_override {
-    index   = 11
-    name    = "Port 11"
-    op_mode = "switch"
-    forward = "disabled"
+    index           = 11
+    name            = "Port 11"
+    op_mode         = "switch"
+    port_profile_id = var.port_profile_disabled_id
   }
 
   port_override {
