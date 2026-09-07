@@ -1,7 +1,7 @@
 resource "unifi_vpn_server" "wireguard" {
-  name    = "StKr WireGuard Server"
+  name    = ".StKr WireGuard Server"
   enabled = true
-  subnet  = "192.168.7.1/24"
+  subnet  = "192.168.8.1/24"
 
   wan = {
     interface = "wan"
