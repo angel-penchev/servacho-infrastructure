@@ -99,7 +99,7 @@ resource "unifi_wlan" "stkr_iot_2_4ghz" {
   bss_transition  = true
 
   is_guest  = false
-  hide_ssid = false
+  hide_ssid = true
 
   lifecycle {
     ignore_changes = [passphrase, wlan_bands, wlan_band]

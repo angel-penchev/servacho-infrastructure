@@ -4,6 +4,20 @@ resource "unifi_device" "usw_aggregation" {
   forget_on_destroy = false
   disabled          = false
 
+  # FIXME(unifi): `config_network` is populated by modelToAPIDevice but dropped by
+  # buildMinimalUpdateDevice, so at v0.55.0 it is only honoured on create/adopt --
+  # an update silently discards it and the apply fails with "inconsistent result
+  # after apply". Declared here so the code states the intended reality; it will not
+  # take effect until upstream PR #463 ships (checked 2026-09-08).
+  # https://github.com/ubiquiti-community/terraform-provider-unifi/pull/463
+  config_network = {
+    type    = "static"
+    ip      = "192.168.1.3"
+    netmask = "255.255.255.0"
+    gateway = "192.168.1.1"
+    dns1    = "192.168.1.1"
+  }
+
   # FIXME(unifi): The ubiquiti-community/unifi provider crashes on apply when attempting 
   # to disable ports due to a bug parsing the empty MAC allowlist required for the new
   # UniFi OS Port State toggles.
@@ -12,6 +26,12 @@ resource "unifi_device" "usw_aggregation" {
   lifecycle {
     ignore_changes = [port_override]
   }
+
+  # TODO(port-overrides): every port_override block below is stale -- the factory reset
+  # wiped all custom port names and most assignments, and none of this is reconciled
+  # while ignore_changes is on. See docs/unifi-manual-vs-tofu.md 3.2-3.4 for the
+  # live-vs-code table. Also note `forward = "disabled"` never disabled a port: Port
+  # State is port_security_enabled + an empty MAC allowlist (upstream PR #470).
 
   port_override {
     index           = 1

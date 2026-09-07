@@ -2,6 +2,10 @@ data "unifi_radius_profile" "default" {
   name = "Default"
 }
 
+# TODO(radius-users): vl.penchev and v.todorova do not exist on the controller yet
+# and will be created manually. They are declared here so the intent is recorded, but
+# an apply will fail on the var.radius_users_passwords lookup until both have entries
+# in the Vault `unifi/radius/users` secret.
 locals {
   radius_users = {
     "a.penchev"  = { tunnel_type = 13, tunnel_medium_type = 6, vlan = 2 }
