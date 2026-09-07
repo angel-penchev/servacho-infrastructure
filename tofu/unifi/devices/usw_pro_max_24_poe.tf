@@ -5,8 +5,18 @@ resource "unifi_device" "usw_pro_max_24_poe" {
   disabled           = false
   flowctrl_enabled   = false
   jumboframe_enabled = false
+  # FIXME(unifi): `config_network` is populated by modelToAPIDevice but dropped by
+  # buildMinimalUpdateDevice, so at v0.55.0 it is only honoured on create/adopt --
+  # an update silently discards it and the apply fails with "inconsistent result
+  # after apply". Declared here so the code states the intended reality; it will not
+  # take effect until upstream PR #463 ships (checked 2026-09-08).
+  # https://github.com/ubiquiti-community/terraform-provider-unifi/pull/463
   config_network = {
-    type = "dhcp"
+    type    = "static"
+    ip      = "192.168.1.2"
+    netmask = "255.255.255.0"
+    gateway = "192.168.1.1"
+    dns1    = "192.168.1.1"
   }
 
   # ----------------------------------------------------------------------------
@@ -34,12 +44,18 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     ignore_changes = [port_override]
   }
 
+  # TODO(port-overrides): every port_override block below is stale -- the factory reset
+  # wiped all custom port names and most assignments, and none of this is reconciled
+  # while ignore_changes is on. See docs/unifi-manual-vs-tofu.md 3.2-3.4 for the
+  # live-vs-code table. Also note `forward = "disabled"` never disabled a port: Port
+  # State is port_security_enabled + an empty MAC allowlist (upstream PR #470).
+
   port_override {
     index           = 1
     name            = "LR-01"
     op_mode         = "switch"
     forward         = "customize"
-    port_profile_id = var.port_profile_main_id
+    port_profile_id = var.port_profile_host_device_id
   }
 
   port_override {
@@ -47,7 +63,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name            = "LR-02"
     op_mode         = "switch"
     forward         = "customize"
-    port_profile_id = var.port_profile_main_id
+    port_profile_id = var.port_profile_host_device_id
   }
 
   port_override {
@@ -55,7 +71,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name            = "LR-03"
     op_mode         = "switch"
     forward         = "customize"
-    port_profile_id = var.port_profile_main_id
+    port_profile_id = var.port_profile_host_device_id
   }
 
   port_override {
@@ -63,7 +79,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name            = "LR-04"
     op_mode         = "switch"
     forward         = "customize"
-    port_profile_id = var.port_profile_main_id
+    port_profile_id = var.port_profile_host_device_id
   }
 
   port_override {
@@ -71,7 +87,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name            = "LR-05"
     op_mode         = "switch"
     forward         = "customize"
-    port_profile_id = var.port_profile_main_id
+    port_profile_id = var.port_profile_host_device_id
   }
 
   port_override {
@@ -87,7 +103,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name            = "Balc-01"
     op_mode         = "switch"
     forward         = "customize"
-    port_profile_id = var.port_profile_main_id
+    port_profile_id = var.port_profile_host_device_id
   }
 
   port_override {
@@ -95,7 +111,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name            = "Balc-02"
     op_mode         = "switch"
     forward         = "customize"
-    port_profile_id = var.port_profile_main_id
+    port_profile_id = var.port_profile_host_device_id
   }
 
   port_override {
@@ -135,7 +151,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name            = "K-01"
     op_mode         = "switch"
     forward         = "customize"
-    port_profile_id = var.port_profile_main_id
+    port_profile_id = var.port_profile_host_device_id
   }
 
   port_override {
@@ -143,7 +159,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name            = "K-02"
     op_mode         = "switch"
     forward         = "customize"
-    port_profile_id = var.port_profile_main_id
+    port_profile_id = var.port_profile_host_device_id
   }
 
   port_override {
@@ -151,7 +167,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name            = "BR-07"
     op_mode         = "switch"
     forward         = "customize"
-    port_profile_id = var.port_profile_main_id
+    port_profile_id = var.port_profile_host_device_id
   }
 
   port_override {
@@ -159,7 +175,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name            = "BR-08"
     op_mode         = "switch"
     forward         = "customize"
-    port_profile_id = var.port_profile_main_id
+    port_profile_id = var.port_profile_host_device_id
   }
 
   port_override {
@@ -167,7 +183,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name            = "BR-01"
     op_mode         = "switch"
     forward         = "customize"
-    port_profile_id = var.port_profile_main_id
+    port_profile_id = var.port_profile_host_device_id
   }
 
   port_override {
@@ -183,7 +199,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name            = "BR-03"
     op_mode         = "switch"
     forward         = "customize"
-    port_profile_id = var.port_profile_main_id
+    port_profile_id = var.port_profile_host_device_id
   }
 
   port_override {
@@ -199,7 +215,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name            = "BR-05"
     op_mode         = "switch"
     forward         = "customize"
-    port_profile_id = var.port_profile_main_id
+    port_profile_id = var.port_profile_host_device_id
   }
 
   port_override {
@@ -207,7 +223,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name            = "BR-06"
     op_mode         = "switch"
     forward         = "customize"
-    port_profile_id = var.port_profile_main_id
+    port_profile_id = var.port_profile_host_device_id
   }
 
   port_override {

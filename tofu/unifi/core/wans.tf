@@ -7,7 +7,7 @@ resource "unifi_wan" "vivacom_primary" {
   load_balance = {
     failover_priority = 1
     type              = "weighted"
-    weight            = 50
+    weight            = 99
   }
 
   provider_capabilities = {
@@ -22,14 +22,11 @@ resource "unifi_wan" "vivacom_secondary" {
   type         = "dhcp"
   type_v6      = "disabled"
 
+  # No weight: the controller stores none for a failover-only uplink.
   load_balance = {
     failover_priority = 2
     type              = "failover-only"
-    weight            = 50
   }
 
-  provider_capabilities = {
-    download_kilobits_per_second = 150000
-    upload_kilobits_per_second   = 40000
-  }
+  # No provider_capabilities: none are configured on the controller for WAN2.
 }

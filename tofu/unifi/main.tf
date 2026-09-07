@@ -1,9 +1,8 @@
 module "devices" {
   source = "./devices"
 
-  network_default_id              = module.core.network_default_id
   network_public_servers_id       = module.core.network_public_servers_id
-  port_profile_main_id            = module.core.port_profile_main_id
+  port_profile_host_device_id     = module.core.port_profile_host_device_id
   port_profile_iot_id             = module.core.port_profile_iot_id
   port_profile_public_servers_id  = module.core.port_profile_public_servers_id
   port_profile_private_servers_id = module.core.port_profile_private_servers_id
@@ -20,6 +19,7 @@ module "security" {
   source = "./security"
 
   network_main_id           = module.core.network_main_id
+  network_guest_id          = module.core.network_guest_id
   network_iot_id            = module.core.network_iot_id
   network_public_servers_id = module.core.network_public_servers_id
   radius_users_passwords    = var.radius_users_passwords
@@ -42,5 +42,6 @@ module "system" {
   network_guest_id           = module.core.network_guest_id
   network_private_servers_id = module.core.network_private_servers_id
   network_public_servers_id  = module.core.network_public_servers_id
+  radius_profile_secret      = var.radius_profile_secret
   wireguard_private_key      = var.wireguard_private_key
 }
