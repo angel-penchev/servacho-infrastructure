@@ -1,6 +1,6 @@
 resource "unifi_device" "udm_pro_max" {
   mac               = "28:70:4e:5c:b4:b2"
-  name              = "Dream Machinacho Pro Max"
+  name              = "UDM StKr"
   forget_on_destroy = false
   disabled          = false
 
@@ -12,6 +12,12 @@ resource "unifi_device" "udm_pro_max" {
   lifecycle {
     ignore_changes = [port_override]
   }
+
+  # TODO(port-overrides): every port_override block below is stale -- the factory reset
+  # wiped all custom port names and most assignments, and none of this is reconciled
+  # while ignore_changes is on. See docs/unifi-manual-vs-tofu.md 3.2-3.4 for the
+  # live-vs-code table. Also note `forward = "disabled"` never disabled a port: Port
+  # State is port_security_enabled + an empty MAC allowlist (upstream PR #470).
 
   port_override {
     index                 = 1

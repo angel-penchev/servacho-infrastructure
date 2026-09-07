@@ -1,4 +1,5 @@
 variable "network_main_id" { type = string }
+variable "network_guest_id" { type = string }
 variable "network_iot_id" { type = string }
 variable "network_public_servers_id" { type = string }
 
