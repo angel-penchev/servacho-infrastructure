@@ -6,6 +6,56 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ---
 
+## Pending — authorised 2026-09-09, NOT yet applied
+
+**Nothing in this section has been written to the controller.** Unlike every other section in this file, this is a forward-looking checklist: the admin-panel half of the "Guest can reach the two TVs" change. The OpenTofu half is already committed (`security/firewall.tf`, `core/port_profiles.tf`, `devices/usw_pro_max_24_poe.tf`, `system/mdns.tf`). Convert this into a normal change record — endpoints, before/after values, read-back — once the steps are carried out.
+
+Order matters: **step 1 before step 4**, or the DHCP reservation binds a MAC the TV will discard.
+
+### Devices in scope
+
+| Device | MAC | Currently | Target |
+|---|---|---|---|
+| `SDMC Android TV Box DV8919` — the EON box, **living room** | `b0:b3:69:41:2c:9b` | Guest VLAN 3, `192.168.3.69`, wired Pro Max port 6 | IoT VLAN 6, `192.168.6.10`, named `Living Room TV` |
+| `Sony BRAVIA SmartTV` — **bedroom** | `52:4b:e7:7b:a6:c7` ⚠️ randomized | IoT VLAN 6, `192.168.6.93`, Wi-Fi `StKr_IoT` | IoT VLAN 6, `192.168.6.11`, named `Bedroom TV` |
+| `jetkvm-ce4ac3437e0d935d` | `30:52:53:0d:1a:68` | Guest VLAN 3, **no IP at all**, wired Pro Max port 18 | Private Servers VLAN 5, `192.168.5.23` |
+
+⚠️ The BRAVIA's MAC has the locally-administered bit set (`52:`) — it is a per-SSID random MAC the TV may rotate, which would break both a DHCP reservation and any MAC-based rule. Turn randomization off on the TV (Android TV → Settings → Network & Internet → `StKr_IoT` → Privacy → *Use device MAC*) and re-read the real MAC before reserving. Everything downstream matches on **IP**, not MAC, so a later rotation can only break the reservation, never the policy.
+
+Note the BRAVIA is in the **bedroom**, not the living room, which is why it associates to the Bedroom U7-Pro (`9c:05:d6:d9:af:65`). Only the EON box is a living-room device.
+
+### Steps
+
+| # | Where | What | Codifiable? |
+|---|---|---|---|
+| 1 | On the TV itself | Turn off MAC randomization on the BRAVIA, re-read its MAC in Client Devices | n/a — device-side |
+| 2 | Settings → Profiles → Port → Create New | Create `Public Server` (native VLAN 4), `Private Server` (VLAN 5), `IoT Device` (VLAN 6), **in that order**. Mirror the live profiles: `forward = customize`, `poe_mode = auto`, autoneg, `dot1x_ctrl = force_authorized`, `tagged_vlan_mgmt = auto`, Port Mode not Edge | Yes — `core/port_profiles.tf`, already renamed to the singular form |
+| 3 | UniFi Devices → USW Pro Max 24 PoE → Ports | Port 6 (`LR-06`) → `IoT Device`; port 18 (`BR-02`) → `Private Server` | Only nominally — `devices/usw_pro_max_24_poe.tf` records intent but `ignore_changes = [port_override]` means no apply pushes it (#430 / #438) |
+| 4 | Client Devices → client → Settings → Fixed IP | The three reservations in the table above, plus names for the two TVs | **No.** Every in-place `unifi_client` update fails at v0.55.0 (`inconsistent result after apply: .last_ip`, #428/#447, unreleased) — see §14.5 |
+| 5 | Settings → Security → Policy Engine → Zones | Create zone `IoT` containing the IoT network. It leaves `Internal` automatically | Yes — `unifi_firewall_zone.iot`, but needs `tofu import` afterwards (a custom zone cannot be imported by name) |
+| 6 | Settings → Profiles → Network Lists | Create address group `TV Media Endpoints` = `192.168.6.10`, `192.168.6.11` | Yes — `unifi_firewall_group.tv_media_endpoints` |
+| 7 | Settings → Security → Policy Engine | The four policies below | Yes — all four in `security/firewall.tf` |
+| 8 | Settings → Networks → Global Network Settings | **Leave `Gateway mDNS Proxy` alone** (already `mode: all` / `enabled_for: all`) | **No** — see `system/mdns.tf`; needs an upstream PR in *both* go-unifi and the provider |
+
+### The four policies (step 7)
+
+| Name | Action | Source | Destination | Notes |
+|---|---|---|---|---|
+| `Block IoT Initiated` | BLOCK | zone `IoT`, Any | zone `Internal`, Any | Connection State → **Custom** → `NEW` only. Return Traffic **off** |
+| `Allow Main to IoT` | ALLOW | zone `Internal`, network `Main` | zone `IoT`, Any | **Already exists** (created 2026-09-08, index 10000) — *edit its destination zone*, do not duplicate |
+| `Allow Private Servers to IoT` | ALLOW | zone `Internal`, network `Private Servers` | zone `IoT`, Any | Home Assistant `192.168.5.226` |
+| `Allow Guest to TVs` | ALLOW | zone `Hotspot`, network `Guest` | zone `IoT`, IP group `TV Media Endpoints` | protocol all |
+
+All three ALLOWs get **Allow Return Traffic** on; the BLOCK does not.
+
+**Why the BLOCK is scoped to `NEW`.** `global_network.default_security_posture` on this site is `ALLOW_ALL`, so creating the `IoT` zone does *not* by itself gate anything — a new zone pair permits everything until a policy says otherwise. And policy ordering is unmanageable (`index` is controller-assigned, #348), so a blanket `BLOCK IoT → Internal` might land ahead of the return-traffic companion that `create_allow_respond` generates and kill replies to Main-initiated sessions. Matching only `NEW` is order-independent: IoT can never initiate inward, established/related returns always pass.
+
+**What is already true and needs no change:** the Gateway mDNS Proxy is `mode: "all"`, `enabled_for: "all"` — every service reflected across every network, Guest included. Discovery of the TVs from Guest already works; what was missing was the unicast permission to actually stream to them.
+
+**Home Assistant stays on Private Servers (VLAN 5)**, decided 2026-09-09. Same-VLAN traffic never reaches the gateway, so moving it onto IoT would expose its admin UI and device credentials to every bulb and TV with no policy able to filter it. If an integration genuinely needs to be on-link, give HA a second VLAN-6-tagged interface for discovery rather than relocating it.
+
+---
+
 ## Session 2026-09-08
 
 Authorised by the user for this task list. Six changes, all verified after writing.
@@ -116,12 +166,14 @@ The workstation rebooted mid-task (kernel 7.2.2 → 7.2.3). Nothing was lost: al
 
 #### Two clients without a lease — diagnosed, fix deferred by the user
 
-**No action taken on either port. Explicitly deferred — do not change ports 6 or 18 until asked.**
+**No action was taken on either port in this session — deferred by the user at the time.** *Deferral lifted 2026-09-09: the user authorised both ports. See the "Pending — authorised 2026-09-09" section at the top of this file for the steps; the notes below are the original diagnosis and remain accurate.*
 
 | Port | Client | Currently | **Should be** |
 |---|---|---|---|
 | 18 | `jetkvm-ce4ac3437e0d935d` (`30:52:53:0d:1a:68`) | VLAN 3 (Guest, via 802.1X fallback), no IP | **Private Servers (VLAN 5), fixed IP `192.168.5.23`** |
 | 6 | unnamed (`b0:b3:69:41:2c:9b`) | VLAN 2 (Main), no IP | **IoT (VLAN 6)** |
+
+*Re-read on 2026-09-09: the port-6 client had moved to Guest VLAN 3 with `192.168.3.69` — i.e. the 802.1X fallback caught it once its lease attempt on Main expired — and it identifies as an `SDMC Android TV Box DV8919`, the EON box in the living room. That makes it the wired half of the "Guest can reach the TVs" request, which is what lifted its deferral.*
 
 Both sit on ports the controller has assigned the `Host Device` profile, and both are long enough associated that this is not DHCP still in flight. Every port checked (6, 18, 19, 22) reports `dot1x_mode = "auto"`, `dot1x_status = "authorized"` — note that a port authorised *into the fallback VLAN* also reads `authorized`, so that field does not distinguish "passed 802.1X" from "fell back".
 
@@ -132,8 +184,8 @@ This looks like a symptom of the **still-open port-override drift** (§3.4 of th
 
 Confirmed by the user. Both are infrastructure that should never have been behind `Host Device`/802.1X in the first place — they belong on the per-VLAN profiles that the factory reset destroyed. Two knock-on notes for whoever picks this up:
 
-- **Port 18's target differs from the code.** `devices/usw_pro_max_24_poe.tf` currently has port 18 as `BR-02` with an inline native VLAN of **Public Servers**; the intended network is **Private Servers**. Fix the code as part of the §3.4 port-override work, not just the controller.
-- **`192.168.5.23` is a third JetKVM.** `system/clients.tf` pins JetKVMs at `.20` (`38:52:53:0a:09:87`) and `.21` (`30:52:53:08:45:16`); `30:52:53:0d:1a:68` is neither. It needs its own `unifi_client` entry — which is itself blocked, see §14.5 of the drift report.
+- **Port 18's target differs from the code.** `devices/usw_pro_max_24_poe.tf` had port 18 as `BR-02` with an inline native VLAN of **Public Servers**; the intended network is **Private Servers**. **Resolved 2026-09-09** in code — the block now uses `port_profile_id = var.port_profile_private_servers_id`. The controller side is step 3 of the pending checklist.
+- **`192.168.5.23` is a third JetKVM.** `system/clients.tf` pins JetKVMs at `.20` (`38:52:53:0a:09:87`) and `.21` (`30:52:53:08:45:16`); `30:52:53:0d:1a:68` is neither. It needs its own `unifi_client` entry — still blocked by §14.5, so as of 2026-09-09 the reservation is deliberately controller-only and no resource was added.
 - Port 6's target (IoT) already matches what the code says (`LR-06`, IoT profile), so only the controller is out of step there.
 
 ### 7. `StKr_IoT_2.4GHz` hidden (later the same day)
