@@ -10,11 +10,11 @@ resource "unifi_network" "default" {
   purpose = "corporate"
   subnet  = "192.168.1.1/24"
 
-  # TODO(mdns): still deliberating. Live has this enabled on every corporate network
-  # because the site-wide mdns setting is mode="all"; the per-network flag is largely
-  # cosmetic on UniFi OS gateways (upstream #282). Left at the historical value until
-  # the site-wide mDNS policy is decided.
-  multicast_dns = false
+  # multicast_dns is true on every network here to match live. The flag is cosmetic on
+  # UniFi OS gateways -- they ignore it (upstream #282) -- and what is actually in force
+  # is the site-wide Gateway mDNS Proxy, set to mode="all" / enabled_for="all". See
+  # ../system/mdns.tf for that setting and why it cannot be managed in code.
+  multicast_dns = true
 
   dhcp_server = {
     enabled = true
@@ -56,7 +56,7 @@ resource "unifi_network" "public_servers" {
   purpose       = "corporate"
   vlan          = 4
   subnet        = "192.168.4.1/24"
-  multicast_dns = false # TODO(mdns): see unifi_network.default
+  multicast_dns = true
 
   dhcp_server = {
     enabled = true
@@ -70,7 +70,7 @@ resource "unifi_network" "private_servers" {
   purpose       = "corporate"
   vlan          = 5
   subnet        = "192.168.5.1/24"
-  multicast_dns = false # TODO(mdns): see unifi_network.default
+  multicast_dns = true
 
   dhcp_server = {
     enabled = true
@@ -101,7 +101,7 @@ resource "unifi_network" "qoax_community_vps" {
   purpose       = "corporate"
   vlan          = 10
   subnet        = "192.168.10.1/23"
-  multicast_dns = false # TODO(mdns): see unifi_network.default
+  multicast_dns = true
 
   dhcp_server = {
     enabled = true
@@ -115,7 +115,7 @@ resource "unifi_network" "fmicodes_vps" {
   purpose       = "corporate"
   vlan          = 12
   subnet        = "192.168.12.1/24"
-  multicast_dns = false # TODO(mdns): see unifi_network.default
+  multicast_dns = true
 
   dhcp_server = {
     enabled = true
