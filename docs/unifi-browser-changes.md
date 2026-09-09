@@ -110,13 +110,14 @@ Re-read and left exactly as found: `mode: "all"`, `enabled_for: "all"`, `predefi
 
 ### Outstanding — needs a physical action
 
-1. **The EON box has no lease.** Port 6 is `up`, `forwarding` and passing traffic, and the controller sees the client on VLAN 6, but it is still holding its stale Guest configuration and has not re-DHCPed (~30 min). It needs its ethernet unplugged/replugged, or a reboot, to pick up `192.168.6.10`. Until then `Allow Guest to TVs` cannot match it.
+1. ~~**The EON box has no lease.**~~ **Resolved** — the user power-cycled it and it came up on `192.168.6.10` / VLAN 6. (It had been holding stale Guest config on an up-and-forwarding port; neither port 6 nor 18 draws PoE, so a controller-side power cycle could not have done this.)
 2. **The BRAVIA's MAC is randomized.** `52:4b:e7:7b:a6:c7` has the locally-administered bit set — a per-SSID random MAC the TV may rotate, which would break the `.6.11` reservation (though not the policy, which matches on IP). Turn randomization off on the TV — Android TV → Settings → Network & Internet → `StKr_IoT` → Privacy → *Use device MAC* — then re-check the MAC and re-apply the reservation. This cannot be done from the controller.
 3. **Functional test still to run:** from a Guest phone, confirm both TVs appear as cast targets *and* that a stream actually starts.
 
 ### Also observed
 
-- `system/clients.tf` pins a JetKVM at `38:52:53:0a:09:87`; the live MAC on port 12 is **`30:52:53:0a:09:87`** (`30:` not `38:`). One of the two is a typo — worth checking before that file is revived.
+- `system/clients.tf` pinned a JetKVM at `38:52:53:0a:09:87`; the live MAC on port 12 is **`30:52:53:0a:09:87`**. Confirmed a typo — the controller has never seen `38:52:...`. Corrected in code, after which the whole file was emptied: none of its ten entries matched a live reservation.
+- **Power-cycled by the user, confirmed:** the EON box picked up `192.168.6.10` on VLAN 6.
 - The BRAVIA associates to the **Bedroom** U7-Pro, which is correct: it is the bedroom TV. Only the EON box is in the living room.
 
 ---

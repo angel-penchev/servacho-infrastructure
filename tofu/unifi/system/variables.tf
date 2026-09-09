@@ -1,7 +1,8 @@
-variable "network_main_id" { type = string }
+# network_guest_id is the only network id this module still needs, and only for the
+# commented-out `unifi_setting_switch.dot1x_control` block in settings.tf. The main /
+# private_servers / public_servers ids were dropped on 2026-09-09 when clients.tf --
+# their only consumer -- was emptied.
 variable "network_guest_id" { type = string }
-variable "network_private_servers_id" { type = string }
-variable "network_public_servers_id" { type = string }
 
 variable "radius_profile_secret" {
   type        = string
