@@ -24,7 +24,7 @@ State lives on the management plane, so `tofu plan` was not run. Everything belo
 | RADIUS / 802.1X | 🔧 Secret now wired into `unifi_setting.radius`; global 802.1X 🚫 not expressible; extra users ⏳ TODO |
 | Firewall | ✅ IoT zone + 3 ALLOW policies + address group, **live and in code** (§0.6). **A newly created custom zone is blocked from every zone except External/Gateway by default — so the IoT asymmetry needs no explicit BLOCK** |
 | Port forwards | ⏳ TODO |
-| Fixed-IP clients | ⏳ TODO (and 🚫 blocked — see §14.5) |
+| Fixed-IP clients | ✅ resolved by emptying `system/clients.tf` (§9) — all ten entries were stale; the 7 live reservations stay controller-side, 🚫 blocked on #428 |
 | VPN | ⏳ TODO |
 | Site settings | ⏳ TODO |
 | **Provider bugs** | **See §14 — the binding constraint. Several diffs above cannot be fixed on the pinned version, and two things already in the tree are guaranteed apply failures** |
@@ -376,24 +376,32 @@ An apply as-is would rename the NGINX rule, repoint it at `.102`, and add the th
 
 ## 9. Fixed-IP clients (`system/clients.tf`)
 
-### Live — four fixed IPs
+### Live — seven fixed IPs (re-read 2026-09-09)
 
 | Name | MAC | IP |
 |---|---|---|
+| *(unnamed)* | `38:05:25:30:79:97` | 192.168.5.10 — this is Servacho-Gosho, last seen on USW Aggregation port 1, Private Servers |
+| `jetkvm-ce4ac3437e0d935d` | `30:52:53:0d:1a:68` | 192.168.5.23 — **added 2026-09-09**, Pro Max port 18 |
 | `fmicodes-master-node` | `bc:24:11:c3:e5:f4` | 192.168.5.200 |
 | `fmicodes-worker-node-1` | `bc:24:11:23:76:b5` | 192.168.5.201 |
 | `hackjamhub-intercom` | `bc:24:11:8a:b7:98` | 192.168.5.215 |
-| *(unnamed)* | `38:05:25:30:79:97` | 192.168.5.10 — this is Servacho-Gosho, last seen on USW Aggregation port 1, Private Servers |
+| `Living Room TV` | `b0:b3:69:41:2c:9b` | 192.168.6.10 — **added 2026-09-09**, EON box, Pro Max port 6 |
+| `Bedroom TV` | `52:4b:e7:7b:a6:c7` | 192.168.6.11 — **added 2026-09-09**, Sony BRAVIA, Wi-Fi ⚠️ randomized MAC |
 
-> **⚠️ Don't rewrite this file yet — see §14.5.** At v0.55.0 *every* in-place `unifi_client` update fails with `inconsistent result after apply: .last_ip` (#428, fixed on `main`, unreleased). Deleting `system/clients.tf` and re-adding it after v0.56.0 is cleaner than porting it to the live four.
+None carry a `network_id`: the reservation pins only the address, and the port profile or WLAN decides the VLAN.
+
+> **Resolved 2026-09-09 by emptying the file, not by porting it.** All ten `unifi_client` resources were removed — see the Differences below, every one referenced a MAC the controller has never seen. The seven live reservations are deliberately *not* declared: at v0.55.0 every in-place `unifi_client` update fails with `inconsistent result after apply: .last_ip` (#428, merged as #447, unreleased), so declaring them would mean adopting existing clients with `allow_existing` and failing on the first apply that touched one. Revisit after v0.56.0. `system/clients.tf` now holds that inventory plus the reasoning as comments.
 
 ### Differences
 
-1. **All ten `unifi_client` resources in code are stale.** None of `MICHELANGELO`, `jetkvm`, `SAMI-DEV-MACHINE`, `rpi-petacho`, `networkboot-server`, `tsb-mint`, `DJAM-11`, `nixos`, `minecraft-fabric-server` or `Servacho-Gosho-JetKVM` exist on the rebuilt controller. This is the single biggest block of dead config.
-2. **None of the four live fixed IPs are in code**, including `hackjamhub-intercom` (which isn't on the checklist either — undocumented manual step).
-3. **MAC mismatch for Servacho-Gosho.** The checklist says "Set Servacho-Gosho IP to 192.168.5.10", and live has `38:05:25:30:79:97` → `.10`. Code's closest entries are `servacho_gosho_jetkvm` (`38:52:53:0a:09:87` → 192.168.5.20) and `jetkvm` (`30:52:53:08:45:16` → 192.168.5.21) — different MACs, different IPs. Note `192.168.5.10` is also the Proxmox endpoint hardcoded in `tofu/providers.tf`.
+1. **All ten `unifi_client` resources were stale — removed 2026-09-09.** Verified individually against `/rest/user`: the controller has never seen *any* of their MAC addresses. Nine of the ten devices do not exist on the rebuilt controller at all; the tenth (`Servacho-Gosho-JetKVM`) does exist but only once its MAC is corrected, and it has no reservation. This was the single biggest block of dead config.
+2. **None of the live fixed IPs are in code**, including `hackjamhub-intercom` (which isn't on the checklist either — undocumented manual step). Still true after the cleanup, and now deliberate rather than accidental.
+3. **MAC mismatch for Servacho-Gosho.** The checklist says "Set Servacho-Gosho IP to 192.168.5.10", and live has `38:05:25:30:79:97` → `.10`. Code's closest entries were `servacho_gosho_jetkvm` (`38:52:53:0a:09:87` → 192.168.5.20) and `jetkvm` (`30:52:53:08:45:16` → 192.168.5.21) — different MACs, different IPs. Note `192.168.5.10` is also the Proxmox endpoint hardcoded in `tofu/providers.tf`.
+
+   **Partly resolved 2026-09-09:** `38:52:53:0a:09:87` was a typo. The real MAC is **`30:52:53:0a:09:87`** (`jetkvm-4562a8bf464c58c8`), corrected in code before the entry was removed. That device is on Pro Max port 12 with no port override, so it sits on the untagged UniFi Devices VLAN at `192.168.1.127` with no reservation — see the `TODO(jetkvm-port-12)` in `system/clients.tf`. `30:52:53:08:45:16` is a third JetKVM that does not exist on the controller at all.
 4. The live client is **unnamed** — you set the fixed IP but never gave it a name.
-5. Live fixed IPs are plain `fixed_ip` on the client object with **no `network_id` binding**; code sets `network_id` on every client.
+5. Live fixed IPs are plain `fixed_ip` on the client object with **no `network_id` binding**; the removed code set `network_id` on every client. Worth remembering when the file is eventually rebuilt: binding a reservation to a network is not what the controller does.
+6. **Knock-on cleanup 2026-09-09:** `clients.tf` was the only consumer of `network_main_id`, `network_private_servers_id` and `network_public_servers_id` in the `system` module, so those variables and their `main.tf` pass-throughs were dropped. `network_guest_id` stays — the commented-out `unifi_setting_switch.dot1x_control` block in `settings.tf` still references it.
 
 ---
 
@@ -529,7 +537,7 @@ So the ignore blocks are still justified, but the comment should say *why* — i
 
 [#428](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/428) — **merged as #447 on `main`, unreleased.** `last_ip` and `hostname` used `UseStateForUnknown`, which pins the planned value to prior state; the controller legitimately reports a different value between plan and apply (lease renewal, re-association), so **every in-place `unifi_client` update fails** with `Provider produced inconsistent result after apply: .last_ip`.
 
-Combined with §9 (all ten client resources are stale, four live fixed IPs unmanaged), this argues strongly for **deleting `system/clients.tf` entirely for now** rather than rewriting it against the live four. Re-add it after v0.56.0. Also unreleased: clearing `fixed_ip` ([#400](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/400)).
+Combined with §9 (all ten client resources stale, seven live fixed IPs unmanaged), this argued for **emptying `system/clients.tf`** rather than rewriting it against the live set. **Done 2026-09-09:** all ten resources removed; the file now carries the live inventory and this reasoning as comments. Re-add resources after v0.56.0. Also unreleased: clearing `fixed_ip` ([#400](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/400)).
 
 ### 14.6 `system/vpn.tf` — the OpenVPN `CustomizeDiff` FIXME
 
