@@ -192,8 +192,9 @@ resource "unifi_device" "usw_pro_max_24_poe" {
   # the live port carried `Host Device`, whose dot1x_ctrl = "auto" fallback-dumped the
   # supplicant-less device onto Guest with no usable address at all.
   #
-  # Authorised 2026-09-09; the move itself is an admin-panel step. This block only
-  # records intent either way, because ignore_changes above means no apply pushes it.
+  # Applied on the controller 2026-09-09: port 18 now carries the `Private Server`
+  # profile and the JetKVM picked up 192.168.5.23. This block only records intent either
+  # way, because ignore_changes above means no apply pushes it.
   port_override {
     index           = 18
     name            = "BR-02"

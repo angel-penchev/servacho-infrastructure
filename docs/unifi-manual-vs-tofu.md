@@ -22,7 +22,7 @@ State lives on the management plane, so `tofu plan` was not run. Everything belo
 | WANs | ✅ Code now reflects live |
 | Wireless | ✅ All 3 diffs applied to the live controller from code |
 | RADIUS / 802.1X | 🔧 Secret now wired into `unifi_setting.radius`; global 802.1X 🚫 not expressible; extra users ⏳ TODO |
-| Firewall | 🔧 Hotspot zone + `Dmz` casing in code; IoT zone + 4 policies added in code (§0.6) — ⏳ all pending on the controller. **Note `default_security_posture = ALLOW_ALL`: a zone is not a deny boundary here** |
+| Firewall | ✅ IoT zone + 3 ALLOW policies + address group, **live and in code** (§0.6). **A newly created custom zone is blocked from every zone except External/Gateway by default — so the IoT asymmetry needs no explicit BLOCK** |
 | Port forwards | ⏳ TODO |
 | Fixed-IP clients | ⏳ TODO (and 🚫 blocked — see §14.5) |
 | VPN | ⏳ TODO |
@@ -67,9 +67,9 @@ Six changes — see [`unifi-browser-changes.md`](unifi-browser-changes.md) for t
 | Item | Why |
 |---|---|
 | ~~mDNS policy (§1, §11)~~ | **Resolved in §0.6** — decided: leave the site-wide proxy on `all`; per-network flag set to `true` to match live |
-| ~~The other 3 port profiles (§2)~~ | **Resolved in §0.6** — renamed to Public Server / Private Server / IoT Device; creation is a pending manual step |
+| ~~The other 3 port profiles (§2)~~ | **Resolved in §0.6** — renamed to Public Server / Private Server / IoT Device, created live and applied to ports 6 and 18 |
 | Port overrides (§3.2–§3.4) | `TODO(port-overrides)` banners; also 🚫 blocked, see §14.3 |
-| ~~**Pro Max ports 6 and 18**~~ | **Deferral lifted 2026-09-09** — both authorised; see §0.6 and the pending checklist in the browser change log |
+| ~~**Pro Max ports 6 and 18**~~ | **Done 2026-09-09** — deferral lifted and both ports reassigned; see §0.6 |
 | RADIUS users `vl.penchev`, `v.todorova` (§6) | Being created manually; also need Vault entries |
 | Port forwards (§8) onwards | Deferred |
 | Static device IPs actually taking effect | 🚫 blocked on upstream #463 — declared but inert, see §14.2 |
@@ -80,7 +80,9 @@ Six changes — see [`unifi-browser-changes.md`](unifi-browser-changes.md) for t
 
 Guest access to the two TVs, plus the last two deferred ports. Intent: Guest (VLAN 3) may reach exactly two IoT devices (the living-room EON box and the bedroom BRAVIA), and IoT may not initiate anything towards Internal.
 
-**The finding that shaped it:** the "Main can reach IoT but not vice-versa" posture was never in force. IoT and Main both sat in the **Internal** zone, whose `Internal → Internal` pair carries the predefined `ALLOW Allow All Traffic` — so IoT → Main was wide open and `allow_main_to_iot` (§7, difference 3) was a no-op. Worse, `global_network.default_security_posture` on this site is **`ALLOW_ALL`**, so simply giving IoT its own zone changes nothing either: a new zone pair permits everything until a policy says otherwise. The asymmetry needs an explicit BLOCK, and because ordering is unmanageable (§14.9) that BLOCK is scoped to `connection_states = ["NEW"]` so it is order-independent.
+**The finding that shaped it:** the "Main can reach IoT but not vice-versa" posture was never in force. IoT and Main both sat in the **Internal** zone, whose `Internal → Internal` pair carries the predefined `ALLOW Allow All Traffic` — so IoT → Main was wide open and `allow_main_to_iot` (§7, difference 3) was a no-op with 2,996 hits it never needed to match.
+
+**Corrected mid-implementation.** An earlier draft of this section argued that because `global_network.default_security_posture` is `ALLOW_ALL`, a new zone pair would default to *allow*, so the asymmetry needed an explicit `NEW`-only BLOCK policy. **That was wrong**, and creating the zone proved it: the Create Zone dialog states that *"newly created zones are blocked from accessing all other zones except External and Gateway by default"*, and the live table immediately showed predefined `BLOCK Block All Traffic` on `IoT → Internal` / `Hotspot` / `Vpn` / `Dmz` at index 2147483647, with `IoT → External` and `IoT → Gateway` (plus `Allow mDNS`) left allowed. `ALLOW_ALL` governs the built-in zones' predefined policies, not user-created ones. So the asymmetry comes from the zone boundary itself, **no BLOCK policy was created**, and the three ALLOWs at index ~10000 sit far ahead of the catch-all block — ordering is not in question.
 
 ### Changed in code (needs `tofu apply` from the management plane)
 
@@ -88,17 +90,25 @@ Guest access to the two TVs, plus the last two deferred ports. Intent: Guest (VL
 |---|---|
 | `core/port_profiles.tf` | three per-VLAN profiles renamed to the live singular convention — **Public Server**, **Private Server**, **IoT Device**; `TODO(port-profiles)` banner resolved, replaced with the intended port assignments; `TODO(port-security)` added for the eventual MAC allowlist (blocked on #470 — an empty allowlist errors every apply, so only declare it with real MACs) |
 | `core/networks.tf` | `multicast_dns = true` on all eight networks to match live; the six `TODO(mdns)` markers closed |
-| `security/firewall.tf` | added **`unifi_firewall_zone.iot`** ← IoT; added **`unifi_firewall_group.tv_media_endpoints`** (`192.168.6.10`, `.11`); added **`block_iot_initiated`** (BLOCK, `connection_state_type = "CUSTOM"`, `connection_states = ["NEW"]`), **`allow_private_servers_to_iot`**, **`allow_guest_to_tvs`** (destination via `ip_group_id`); retargeted `allow_main_to_iot`'s destination to the IoT zone |
+| `security/firewall.tf` | added **`unifi_firewall_zone.iot`** ← IoT; added **`unifi_firewall_group.tv_media_endpoints`** (`192.168.6.10`, `.11`); added **`allow_private_servers_to_iot`** and **`allow_guest_to_tvs`** (destination via `ip_group_id`); retargeted `allow_main_to_iot`'s destination to the IoT zone. **No BLOCK policy** — the predefined zone default covers it, with the reasoning recorded in-file so it is not "simplified" back |
 | `security/variables.tf`, `main.tf` | `security` module accepts `network_private_servers_id` |
 | `devices/usw_pro_max_24_poe.tf` | **port 18**: inline native VLAN Public Servers → `port_profile_id = var.port_profile_private_servers_id`, with a note that `ignore_changes` means it records intent only |
 | `devices/variables.tf`, `main.tf` | `network_public_servers_id` dropped from the `devices` module — port 18 was its only consumer |
 | `system/mdns.tf` | the fictional `unifi_setting_mdns` block deleted; replaced with a `FIXME(unifi)` recording live state and the two-repo upstream PR required |
 
-`tofu fmt` clean, `tofu validate` passes against the pinned v0.55.0 schema — which also confirms `connection_state_type`, `connection_states` and `ip_group_id` all exist at our pin.
+`tofu fmt` clean, `tofu validate` passes against the pinned v0.55.0 schema — which also confirms `ip_group_id` exists at our pin. Live confirmed the provider's derivation too: the Guest→TVs destination reads back as `matching_target = IP` with `matching_target_type = OBJECT`, exactly what #365 fixed.
 
 ### Changed on the live controller
 
-**Nothing yet.** Every controller-side step is still pending — see the "Pending — authorised 2026-09-09" checklist at the top of [`unifi-browser-changes.md`](unifi-browser-changes.md). Until it is carried out, the code above states intent rather than live state, and the new resources will need importing afterwards (the IoT zone by **ID** — a custom zone cannot be imported by name, unlike the built-in Hotspot/Internal zones).
+**All applied 2026-09-09** through the admin panel — full log in [`unifi-browser-changes.md`](unifi-browser-changes.md). Three port profiles created (`Public Server` / `Private Server` / `IoT Device`, all Force Authorized, all set to Port Mode **Edge**), applied to ports 6 and 18; three fixed IPs reserved; the `IoT` zone created (`6aa12f7b40324b4491452cf5`); the `TV Media Endpoints` address group created (`6aa1316d40324b4491452f98`); `Allow Main to IoT` retargeted and un-paused; `Allow Private Servers to IoT` and `Allow Guest to TVs` created. The Gateway mDNS Proxy was deliberately left untouched.
+
+Because these were created by hand, the matching resources need importing before any apply — notably the IoT zone by **ID**, since a custom zone cannot be imported by name the way the built-in Hotspot/Internal zones can:
+
+```
+tofu import unifi_firewall_zone.iot 6aa12f7b40324b4491452cf5
+```
+
+Two items still need a physical action and could not be done from the controller: the **EON box has not re-DHCPed** onto `192.168.6.10` (its port is up and forwarding; it needs an unplug/replug or reboot), and the **BRAVIA's randomized MAC** must be turned off on the TV before its `.6.11` reservation is durable.
 
 ### Decisions recorded
 
@@ -116,6 +126,7 @@ Guest access to the two TVs, plus the last two deferred ports. Intent: Guest (VL
 |---|---|
 | Everything controller-side | Pending manual steps — see the checklist in the browser change log |
 | MAC filtering on the server port profiles | `TODO(port-security)`; blocked on #470 |
+| `stp_edge_state` (Port Mode Edge/Infrastructure) | Not exposed by the provider though go-unifi has it — **provider-only PR**. Set by hand on all three new profiles; an apply that recreates them would revert it |
 | `Public Server` profile has no port | Ports 20 and USW Aggregation 1 are remaining §3.4 work; port 12 already matches the code |
 | Whether Guest discovery of the TVs actually works | The proxy is `enabled_for: all`, but UniFi has historically excluded guest networks. Needs the functional test from a Guest phone |
 
@@ -173,7 +184,7 @@ Guest access to the two TVs, plus the last two deferred ports. Intent: Guest (VL
 
 1. **`unifi_devices` → live "UniFi Device"** (singular). Also `dot1x_ctrl`: code `auto`, live `force_authorized`. Everything else matches.
 2. **`main` is really the live "Host Device"** — same idea (native = Guest so unauthenticated ports land in Guest, 802.1X `auto` moves them to Main on success), but two diffs: the **name** (`Main` vs `Host Device`) and **`stp_port_mode`** (code `false`, live `true`). Live `true` is what the "Port Mode: Edge" toggle produces, which is what the checklist asked for — so the code value is wrong.
-3. **`public_servers`, `private_servers` and `iot` profiles do not exist live.** Nothing on the switches references a per-VLAN profile any more; the two remaining server/IoT ports use inline native-VLAN overrides instead (§3). Their outputs in `core/outputs.tf` and the matching `devices/variables.tf` entries are dead weight unless you recreate them. **Decided 2026-09-09 (§0.6): recreate all three**, renamed to the live singular convention — **Public Server** (VLAN 4), **Private Server** (VLAN 5), **IoT Device** (VLAN 6). Creating them on the controller is a pending manual step; `IoT Device` goes to port 6 and `Private Server` to port 18.
+3. **`public_servers`, `private_servers` and `iot` profiles do not exist live.** Nothing on the switches references a per-VLAN profile any more; the two remaining server/IoT ports use inline native-VLAN overrides instead (§3). Their outputs in `core/outputs.tf` and the matching `devices/variables.tf` entries are dead weight unless you recreate them. **Resolved 2026-09-09 (§0.6): all three recreated**, renamed to the live singular convention — **Public Server** (VLAN 4), **Private Server** (VLAN 5), **IoT Device** (VLAN 6) — and applied: `IoT Device` to port 6, `Private Server` to port 18, `Public Server` to none yet. All three were also set to Port Mode **Edge**, which is *not* codifiable: `stp_edge_state` exists in go-unifi but the provider does not expose it (provider-only PR needed).
 
 ---
 
@@ -241,15 +252,15 @@ Differences vs. `devices/usw_pro_max_24_poe.tf`:
 
 1. **No custom port names exist live.** Every one of the code's names — `LR-01`…`LR-06`, `Balc-01/02`, `K-01/02`, `BR-01`…`BR-08`, `LR-WiFi`, `BR-WiFi`, `Servacho-Gosho-JetKVM`, `SFP+ 1`, `UDM-Pro-Max` — is gone. All ports are back to `Port N` / `SFP+ N`.
 2. **Ports 9, 10, 11** — code disables them (`forward = disabled`, `poe_mode = off`); live has them on Host Device. Note the code's disable never took effect (§14.3).
-3. **Port 6** — code assigns the IoT profile; live has Host Device. *Authorised 2026-09-09: apply the new `IoT Device` profile to this port.*
+3. **Port 6** — **resolved 2026-09-09:** the new `IoT Device` profile is applied live, matching the code.
 4. **Port 12** — code assigns the Private Servers profile (`Servacho-Gosho-JetKVM`); live has no override at all.
-5. **Port 18** — code set an inline native VLAN of Public Servers; live has Host Device. **Both wrong; code fixed 2026-09-09** to `port_profile_id = var.port_profile_private_servers_id`. Controller side is a pending manual step.
+5. **Port 18** — code set an inline native VLAN of Public Servers; live had Host Device. **Both wrong; both fixed 2026-09-09** — code now uses `port_profile_id = var.port_profile_private_servers_id` and the live port carries `Private Server`. The JetKVM took `192.168.5.23` and is reachable for the first time.
 6. **Port 20** — code assigns the Public Servers profile; live has Host Device.
 7. **Port 19** — code assigns the Main profile; live is a **manual** override with native VLAN Main (no profile).
 8. **Port 25** — code declares a bare `forward = customize` override; live has none.
 9. Ports 23, 24, 26 → UniFi Device matches the checklist and live; only the names differ.
 
-> **Ports 6 and 18 — target state confirmed; deferral lifted 2026-09-09.** Both sit on `Host Device` and hold no usable DHCP lease. Deferred when first diagnosed on 2026-09-08; the user authorised both ports on 2026-09-09 (port 6 because its client turned out to be one of the two TVs Guest needs to reach). Controller steps are pending — see the checklist in the browser change log.
+> **Ports 6 and 18 — resolved 2026-09-09.** Both sat on `Host Device` and held no usable DHCP lease. Deferred when first diagnosed on 2026-09-08; the user authorised both on 2026-09-09 (port 6 because its client turned out to be one of the two TVs Guest needs to reach). Port 6 now carries `IoT Device`, port 18 `Private Server`.
 >
 > | Port | Currently | Should be |
 > |---|---|---|
@@ -319,7 +330,7 @@ The `StKr_IoT_2.4GHz` diff matters: applying the code would drop WPA3 from that 
 
 | Zone | Networks |
 |---|---|
-| Internal | UniFi Devices, Main, Private Servers, IoT, Qoax VPS, FMI{Codes} VPS — *IoT moves out to its own zone, §0.6 (pending)* |
+| Internal | UniFi Devices, Main, Private Servers, ~~IoT~~, Qoax VPS, FMI{Codes} VPS — *IoT moved out to its own zone 2026-09-09, §0.6* |
 | External | Vivacom Primary, Vivacom Secondary |
 | Gateway | – |
 | Vpn | – |
@@ -333,9 +344,9 @@ Both checklist assignments (Hotspot ← Guest, DMZ ← Public Servers) are done,
 1. **`Hotspot` ← `Guest` is not in code.** Only the DMZ zone is managed.
 2. **Zone name casing.** Code uses `name = "DMZ"`; the controller reports `"Dmz"`. Likely harmless, but if the provider matches by exact name it will try to rename or fail to find it.
 3. **Zero custom firewall policies existed live** at the time of analysis. All 88 were predefined. `Allow Main to IoT` was then created by hand on 2026-09-08 (index 10000). **It was a no-op:** IoT and Main were both in `Internal`, and the `Internal → Internal` pair carries the predefined `ALLOW Allow All Traffic`, so IoT → Main was already open in both directions. Note policy **ordering cannot be managed at all** through the provider (§14.9) — a policy lands wherever the controller appends it.
-4. **`global_network.default_security_posture` is `ALLOW_ALL`.** Creating a zone therefore gates nothing by itself — a new zone pair permits everything until a policy says otherwise. Any "X cannot reach Y" intent needs an explicit BLOCK policy; do not assume a zone boundary is a deny boundary here.
+4. **A newly created custom zone IS a deny boundary.** `global_network.default_security_posture` is `ALLOW_ALL`, but that governs the built-in zones' predefined policies only. Verified live 2026-09-09: creating the `IoT` zone produced predefined `BLOCK Block All Traffic` on `IoT → Internal` / `Hotspot` / `Vpn` / `Dmz` (index 2147483647), with `IoT → External` and `IoT → Gateway` allowed. So a new zone blocks by default in both directions except External/Gateway, and what you must then add are the *allow* exceptions.
 5. **Same-VLAN traffic is invisible to all of this.** Zone policies only see inter-VLAN traffic; hosts sharing a VLAN talk L2 through the switch and never reach the gateway. This is why Home Assistant stays on Private Servers rather than joining the IoT VLAN (§0.6).
-6. **Resolved 2026-09-09 (§0.6), code side:** IoT gets its own zone, plus four custom policies — a `NEW`-only BLOCK for IoT → Internal, and ALLOWs for Main → IoT, Private Servers → IoT and Guest → the two TVs (by address group).
+6. **Resolved 2026-09-09 (§0.6), live and in code:** IoT has its own zone, plus three custom ALLOW policies — Main → IoT, Private Servers → IoT, and Guest → the two TVs (by address group). No BLOCK policy: the zone default already blocks IoT-initiated traffic.
 7. **Adding the Hotspot zone is load-bearing, not cosmetic.** On zone-based-firewall controllers a network only keeps `purpose = "guest"` while it belongs to the Hotspot zone; elsewhere the controller rewrites it to `corporate`. `unifi_network.guest` declares `purpose = "guest"` while nothing in code owns that zone (§14.9).
 
 ---
@@ -405,7 +416,7 @@ An apply as-is would rename the NGINX rule, repoint it at `.102`, and add the th
 | **Auto speedtest** | **setting key absent entirely** | `enabled = true`, `cron_expr = "0 4 * * *"` | code would create it |
 | Updates schedule | `mgmt.auto_upgrade = true`, `auto_upgrade_hour = 3`, no weekday | not managed | **unmanaged** |
 | Captive portal | `guest_access.portal_enabled = false` | not managed | **unmanaged** (checklist step done by hand) |
-| mDNS | `mode = "all"`, `enabled_for = "all"`, both service lists empty | `system/mdns.tf` — a `FIXME(unifi)` recording live state; the fictional `unifi_setting_mdns` block was deleted 2026-09-09 | **Not codifiable at all.** Decided: leave on `all`. Needs an upstream PR in **both** go-unifi (`settings.Mdns` lacks `enabled_for` / `enabled_for_network_ids`) and the provider (no mdns block on `unifi_setting`, v0.55.0 or `main`) |
+| mDNS | `mode = "all"`, `enabled_for = "all"`, both service lists empty (re-verified 2026-09-09, deliberately unchanged) | `system/mdns.tf` — a `FIXME(unifi)` recording live state; the fictional `unifi_setting_mdns` block was deleted 2026-09-09 | **Not codifiable at all.** Decided: leave on `all`. Needs an upstream PR in **both** go-unifi (`settings.Mdns` lacks `enabled_for` / `enabled_for_network_ids`) and the provider (no mdns block on `unifi_setting`, v0.55.0 or `main`) |
 | Global switch | rstp, jumbo off, flowctrl off, DHCP snooping on, auto STP edge detection off, 802.1X on, RADIUS profile bound | commented-out `unifi_setting_switch` | **unmanaged** |
 | Etherlighting | controller defaults (per-network auto colours; speed defaults `10M=#FFC105` etc.) | commented-out `unifi_setting_ether_lighting` with custom FE/GbE/2.5GbE/10GbE colours + a device-level block | **unmanaged**, and the live speed colours are *not* the ones in code |
 | WAN SLA | not checked | commented-out `unifi_wan_sla` | **unmanaged** |
@@ -547,7 +558,7 @@ All four are honest. Worth adding the check date to each so they can be re-audit
 
 ### 14.9 Things to know before touching the firewall (§7)
 
-- **`unifi_firewall_policy.index` is read-only as of v0.54.0** ([#348](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/348)). Ordering **cannot** be managed: `index` is a per-zone-pair controller-assigned ordinal, the integration API rejects it as input, the v2 endpoint ignores it and appends, and the UI's drag-to-reorder uses a private `batch-reorder` endpoint that 500s under API-key auth. Our policies land wherever the controller puts them. This is why the IoT block in `security/firewall.tf` matches `connection_states = ["NEW"]` rather than being a blanket BLOCK — see §0.6. Do not "simplify" it. [#473](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/473) (open) refreshes the assigned index on read.
+- **`unifi_firewall_policy.index` is read-only as of v0.54.0** ([#348](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/348)). Ordering **cannot** be managed: `index` is a per-zone-pair controller-assigned ordinal, the integration API rejects it as input, the v2 endpoint ignores it and appends, and the UI's drag-to-reorder uses a private `batch-reorder` endpoint that 500s under API-key auth. Our policies land wherever the controller puts them. In practice this has not bitten us: custom policies get index ~10000 while the predefined per-pair catch-all sits at 2147483647, so a custom ALLOW always precedes the default BLOCK (§0.6). [#473](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/473) (open) refreshes the assigned index on read.
 - **Guest purpose is coupled to the zone** ([#276](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/276), v0.54.0): on zone-based-firewall controllers a network only keeps `purpose = "guest"` while it belongs to the guest/Hotspot zone; placed elsewhere the controller rewrites it to `corporate`. Our `unifi_network.guest` declares `purpose = "guest"` but **nothing in code manages the Hotspot zone** (§7). That's not just a completeness gap — it's load-bearing for the network's purpose surviving an apply. Add the Hotspot zone resource.
 - [#472](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/472) (open): `match_mac` isn't exposed and updates silently reset it. [#461](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/461) (open) adds the invert toggles.
 
