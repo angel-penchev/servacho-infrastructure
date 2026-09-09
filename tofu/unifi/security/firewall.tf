@@ -34,7 +34,7 @@ resource "unifi_firewall_zone" "hotspot" {
 
 # The IoT network gets its own zone so traffic to and from it is filterable at all.
 #
-# IoT has sat in Internal alongside Main and Private Servers since the rebuild, and the
+# Until 2026-09-09 IoT sat in Internal alongside Main and Private Servers, and the
 # Internal->Internal pair carries the predefined `ALLOW Allow All Traffic` -- so the
 # intended "Main reaches IoT, IoT does not reach Main" asymmetry was not in force in
 # either direction, and `allow_main_to_iot` below was a no-op. A zone boundary is what
@@ -44,10 +44,12 @@ resource "unifi_firewall_zone" "hotspot" {
 # purpose stays "corporate" here, so the guest/Hotspot coupling noted above (#276)
 # does not apply.
 #
-# Note: this zone is created by hand in the admin panel first (see the pending checklist
-# in docs/unifi-browser-changes.md), so the resource then needs
-# `tofu import unifi_firewall_zone.iot <zone-id>` before an apply will accept it -- a
-# custom zone cannot be imported by name, only built-ins can.
+# Created by hand in the admin panel on 2026-09-09 (see docs/unifi-browser-changes.md);
+# creating it auto-paused `allow_main_to_iot` and cleared its destination.
+# zone id `6aa12f7b40324b4491452cf5`. This resource therefore needs
+#   tofu import unifi_firewall_zone.iot 6aa12f7b40324b4491452cf5
+# before an apply will accept it -- a custom zone cannot be imported by name the way the
+# built-in Internal/Hotspot/Dmz zones can.
 resource "unifi_firewall_zone" "iot" {
   name = "IoT"
 
@@ -68,6 +70,7 @@ resource "unifi_firewall_zone" "iot" {
 # locally-administered MAC (52:4b:e7:...) which it is free to rotate per SSID; the
 # addresses are pinned by DHCP reservation instead, so a rotation can only break the
 # reservation, never silently widen or void this policy.
+# Created by hand 2026-09-09, id `6aa1316d40324b4491452f98` -- needs `tofu import` too.
 resource "unifi_firewall_group" "tv_media_endpoints" {
   name = "TV Media Endpoints"
   type = "address-group"
@@ -87,45 +90,39 @@ resource "unifi_firewall_group" "tv_media_endpoints" {
 # and the v2 endpoint ignores it and appends (upstream #348, read-only since v0.54.0).
 # Every policy below lands wherever the controller decides to put it in its pair.
 #
-# That constraint is why the IoT block is scoped to connection_states = ["NEW"] rather
-# than being a plain BLOCK. `global_network.default_security_posture` on this site is
-# ALLOW_ALL, so a new zone pair permits everything until a policy says otherwise, and a
-# blanket `BLOCK IoT -> Internal` would have to land *after* the return-traffic
-# companion that `create_allow_respond` generates in that same pair to avoid killing
-# replies to Main-initiated sessions -- which is exactly what cannot be guaranteed.
-# Matching only NEW makes the result order-independent: IoT can never initiate into
-# Internal, established/related returns always pass. Do not "simplify" this back into
-# an unordered blanket BLOCK.
+# That turns out not to matter here, and there is deliberately NO explicit
+# "block IoT from initiating" policy. Verified on the live controller 2026-09-09, right
+# after the IoT zone was created:
 #
-# connection_state_type / connection_states became author-settable in provider v0.54.0
-# (upstream #351); before that this design was not expressible here at all.
+#   IoT -> Internal   BLOCK "Block All Traffic"  predefined, index 2147483647
+#   IoT -> Hotspot    BLOCK "Block All Traffic"  predefined, index 2147483647
+#   IoT -> Vpn/Dmz    BLOCK "Block All Traffic"  predefined, index 2147483647
+#   IoT -> External   ALLOW "Allow All Traffic"  predefined  (internet still works)
+#   IoT -> Gateway    ALLOW "Allow All Traffic" + "Allow mDNS"
+#
+# A newly created custom zone is blocked from every zone except External and Gateway by
+# default -- the Create Zone dialog states this outright. So the "Main reaches IoT, IoT
+# does not reach Main" asymmetry is delivered by the zone boundary itself, and the three
+# ALLOW policies below are what open the specific paths back up. They sit at index
+# ~10000, far ahead of the predefined catch-all block at 2147483647, so ordering between
+# them and the block is not in question.
+#
+# Do NOT add a redundant `BLOCK IoT -> Internal` policy "for explicitness": it duplicates
+# a predefined rule and buys nothing.
+#
+# (Historical note: an earlier draft of this work reasoned from
+# `global_network.default_security_posture = "ALLOW_ALL"` that a new zone pair would
+# default to *allow* and therefore needed an explicit NEW-only BLOCK. That was wrong --
+# ALLOW_ALL governs the built-in zones' predefined policies, not user-created zones.)
 
-# Stops IoT devices initiating anything towards Main, Private Servers or the other
-# Internal networks. This is the policy that actually delivers the intended asymmetry.
-resource "unifi_firewall_policy" "block_iot_initiated" {
-  name                  = "Block IoT Initiated"
-  action                = "BLOCK"
-  ip_version            = "BOTH"
-  protocol              = "all"
-  create_allow_respond  = false
-  logging               = false
-  connection_state_type = "CUSTOM"
-  connection_states     = ["NEW"]
-
-  source = {
-    zone_id         = unifi_firewall_zone.iot.id
-    matching_target = "ANY"
-  }
-
-  destination = {
-    zone_id         = data.unifi_firewall_zone.internal.id
-    matching_target = "ANY"
-  }
-}
-
-# Main -> IoT. Destination is now the IoT zone rather than a network inside Internal:
-# before the IoT zone existed this was an Internal->Internal policy sitting behind the
-# predefined allow-all, i.e. a no-op.
+# Main -> IoT. Destination is the IoT zone rather than a network inside Internal: before
+# the IoT zone existed this was an Internal->Internal policy sitting behind the predefined
+# `ALLOW Allow All Traffic`, i.e. a no-op with 2,996 hits it never needed to match.
+#
+# Moving the IoT network into its own zone auto-paused this policy and cleared its
+# destination (the controller warns about exactly this). Retargeted and re-enabled by hand
+# on 2026-09-09; `create_allow_respond` regenerated the "Allow Main to IoT (Return)"
+# companion in the IoT->Internal pair.
 resource "unifi_firewall_policy" "allow_main_to_iot" {
   name                 = "Allow Main to IoT"
   action               = "ALLOW"
