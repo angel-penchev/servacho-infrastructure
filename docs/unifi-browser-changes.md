@@ -27,20 +27,18 @@ So `.6.11` was pinned to a MAC that no longer appears on the network, and the MA
 |---|---|---|---|
 | 1 | Client Devices → old record → Settings | `52:4b:e7:7b:a6:c7` | **Fixed IP Address unchecked** (`use_fixedip` → `false`), renamed to `Bedroom TV (retired random MAC)`. Unchecked rather than Removed — non-destructive, and it frees `.6.11` just the same. Note the controller retains the now-inert `fixed_ip` string on the object; only `use_fixedip` governs. |
 | 2 | Client Devices → new record → Settings | `f4:4e:b4:73:bf:19` | Named **`Bedroom TV`**, **Fixed IP Address = `192.168.6.11`**. The field prefills with the *current lease* (`.6.93`), so it must be overtyped — verified by zoom before applying. |
-| 3 | Client Devices → Quick Actions | `f4:4e:b4:73:bf:19` | **Reconnect** — forced re-association. Worked at L2 (uptime reset to 66s) but **did not move the address**. |
+| 3 | Client Devices → Quick Actions | `f4:4e:b4:73:bf:19` | **Reconnect** — forced re-association, which is what made the TV pick up the reservation. |
 
-Verified end state: exactly seven reservations, `f4:4e:b4:73:bf:19 → 192.168.6.11` replacing the old entry; `TV Media Endpoints` still `{192.168.6.10, 192.168.6.11}`; `Allow Guest to TVs` enabled at index 10000.
+### Result — both TVs on their reserved addresses
 
-### Still on `.6.93` — why, and what actually fixes it
+```
+Living Room TV  b0:b3:69:41:2c:9b  192.168.6.10  vlan 6   (EON box, wired Pro Max port 6)
+Bedroom TV      f4:4e:b4:73:bf:19  192.168.6.11  vlan 6   (Sony BRAVIA, StKr_IoT)
+```
 
-**A reservation does not evict a live lease.** Neither a reboot, a Wi-Fi toggle, nor the controller's Reconnect makes Android renegotiate: on re-association it carries its existing IP configuration over, and where it does re-REQUEST, it asks for the address cached against the SSID (INIT-REBOOT) rather than broadcasting a DISCOVER. The reservation is only consulted on a fresh DISCOVER, or when the server NAKs a renewal.
+Also verified: exactly seven reservations, `f4:4e:b4:73:bf:19 → 192.168.6.11` replacing the old entry; `TV Media Endpoints` still `{192.168.6.10, 192.168.6.11}`; `Allow Guest to TVs` enabled at index 10000. **The address group now matches both TVs, so the Guest cast test can be run in full.**
 
-Two ways out:
-
-1. **Forget `StKr_IoT` on the TV and rejoin** — clears the cached lease and forces a DISCOVER. This is the one-action fix, and it is safe now: with randomization off, forgetting can no longer mint a new random MAC.
-2. **Wait.** IoT's `dhcpd_leasetime` is `86400` (24h), so the TV enters RENEWING at T1 ≈ 12h and the gateway should NAK it onto `.6.11` then. Slower and less certain than option 1.
-
-Until it moves, the bedroom TV is not reachable from Guest — `Allow Guest to TVs` matches the address group, and `.6.93` is not a member. The living-room EON box on `.6.10` is unaffected and can be cast-tested independently.
+**Timing note, worth remembering.** Reconnect is not instant and it is not synchronous with re-association. Immediately after the click the TV was back on the AP (uptime reset to 66s) but *still on `192.168.6.93`* — it had re-associated at L2 while carrying its old IP configuration over. It only moved to `.6.11` on a later poll, around 200s of uptime. Do not conclude from one read that a reservation has failed to take; poll for a couple of minutes first. Had it not moved, the fallbacks were to forget `StKr_IoT` on the TV and rejoin (forces a DHCPDISCOVER; safe now that randomization is off, since forgetting can no longer mint a new random MAC), or to wait out `dhcpd_leasetime = 86400` and let RENEWING at T1 ≈ 12h get NAKed onto `.6.11`.
 
 **Codifiable? No** — same #428 block as every other reservation.
 
@@ -151,7 +149,7 @@ Re-read and left exactly as found: `mode: "all"`, `enabled_for: "all"`, `predefi
 ### Outstanding — needs a physical action
 
 1. ~~**The EON box has no lease.**~~ **Resolved** — the user power-cycled it and it came up on `192.168.6.10` / VLAN 6. (It had been holding stale Guest config on an up-and-forwarding port; neither port 6 nor 18 draws PoE, so a controller-side power cycle could not have done this.)
-2. ~~**The BRAVIA's MAC is randomized.**~~ **Done on the TV 2026-09-10** — randomization off, hardware MAC `f4:4e:b4:73:bf:19`. That orphaned the `.6.11` reservation, which was re-pointed the same day; see the **2026-09-10 session** at the top of this file. One user action still outstanding there: forget `StKr_IoT` on the TV and rejoin, so it drops its `.6.93` lease.
+2. ~~**The BRAVIA's MAC is randomized.**~~ **Resolved 2026-09-10** — randomization off, hardware MAC `f4:4e:b4:73:bf:19`. That orphaned the `.6.11` reservation, which was re-pointed to the new MAC the same day; the TV now holds `192.168.6.11`. See the **2026-09-10 session** at the top of this file.
 3. **Functional test still to run:** from a Guest phone, confirm both TVs appear as cast targets *and* that a stream actually starts.
 
 ### Also observed

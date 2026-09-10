@@ -108,7 +108,7 @@ Because these were created by hand, the matching resources need importing before
 tofu import unifi_firewall_zone.iot 6aa12f7b40324b4491452cf5
 ```
 
-Two items still need a physical action and could not be done from the controller: the **EON box has not re-DHCPed** onto `192.168.6.10` (its port is up and forwarding; it needs an unplug/replug or reboot), and the **BRAVIA's randomized MAC** must be turned off on the TV before its `.6.11` reservation is durable.
+Two items needed a physical action on the device and could not be done from the controller. **Both are now resolved.** The **EON box** was power-cycled by the user on 2026-09-09 and came up on `192.168.6.10` (neither port 6 nor 18 draws PoE, so no controller-side power cycle was possible). The **BRAVIA's randomized MAC** was turned off on 2026-09-10; that swapped it to the hardware `f4:4e:b4:73:bf:19` and orphaned the reservation, which was re-pointed the same day — the TV now holds `192.168.6.11`. Both TVs are on their reserved addresses and inside the `TV Media Endpoints` group.
 
 ### Decisions recorded
 
@@ -386,7 +386,7 @@ An apply as-is would rename the NGINX rule, repoint it at `.102`, and add the th
 | `fmicodes-worker-node-1` | `bc:24:11:23:76:b5` | 192.168.5.201 |
 | `hackjamhub-intercom` | `bc:24:11:8a:b7:98` | 192.168.5.215 |
 | `Living Room TV` | `b0:b3:69:41:2c:9b` | 192.168.6.10 — **added 2026-09-09**, EON box, Pro Max port 6 |
-| `Bedroom TV` | `f4:4e:b4:73:bf:19` | 192.168.6.11 — added 2026-09-09 on the BRAVIA's randomized MAC, **re-pointed 2026-09-10** to the hardware MAC after randomization was turned off. The retired `52:4b:e7:7b:a6:c7` record survives with `use_fixedip = false`. ⚠️ The TV still holds its old `192.168.6.93` lease until it re-DHCPs — see the 2026-09-10 session in `unifi-browser-changes.md` |
+| `Bedroom TV` | `f4:4e:b4:73:bf:19` | 192.168.6.11 — added 2026-09-09 on the BRAVIA's randomized MAC, **re-pointed 2026-09-10** to the hardware MAC after randomization was turned off, and held by the TV since. The retired `52:4b:e7:7b:a6:c7` record survives with `use_fixedip = false`. See the 2026-09-10 session in `unifi-browser-changes.md` |
 
 None carry a `network_id`: the reservation pins only the address, and the port profile or WLAN decides the VLAN.
 
