@@ -69,7 +69,7 @@ Client Devices → client → Settings → Fixed IP Address.
 | Client | MAC | Fixed IP | Result |
 |---|---|---|---|
 | `Living Room TV` (renamed, was unnamed) | `b0:b3:69:41:2c:9b` | `192.168.6.10` | ⚠️ on VLAN 6 but **no lease yet** — see Outstanding |
-| `Bedroom TV` (renamed, was unnamed) | `52:4b:e7:7b:a6:c7` | `192.168.6.11` | holds its old `192.168.6.93` lease until it re-associates |
+| `Bedroom TV` (renamed, was unnamed) | `52:4b:e7:7b:a6:c7` | `192.168.6.11` | ⚠️ **orphaned on 2026-09-10** — the user turned MAC randomization off and the TV now presents its hardware MAC `f4:4e:b4:73:bf:19`, so this reservation no longer matches anything. See Outstanding |
 | `jetkvm-ce4ac3437e0d935d` | `30:52:53:0d:1a:68` | `192.168.5.23` | ✅ **moved to VLAN 5 / `192.168.5.23`** — a device that previously had no usable address at all |
 
 **Codifiable? No.** Every in-place `unifi_client` update fails at v0.55.0 (`inconsistent result after apply: .last_ip`, #428, merged as #447, unreleased). All three stay controller-only, which is also the answer to the §14.5-blocked `.5.23` item. The firewall does not need them — it matches an address group.
@@ -111,7 +111,16 @@ Re-read and left exactly as found: `mode: "all"`, `enabled_for: "all"`, `predefi
 ### Outstanding — needs a physical action
 
 1. ~~**The EON box has no lease.**~~ **Resolved** — the user power-cycled it and it came up on `192.168.6.10` / VLAN 6. (It had been holding stale Guest config on an up-and-forwarding port; neither port 6 nor 18 draws PoE, so a controller-side power cycle could not have done this.)
-2. **The BRAVIA's MAC is randomized.** `52:4b:e7:7b:a6:c7` has the locally-administered bit set — a per-SSID random MAC the TV may rotate, which would break the `.6.11` reservation (though not the policy, which matches on IP). Turn randomization off on the TV — Android TV → Settings → Network & Internet → `StKr_IoT` → Privacy → *Use device MAC* — then re-check the MAC and re-apply the reservation. This cannot be done from the controller.
+2. ~~**The BRAVIA's MAC is randomized.**~~ **Done on the TV 2026-09-10, reservation still to move.** The user turned randomization off (Android TV → Settings → Network & Internet → `StKr_IoT` → Privacy → *Use device MAC*), rejoined the Wi-Fi and rebooted. The TV now reports **`f4:4e:b4:73:bf:19`** — universally administered (`0xF4 & 0x02 == 0`, unlike `0x52`), OUI `F4:4E:B4` = Cloud Network Technology Singapore, i.e. a Foxconn-built Wi-Fi module. A genuine burned-in MAC that will not rotate.
+
+   **It stayed on `192.168.6.93` because the reservation is now orphaned:** `.6.11` is bound to the retired randomized MAC `52:4b:e7:7b:a6:c7`, and the hardware MAC has no reservation at all. Two controller steps outstanding, in this order:
+
+   1. Clear the Fixed IP on the old `52:4b:e7:7b:a6:c7` client (or Forget it outright — it is a defunct random MAC), so `.6.11` is not claimed twice.
+   2. Set Fixed IP `192.168.6.11` on `f4:4e:b4:73:bf:19` and name it `Bedroom TV`.
+
+   Then force a real DHCP negotiation on the TV. Note a reboot is **not** enough on its own: Android does INIT-REBOOT, re-REQUESTing the address it cached for the SSID rather than sending a DISCOVER, which is why the reboot changed nothing. **Forget `StKr_IoT` and rejoin** — safe now that randomization is off, since forgetting can no longer generate a new random MAC.
+
+   Until this lands the bedroom TV is unreachable from Guest: `Allow Guest to TVs` matches the address group `{192.168.6.10, 192.168.6.11}`, and `.6.93` is not in it.
 3. **Functional test still to run:** from a Guest phone, confirm both TVs appear as cast targets *and* that a stream actually starts.
 
 ### Also observed
