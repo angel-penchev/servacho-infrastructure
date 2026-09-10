@@ -386,7 +386,7 @@ An apply as-is would rename the NGINX rule, repoint it at `.102`, and add the th
 | `fmicodes-worker-node-1` | `bc:24:11:23:76:b5` | 192.168.5.201 |
 | `hackjamhub-intercom` | `bc:24:11:8a:b7:98` | 192.168.5.215 |
 | `Living Room TV` | `b0:b3:69:41:2c:9b` | 192.168.6.10 — **added 2026-09-09**, EON box, Pro Max port 6 |
-| `Bedroom TV` | ~~`52:4b:e7:7b:a6:c7`~~ | 192.168.6.11 — **added 2026-09-09**, Sony BRAVIA, Wi-Fi. ⚠️ **Orphaned 2026-09-10:** randomization was turned off on the TV and it now presents `f4:4e:b4:73:bf:19`, so the reservation matches nothing and the TV sits on `192.168.6.93`. Move it to the hardware MAC — see the 2026-09-09 session in `unifi-browser-changes.md`, Outstanding item 2 |
+| `Bedroom TV` | `f4:4e:b4:73:bf:19` | 192.168.6.11 — added 2026-09-09 on the BRAVIA's randomized MAC, **re-pointed 2026-09-10** to the hardware MAC after randomization was turned off. The retired `52:4b:e7:7b:a6:c7` record survives with `use_fixedip = false`. ⚠️ The TV still holds its old `192.168.6.93` lease until it re-DHCPs — see the 2026-09-10 session in `unifi-browser-changes.md` |
 
 None carry a `network_id`: the reservation pins only the address, and the port profile or WLAN decides the VLAN.
 
