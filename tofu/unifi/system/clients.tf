@@ -39,6 +39,12 @@
 #   192.168.5.215  bc:24:11:8a:b7:98  hackjamhub-intercom
 #   192.168.6.10   b0:b3:69:41:2c:9b  Living Room TV   (EON box, wired Pro Max port 6)
 #   192.168.6.11   52:4b:e7:7b:a6:c7  Bedroom TV       (Sony BRAVIA, Wi-Fi StKr_IoT)
+#                  ^^ STALE as of 2026-09-10: MAC randomization was turned off on the
+#                     TV, so it now presents the hardware MAC f4:4e:b4:73:bf:19 and this
+#                     reservation matches nothing -- the TV is on 192.168.6.93. The
+#                     reservation needs moving to the new MAC on the controller; see
+#                     Outstanding item 2 of the 2026-09-09 session in
+#                     docs/unifi-browser-changes.md.
 #
 # None of them carry a `network_id`: the reservations are not bound to a network, the
 # port profile or WLAN decides the VLAN and the reservation only pins the address.

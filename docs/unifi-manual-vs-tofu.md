@@ -117,7 +117,7 @@ Two items still need a physical action and could not be done from the controller
 | Move Home Assistant (`192.168.5.226`) to IoT? | **No — stays on Private Servers (VLAN 5).** The zone firewall only sees inter-VLAN traffic, so co-locating HA with the devices it holds credentials for would put its admin UI and tokens in front of every bulb and TV with nothing able to filter it. If an integration needs to be on-link, give HA a second VLAN-6-tagged interface for discovery instead of relocating it. mDNS-based discovery (ESPHome, Chromecast, HomeKit) already crosses VLANs via the proxy; SSDP/UPnP does not, so those integrations need static IPs |
 | Tighten the Gateway mDNS Proxy? | **No — stays `mode: all` / `enabled_for: all`.** Discovery from Guest already works; narrowing it is optional hardening, and it is not codifiable anyway (§11) |
 | Reserve the TV and JetKVM IPs in code? | **No — controller-only** until v0.56.0, per §14.5. The firewall matches an address group, so no client resource is needed |
-| Match the TVs by MAC? | **No — by IP.** The BRAVIA presents a randomized locally-administered MAC (`52:4b:e7:…`) it may rotate per SSID |
+| Match the TVs by MAC? | **No — by IP**, and 2026-09-10 vindicated it. The BRAVIA presented a randomized locally-administered MAC (`52:4b:e7:…`); turning randomization off swapped it for the hardware `f4:4e:b4:73:bf:19`, which orphaned the DHCP reservation but left the firewall policy untouched — exactly the failure mode matching by IP was chosen to avoid |
 | Flip `default_security_posture` to deny? | **No.** Site-wide, it would re-gate every existing zone pair; the `NEW`-only BLOCK gets the asymmetry without that blast radius |
 
 ### Still open
@@ -386,7 +386,7 @@ An apply as-is would rename the NGINX rule, repoint it at `.102`, and add the th
 | `fmicodes-worker-node-1` | `bc:24:11:23:76:b5` | 192.168.5.201 |
 | `hackjamhub-intercom` | `bc:24:11:8a:b7:98` | 192.168.5.215 |
 | `Living Room TV` | `b0:b3:69:41:2c:9b` | 192.168.6.10 — **added 2026-09-09**, EON box, Pro Max port 6 |
-| `Bedroom TV` | `52:4b:e7:7b:a6:c7` | 192.168.6.11 — **added 2026-09-09**, Sony BRAVIA, Wi-Fi ⚠️ randomized MAC |
+| `Bedroom TV` | ~~`52:4b:e7:7b:a6:c7`~~ | 192.168.6.11 — **added 2026-09-09**, Sony BRAVIA, Wi-Fi. ⚠️ **Orphaned 2026-09-10:** randomization was turned off on the TV and it now presents `f4:4e:b4:73:bf:19`, so the reservation matches nothing and the TV sits on `192.168.6.93`. Move it to the hardware MAC — see the 2026-09-09 session in `unifi-browser-changes.md`, Outstanding item 2 |
 
 None carry a `network_id`: the reservation pins only the address, and the port profile or WLAN decides the VLAN.
 

@@ -70,6 +70,11 @@ resource "unifi_firewall_zone" "iot" {
 # locally-administered MAC (52:4b:e7:...) which it is free to rotate per SSID; the
 # addresses are pinned by DHCP reservation instead, so a rotation can only break the
 # reservation, never silently widen or void this policy.
+#
+# That played out on 2026-09-10: randomization was switched off on the TV, its MAC
+# became the hardware f4:4e:b4:73:bf:19, and the .6.11 reservation was orphaned --
+# the TV fell back to a pool address while this policy stayed exactly as intended.
+# Keep matching on IP.
 # Created by hand 2026-09-09, id `6aa1316d40324b4491452f98` -- needs `tofu import` too.
 resource "unifi_firewall_group" "tv_media_endpoints" {
   name = "TV Media Endpoints"
