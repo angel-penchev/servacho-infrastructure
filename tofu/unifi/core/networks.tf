@@ -10,10 +10,9 @@ resource "unifi_network" "default" {
   purpose = "corporate"
   subnet  = "192.168.1.1/24"
 
-  # multicast_dns is true on every network here to match live. The flag is cosmetic on
-  # UniFi OS gateways -- they ignore it (upstream #282) -- and what is actually in force
-  # is the site-wide Gateway mDNS Proxy, set to mode="all" / enabled_for="all". See
-  # ../system/mdns.tf for that setting and why it cannot be managed in code.
+  # True on every network here, to match live. Cosmetic on UniFi OS gateways, which
+  # ignore it (upstream #282); the site-wide Gateway mDNS Proxy is what is in force --
+  # see ../system/mdns.tf.
   multicast_dns = true
 
   dhcp_server = {

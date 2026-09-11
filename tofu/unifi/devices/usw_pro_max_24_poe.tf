@@ -186,15 +186,8 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id = var.port_profile_host_device_id
   }
 
-  # Third JetKVM (`jetkvm-ce4ac3437e0d935d`, 30:52:53:0d:1a:68), fixed IP 192.168.5.23.
-  # Was an inline native VLAN of Public Servers, which was wrong twice over: a JetKVM is
-  # infrastructure and belongs on Private Servers alongside the `.20` / `.21` siblings, and
-  # the live port carried `Host Device`, whose dot1x_ctrl = "auto" fallback-dumped the
-  # supplicant-less device onto Guest with no usable address at all.
-  #
-  # Applied on the controller 2026-09-09: port 18 now carries the `Private Server`
-  # profile and the JetKVM picked up 192.168.5.23. This block only records intent either
-  # way, because ignore_changes above means no apply pushes it.
+  # Third JetKVM (`jetkvm-ce4ac3437e0d935d`), fixed IP 192.168.5.23. Was an inline native
+  # VLAN of Public Servers; a JetKVM belongs on Private Servers with its siblings.
   port_override {
     index           = 18
     name            = "BR-02"
