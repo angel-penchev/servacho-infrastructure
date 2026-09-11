@@ -47,9 +47,28 @@ resource "unifi_wlan" "stkr_guest" {
   pmf_mode        = "optional"
   bss_transition  = true
 
+  # Guest isolation. Both of these were disturbed on 2026-09-11 while testing whether
+  # Guest clients could cast to the IoT TVs; see ../security/firewall.tf for why that
+  # was abandoned. The values here are the intended state.
+  #
+  # is_guest: live is currently **false**. Switching the WLAN's Application back to
+  # Hotspot in the admin panel silently resets Security Protocol to Open and blanks the
+  # passphrase, so it was left alone rather than risk an open guest SSID. An apply fixes
+  # this safely where the UI cannot: the provider sends the whole WLAN object, including
+  # security = "wpapsk" and this passphrase, so is_guest goes back to true without
+  # touching authentication.
   is_guest = true
 
-  # FIXME(unifi): The provider often returns different structures for passphrase 
+  # l2_isolation: Client Device Isolation. Was previously undeclared, which is a real
+  # hazard -- the provider schema defaults it to false (booldefault.StaticBool(false) at
+  # unifi/wlan_resource.go:469, Optional+Computed), so an apply would have silently
+  # turned guest client isolation OFF on a WLAN where the controller has it on. Declared
+  # explicitly now. It is deliberately true: it is what stops guest devices reaching each
+  # other, and UniFi's own tooltip notes it also breaks Chromecast/AirPlay discovery,
+  # which is the behaviour we want here.
+  l2_isolation = true
+
+  # FIXME(unifi): The provider often returns different structures for passphrase
   # (redacted vs unredacted) and wlan_bands than what is defined in state.
   # We must ignore these to prevent "inconsistent result after apply" crashes.
   lifecycle {
