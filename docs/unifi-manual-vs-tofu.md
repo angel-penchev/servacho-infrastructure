@@ -1,7 +1,7 @@
 # UniFi: manual rebuild vs. OpenTofu config — drift report
 
-**Date:** 2026-09-08 (drift analysis) · **Updated:** 2026-09-09 (second remediation pass — §0.6)
-**Branch:** `feat/unifi-port-config`
+**Date:** 2026-09-08 (drift analysis) · **Updated:** 2026-09-11 (third pass — §0.7; to-do list in §0.8)
+**Branch:** `feat/unifi-port-config` (PR #29 — the single open PR for all UniFi work)
 **Companion:** [`unifi-browser-changes.md`](unifi-browser-changes.md) — everything changed on the live controller
 **Sources:** the manual rebuild checklist, the live controller (`https://192.168.1.1`, read via the Network app REST API), and `tofu/unifi/**/*.tf` as of the current working tree.
 
@@ -13,6 +13,8 @@ State lives on the management plane, so `tofu plan` was not run. Everything belo
 
 **Status key:** ✅ resolved · 🔧 partly resolved · ⏳ TODO · 🚫 blocked on provider
 
+> **The to-do list is §0.8.** Three things will break the first `tofu apply` and are listed there first. Note that **nothing in this document has ever been verified by a `tofu plan`** — see §0.7 for why that is now fixable.
+
 | Area | Verdict |
 |---|---|
 | Networks / VLANs | ✅ VLAN layout fixed in code; mDNS decided in §0.6 (site-wide proxy stays `all`; per-network flag set to `true` to match live) |
@@ -22,7 +24,8 @@ State lives on the management plane, so `tofu plan` was not run. Everything belo
 | WANs | ✅ Code now reflects live |
 | Wireless | ✅ All 3 diffs applied to the live controller from code |
 | RADIUS / 802.1X | 🔧 Secret now wired into `unifi_setting.radius`; global 802.1X 🚫 not expressible; extra users ⏳ TODO |
-| Firewall | ✅ IoT zone + 3 ALLOW policies + address group, **live and in code** (§0.6). **A newly created custom zone is blocked from every zone except External/Gateway by default — so the IoT asymmetry needs no explicit BLOCK** |
+| Firewall | ✅ IoT zone + 2 ALLOW policies, **live and in code**. **A newly created custom zone is blocked from every zone except External/Gateway by default — so the IoT asymmetry needs no explicit BLOCK.** Guest→TV access was tried and **abandoned** (§0.7); the zone firewall is not the enforcement point for a guest network |
+| Wireless isolation | ✅ `l2_isolation` now declared — it was undeclared on every WLAN, and the schema default would have silently disabled guest isolation on the next apply (§0.7) |
 | Port forwards | ⏳ TODO |
 | Fixed-IP clients | ✅ resolved by emptying `system/clients.tf` (§9) — all ten entries were stale; the 7 live reservations stay controller-side, 🚫 blocked on #428 |
 | VPN | ⏳ TODO |
@@ -130,7 +133,91 @@ Two items needed a physical action on the device and could not be done from the 
 | MAC filtering on the server port profiles | `TODO(port-security)`; blocked on #470 |
 | `stp_edge_state` (Port Mode Edge/Infrastructure) | Not exposed by the provider though go-unifi has it — **provider-only PR**. Set by hand on all three new profiles; an apply that recreates them would revert it |
 | `Public Server` profile has no port | Ports 20 and USW Aggregation 1 are remaining §3.4 work; port 12 already matches the code |
-| Whether Guest discovery of the TVs actually works | The proxy is `enabled_for: all`, but UniFi has historically excluded guest networks. Needs the functional test from a Guest phone |
+| ~~Whether Guest discovery of the TVs actually works~~ | **Answered 2026-09-11 — it does, and it did not help.** Discovery worked once `l2_isolation` was off; the unicast stream was still dropped at the AP. See §0.7 |
+
+---
+
+## 0.7 Remediation pass — 2026-09-11
+
+Guest→TV access abandoned and rolled back, then a code-vs-live audit of everything this branch had accumulated. The controller-side rollback is logged in [`unifi-browser-changes.md`](unifi-browser-changes.md); what follows is the code and process side.
+
+**The finding that ended the feature:** for a guest network the zone firewall is not the enforcement point. Clients of a Hotspot-zone network are flagged `is_guest` and the access points enforce isolation locally, ahead of any zone policy. All three Hotspot → IoT policies read **exactly zero hits** after real cast attempts, while `Allow Main to IoT` carried 13,373 at the same moment — so the packets never reached the gateway at all. A correct, enabled, correctly-ordered ALLOW sat in the policy table and matched nothing, while reading to any observer as though Guest could reach the TVs. **mDNS was never involved**; the reflector was measurably working throughout (337,966 hits).
+
+### Changed in code
+
+| File | Change |
+|---|---|
+| `security/firewall.tf` | `unifi_firewall_group.tv_media_endpoints` and `unifi_firewall_policy.allow_guest_to_tvs` **removed**, matching the controller. Replaced with a short do-not-reinstate note recording why the design cannot work |
+| `wireless/wlans.tf` | **`l2_isolation = true` declared on `stkr_guest`** — see the hazard below. `is_guest = true` kept with a note that live is `false` |
+| `system/mdns.tf` | corrected: the earlier text claimed the missing piece was a unicast permission. It records the measured hit counts and that mDNS was never the cause |
+| `devices/u7_pro_living_room.tf` | PR #22 merged in; the stale "AP is offline" FIXME rewritten to the real reason the `ignore_changes` stays |
+| everywhere | comment volume cut by ~200 lines — session narrative and change logs removed in favour of the docs, FIXMEs and hazard warnings kept |
+
+**The hazard worth recording.** `l2_isolation` was not declared on *any* WLAN. The provider schema makes it `Optional + Computed` with `booldefault.StaticBool(false)` (`unifi/wlan_resource.go:469`), so the next apply would have silently switched Client Device Isolation **off** on the guest SSID — undoing, without a diff anyone would notice, the isolation the rollback had just restored. This is the general shape of the risk in this repo: a Computed attribute left undeclared does not mean "leave it alone", it means "set it to the schema default".
+
+### Process
+
+| What | Detail |
+|---|---|
+| Commit hook adopted | `qoax-community/qoax-githooks` as a submodule pinned to `13c0c65`, plus `.githooks/commit-msg`, `scripts/setup-hooks.sh`, dependabot and a CI workflow. **Run `sh scripts/setup-hooks.sh` once after cloning.** Two deviations from the upstream README, both because this repo is outside the qoax-community org: the submodule URL is absolute, and CI calls the public composite action directly rather than the private `qoax-reusables` workflow |
+| PRs consolidated | #22 and #30 **merged into #29**, which is now the single open PR for all UniFi work — 30 commits, targeting `main` |
+| Commit messages fixed | All 13 non-conforming messages rewritten (5 over-long bodies rewrapped, 8 AI attribution trailers dropped, 2 over-long subjects shortened). Content, author/committer dates and identities verified unchanged; backup at tag `backup/pre-msg-rewrite-a20428a` |
+
+### ⚠️ New finding: CI can reach the controller, and its credential is broken
+
+The `plan` workflow has failed on every run since **2026-09-07**, on both branches, at provider setup:
+
+```
+AUTHENTICATION_FAILED_INVALID_CREDENTIALS: Invalid username or password
+(403 Forbidden) for POST https://192.168.1.1/api/auth/login
+payload: {"username":"servacho-managment-plane"}
+```
+
+Almost certainly the factory reset: the local admin the management plane authenticates as was wiped with everything else, so the Vault credential names a user the rebuilt controller does not have.
+
+**The important part is that it is a 403 and not a timeout.** The runner reached the controller and was refused *by it*. CI therefore has a network path to `192.168.1.1` that the workstation does not — which makes it the place a real `tofu plan` can finally be produced. Every "we could not run plan" caveat in this document is a consequence of that path not being usable, and this is the single highest-value thing to fix. The provider's own error message recommends `UNIFI_API_KEY` over username/password, which also sidesteps UniFi's login rate limiting.
+
+---
+
+## 0.8 To-do
+
+Ordered by what unblocks what. Nothing here is started.
+
+### Before any `tofu apply` — these three will break it
+
+| # | Task | Detail |
+|---|---|---|
+| 1 | **Import the IoT zone** | `tofu import unifi_firewall_zone.iot 6aa12f7b40324b4491452cf5`. Created by hand; a custom zone cannot be imported by name the way Internal/Hotspot/Dmz can. Without this the apply tries to create a second `IoT` zone |
+| 2 | **Clear the stale state lock** | `tofu/unifi/.terraform.tfstate.lock.info`, left by an interrupted apply on 2026-09-04. The local `terraform.tfstate` is 0 bytes; real state is on the management plane |
+| 3 | **Fix the controller credential** | `servacho-managment-plane` gets a 403 — see §0.7. Blocks `plan` in CI *and* any apply from the management plane. Recreate the local admin, or move to `UNIFI_API_KEY` |
+
+### Then
+
+| # | Task | Detail |
+|---|---|---|
+| 4 | **Get a real `tofu plan`** | Nothing in this document has ever been plan-verified. Once #3 is done, CI is the place to do it |
+| 5 | **Merge PR #29** | 30 commits, targets `main`. Its `plan` check stays red until #3 |
+| 6 | **Restore `is_guest` on `StKr_Guest`** | Live is `false`, code says `true`. **The apply is the safe fix** — the provider sends the whole WLAN object including the passphrase, where the admin panel blanks it. Doing it by hand instead needs the guest password. Related: upstream #464, *null passphrase error on open or guest wifi* |
+
+### Controller-side backlog
+
+| # | Task | Detail |
+|---|---|---|
+| 7 | `Public Server` profile has no port | Pro Max 20 and USW Aggregation 1 — remaining §3.4 work |
+| 8 | JetKVM on Pro Max port 12 | `TODO(jetkvm-port-12)`: decide whether to apply `Private Server` and reserve `.5.20`. It currently lands on the untagged UniFi Devices VLAN at `192.168.1.127` |
+| 9 | Port forwards (§8), VPN (§10), site settings (§11), two RADIUS users (§6) | Untouched since the rebuild |
+| 10 | Fixed-IP clients stay controller-side | Seven reservations, inventory in `system/clients.tf`. Blocked until a release carries #447 |
+
+### Upstream — nothing has shipped
+
+**v0.55.0 (2026-07-10) is still the only release**, re-checked 2026-09-11. Everything below remains open, so no blocked item in this document has moved.
+
+| # | Task | Detail |
+|---|---|---|
+| 11 | mDNS | Needs **both** repos: `settings.Mdns` in go-unifi lacks `enabled_for` / `enabled_for_network_ids`, and the provider has no mdns block at all. go-unifi PR first |
+| 12 | `stp_edge_state` | go-unifi has it, the provider does not expose it — **provider-only PR**. Set by hand on the three new profiles; an apply that recreates them reverts it |
+| 13 | Watch #482 | New: *fix(device): include config_network in updates* — someone else's fix for the same gap as our #463. If it lands first, #463 may need rebasing or withdrawing |
+| 14 | Chase a release | #475 asks for one. #447 (our `unifi_client` blocker) has been **merged and unreleased since 2026-08-24** |
 
 ---
 
@@ -584,10 +671,15 @@ Given the above, the ordering that avoids wasted work:
 
 ### 14.11 Watchlist
 
-Open items to re-check when v0.56.0 lands:
+Open items to re-check when v0.56.0 lands. **Re-verified 2026-09-11: v0.55.0 (2026-07-10) is still the only release and every row below is still open**, so nothing blocked in this document has moved.
 
 | # | Type | Title |
 |---|---|---|
+| [#482](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/482) | PR | **new** — device: include `config_network` in updates. Overlaps our #463; whichever lands first, the other needs rebasing or withdrawing |
+| [#484](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/484) | issue | site_to_site_vpn: `peer_ip` rejects hostnames, no IKE identifier fields |
+| [#480](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/480) | issue | network: allowed DHCP guarding servers not passed |
+| [#479](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/479) | issue | wan: omitted `enabled` becomes false |
+| [#447](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/447) | PR | **merged 2026-08-24, unreleased** — client: `last_ip`/`hostname` inconsistent result. This is what gates `system/clients.tf` (§14.5) |
 | [#463](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/463) | PR | etherlighting + device update payload truncation *(ours)* |
 | [#470](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/470) | PR | port_profile: keep an explicitly empty `port_security_mac_address` *(ours)* |
 | [#473](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/473) | PR | firewall-policy: refresh controller-assigned index |
