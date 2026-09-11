@@ -1,16 +1,12 @@
-# Conventional Commits validation, using the hook shared across the QOAX
-# Community organization: qoax-community/qoax-githooks.
+# Conventional Commits validation, using qoax-community/qoax-githooks.
 #
-# This repository does NOT use the `qoax-reusables` reusable workflow that the
-# upstream template points at. That workflow lives in a private repository in
-# another organization, and a caller outside the organization cannot resolve
-# it. The composite action at the root of qoax-githooks is public, so it is
-# called directly here instead, pinned by commit to match the submodule.
+# This calls the composite action directly rather than the `qoax-reusables` reusable
+# workflow the upstream template points at: that workflow is in a private repository in
+# another organization and a caller outside it cannot resolve it.
 #
-# Keep the pin below in step with the `.githooks/shared` submodule, so the hook
-# that runs locally and the one that runs in CI are the same code. Dependabot
-# bumps the submodule (see .github/dependabot.yml); the `uses:` pin here is
-# updated by hand in the same pull request.
+# Keep the pin below in step with the `.githooks/shared` submodule, so local and CI run
+# the same code. Dependabot bumps the submodule; this `uses:` pin is updated by hand in
+# the same pull request.
 name: Check commit conventions
 
 on:
@@ -22,10 +18,9 @@ on:
 permissions:
   contents: read
 
-# A pull request may cancel its own earlier run: the next one re-checks the
-# whole range. A push may not — it is checked over the range it pushed, so
-# cancelling it would leave those commits unchecked by anything. Give each push
-# a group of its own instead.
+# A pull request may cancel its own earlier run: the next one re-checks the whole range.
+# A push may not -- it is checked over the range it pushed, so cancelling would leave
+# those commits unchecked by anything.
 concurrency:
   group: >-
     commit-conventions-${{ github.event.pull_request.number
@@ -44,6 +39,4 @@ jobs:
           fetch-depth: 0
 
       - name: Validate commit messages and pull request title
-        # qoax-community/qoax-githooks, pinned to the same commit as the
-        # .githooks/shared submodule.
         uses: qoax-community/qoax-githooks@13c0c65665cc036a517e541149d664a2da7ce863
