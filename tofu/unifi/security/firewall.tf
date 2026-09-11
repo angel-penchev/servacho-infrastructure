@@ -59,32 +59,43 @@ resource "unifi_firewall_zone" "iot" {
 }
 
 # ----------------------------------------------------------------------------
-# Address groups
+# Guest access to the TVs -- ABANDONED 2026-09-11, do not reinstate blindly
+#
+# There used to be a `TV Media Endpoints` address-group (192.168.6.10 / .11) and an
+# `Allow Guest to TVs` policy here, so visitors on Guest could cast to the two TVs.
+# Both were deleted from the controller and removed from this file after testing showed
+# the design could not work, and the user then decided guests should not reach the TVs
+# at all.
+#
+# Why it could not work: **for a guest network the zone firewall is not the enforcement
+# point.** A network in the Hotspot zone gets `purpose = "guest"`, its clients are
+# flagged `is_guest`, and UniFi's access points enforce guest isolation locally --
+# ahead of, and independently of, any zone policy. The proof was in the hit counters:
+# after repeated cast attempts from a Guest phone, all three Hotspot->IoT policies
+# (`Allow Guest to TVs`, the predefined `Post-Authorization Restrictions`, and
+# `Block All Traffic`) read exactly zero hits. A packet that reached the gateway would
+# have incremented one of them; none did, because the AP dropped them first.
+#
+# So a correct, enabled, correctly-ordered ALLOW policy sat there and never saw a single
+# packet. Anyone reading `Allow Guest to TVs` in the policy table would reasonably
+# conclude Guest could reach the TVs. It could not.
+#
+# mDNS was never the problem and needed no change -- see ../system/mdns.tf. Discovery
+# only ever failed because of `l2_isolation` (Client Device Isolation) on the StKr_Guest
+# WLAN, whose own UniFi tooltip warns it "may inhibit the functionality of AirPlay,
+# Chromecast, Sonos devices, screen mirroring, and wireless printers". Turning that off
+# did make the TVs appear as cast targets -- and casting still did nothing, because the
+# unicast stream was still being dropped at the AP.
+#
+# Making it work would have required taking the Guest network out of the Hotspot zone
+# entirely (a custom zone, which denies by default to everything except External and
+# Gateway) and re-pointing the policy at that zone. That trades UniFi's built-in guest
+# isolation for hand-written policy, which is a real posture change and was declined.
+#
+# If this is ever revisited: the WLAN's Application = Standard/Hotspot toggle is NOT
+# sufficient on its own, and flipping it to Hotspot in the UI silently resets Security
+# Protocol to Open and blanks the passphrase. Check the password field before applying.
 # ----------------------------------------------------------------------------
-
-# The two TVs that Guest clients are allowed to reach: the EON/SDMC Android TV box in
-# the living room (192.168.6.10, wired to Pro Max port 6) and the Sony BRAVIA in the
-# bedroom (192.168.6.11, Wi-Fi on StKr_IoT).
-#
-# Matched by IP rather than MAC on purpose. The BRAVIA presented a randomized,
-# locally-administered MAC (52:4b:e7:...) which it is free to rotate per SSID; the
-# addresses are pinned by DHCP reservation instead, so a rotation can only break the
-# reservation, never silently widen or void this policy.
-#
-# That played out on 2026-09-10: randomization was switched off on the TV, its MAC
-# became the hardware f4:4e:b4:73:bf:19, and the .6.11 reservation was orphaned --
-# the TV fell back to a pool address while this policy stayed exactly as intended.
-# Keep matching on IP.
-# Created by hand 2026-09-09, id `6aa1316d40324b4491452f98` -- needs `tofu import` too.
-resource "unifi_firewall_group" "tv_media_endpoints" {
-  name = "TV Media Endpoints"
-  type = "address-group"
-
-  members = [
-    "192.168.6.10",
-    "192.168.6.11",
-  ]
-}
 
 # ----------------------------------------------------------------------------
 # Firewall Policies
@@ -177,37 +188,5 @@ resource "unifi_firewall_policy" "allow_private_servers_to_iot" {
   destination = {
     zone_id         = unifi_firewall_zone.iot.id
     matching_target = "ANY"
-  }
-}
-
-# Guest -> the two TVs only, so visitors can cast without reaching the rest of IoT.
-#
-# matching_target_type is deliberately not set: it is read-only in the schema, and the
-# provider derives OBJECT from a non-empty ip_group_id. The controller rejects a group
-# reference sent as SPECIFIC, which is what upstream #365 fixed in v0.55.0 -- our pin.
-#
-# Note that mDNS discovery is a separate mechanism from this unicast permission: the
-# site-wide Gateway mDNS Proxy is what lets a Guest phone *see* the TVs, and this policy
-# is what lets it actually stream to them. See ../system/mdns.tf.
-resource "unifi_firewall_policy" "allow_guest_to_tvs" {
-  name                 = "Allow Guest to TVs"
-  action               = "ALLOW"
-  ip_version           = "BOTH"
-  protocol             = "all"
-  create_allow_respond = true
-  logging              = false
-
-  source = {
-    zone_id         = unifi_firewall_zone.hotspot.id
-    matching_target = "NETWORK"
-    network_ids = [
-      var.network_guest_id
-    ]
-  }
-
-  destination = {
-    zone_id         = unifi_firewall_zone.iot.id
-    matching_target = "IP"
-    ip_group_id     = unifi_firewall_group.tv_media_endpoints.id
   }
 }
