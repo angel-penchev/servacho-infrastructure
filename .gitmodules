@@ -1,0 +1,3 @@
+[submodule ".githooks/shared"]
+	path = .githooks/shared
+	url = https://github.com/qoax-community/qoax-githooks.git
