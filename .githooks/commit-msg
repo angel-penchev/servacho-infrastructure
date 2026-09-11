@@ -1,0 +1,21 @@
+#!/bin/sh
+#
+# Runs the shared commit-msg hook from the qoax-githooks submodule.
+#
+# core.hooksPath points at this directory rather than at the submodule, so a
+# repository can add hooks of its own next to this file without giving up the
+# shared one.
+#
+# A missing submodule is a hard stop, not a warning: a clone with no submodule
+# would otherwise commit anything at all and look like it had been checked.
+# `git commit --no-verify` is still the way past it.
+
+hook="$(dirname "$0")/shared/commit-msg"
+
+if [ ! -x "$hook" ]; then
+  printf 'commit message validation is not installed.\n' >&2
+  printf '  run: git submodule update --init .githooks/shared\n' >&2
+  exit 1
+fi
+
+exec "$hook" "$@"
