@@ -22,11 +22,15 @@ resource "unifi_device" "u7_pro_living_room" {
     dns1    = "192.168.1.1"
   }
 
-  # NOTE(2026-09-08): the original FIXME here said the AP was offline/unadopted. It is
-  # adopted and online now (state=1, static 192.168.1.4), so that reason is gone. The
-  # ignore is kept only because `disabled` is another field buildMinimalUpdateDevice
-  # drops on update (same class as config_network above) -- removing it likely trades
-  # one inconsistent-result error for another. Retry after v0.56.0.
+  # The AP is enabled -- `disabled = false` above, adopted and online at 192.168.1.4.
+  # That is what PR #22 set out to achieve and it is in force.
+  #
+  # FIXME(unifi): the ignore stays, for a different reason than the original FIXME gave.
+  # That one said the AP was offline/unadopted, which is no longer true. But `Disabled`
+  # is absent from the struct buildMinimalUpdateDevice assembles, so the provider never
+  # sends the field on an update at all -- the same class of gap as config_network above.
+  # Dropping the ignore trades a stale comment for an "inconsistent result after apply".
+  # Retry once the provider ships a release carrying both fields.
   lifecycle {
     ignore_changes = [disabled]
   }
