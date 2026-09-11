@@ -1,6 +1,7 @@
 variable "network_main_id" { type = string }
 variable "network_guest_id" { type = string }
 variable "network_iot_id" { type = string }
+variable "network_private_servers_id" { type = string }
 variable "network_public_servers_id" { type = string }
 
 variable "radius_users_passwords" {

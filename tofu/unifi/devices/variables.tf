@@ -1,7 +1,3 @@
-variable "network_public_servers_id" {
-  type = string
-}
-
 variable "port_profile_host_device_id" {
   type = string
 }

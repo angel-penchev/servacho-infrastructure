@@ -186,12 +186,14 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id = var.port_profile_host_device_id
   }
 
+  # Third JetKVM (`jetkvm-ce4ac3437e0d935d`), fixed IP 192.168.5.23. Was an inline native
+  # VLAN of Public Servers; a JetKVM belongs on Private Servers with its siblings.
   port_override {
-    index                 = 18
-    name                  = "BR-02"
-    op_mode               = "switch"
-    forward               = "customize"
-    native_networkconf_id = var.network_public_servers_id
+    index           = 18
+    name            = "BR-02"
+    op_mode         = "switch"
+    forward         = "customize"
+    port_profile_id = var.port_profile_private_servers_id
   }
 
   port_override {

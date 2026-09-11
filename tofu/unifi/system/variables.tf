@@ -1,7 +1,6 @@
-variable "network_main_id" { type = string }
+# Only used by the commented-out `unifi_setting_switch.dot1x_control` block in
+# settings.tf. The other network ids went when clients.tf, their only consumer, emptied.
 variable "network_guest_id" { type = string }
-variable "network_private_servers_id" { type = string }
-variable "network_public_servers_id" { type = string }
 
 variable "radius_profile_secret" {
   type        = string

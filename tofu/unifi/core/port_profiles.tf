@@ -1,14 +1,13 @@
 # ----------------------------------------------------------------------------
 # Port profiles
 #
-# Only two profiles exist on the controller after the 2026-09 rebuild. Both are
-# declared here. The three per-VLAN profiles further down are TODO: they were
-# wiped by the factory reset and have not been recreated.
+# All five exist on the controller. The three per-VLAN ones were destroyed by the 2026-09
+# factory reset and recreated by hand, named in the singular to match the `UniFi Device` /
+# `Host Device` convention already in place.
 # ----------------------------------------------------------------------------
 
-# Uplinks between UniFi devices themselves (UDM <-> switches, switches <-> APs).
-# Trunks every VLAN and never runs 802.1X, otherwise the infrastructure could not
-# come up before RADIUS is reachable.
+# Uplinks between UniFi devices themselves. Trunks every VLAN and never runs 802.1X,
+# otherwise the infrastructure could not come up before RADIUS is reachable.
 resource "unifi_port_profile" "unifi_devices" {
   name                  = "UniFi Device"
   forward               = "all"
@@ -20,27 +19,21 @@ resource "unifi_port_profile" "unifi_devices" {
   stp_port_mode         = true
 }
 
-# Host-facing access ports on the USW Pro Max 24 PoE.
+# Host-facing access ports on the USW Pro Max 24 PoE: 802.1X pass -> RADIUS returns
+# Tunnel-Private-Group-ID 2 -> Main; fail or no supplicant -> Guest.
 #
-# Intended behaviour:
-#   - client passes 802.1X  -> RADIUS returns Tunnel-Private-Group-ID 2 -> Main (VLAN 2)
-#   - client fails / has no supplicant -> Guest (VLAN 3)
+# FIXME(unifi): that second half is not expressible here. An unauthorized port drops
+# everything including DHCP, so the "drop them on Guest instead" behaviour is the
+# site-wide 802.1X Fallback VLAN (`global_switch.dot1x_fallback_networkconf_id`), and
+# `unifi_setting` exposes no switch/dot1x block at v0.55.0. Set manually to Guest -- see
+# the commented `unifi_setting_switch` block in ../system/settings.tf.
 #
-# The second half is NOT expressible here. A port with dot1x_ctrl = "auto" stays
-# unauthorized until 802.1X succeeds, and an unauthorized port drops everything --
-# including DHCP -- so non-supplicants get no address at all. The "drop them on
-# Guest instead" behaviour is the site-wide 802.1X Fallback VLAN, which lives in
-# Global Switch Settings (`global_switch.dot1x_fallback_networkconf_id`), not on the
-# port profile: there is no per-profile guest/fallback attribute in the schema.
+# native_networkconf_id is Main, not Guest: with the fallback VLAN handling the
+# unauthenticated case, the native VLAN is what an *authorized* client gets when RADIUS
+# returns no VLAN assignment.
 #
-# FIXME(unifi): `unifi_setting` exposes no switch/dot1x block at v0.55.0, so the
-# fallback VLAN cannot be managed here. Set manually to Guest -- see
-# docs/unifi-browser-changes.md (2026-09-08) and the commented
-# `unifi_setting_switch` block in ../system/settings.tf.
-#
-# native_networkconf_id is Main, not Guest: with the fallback VLAN doing the
-# unauthenticated case, the native VLAN is what an *authorized* client gets when
-# RADIUS returns no VLAN assignment, and that should be Main.
+# Not for appliances without a supplicant -- two of those sat here and were silently
+# fallback-dumped onto Guest. Both moved to a per-VLAN profile below.
 resource "unifi_port_profile" "host_device" {
   name                  = "Host Device"
   forward               = "customize"
@@ -50,49 +43,73 @@ resource "unifi_port_profile" "host_device" {
   dot1x_ctrl            = "auto"
   tagged_vlan_mgmt      = "auto"
   setting_preference    = "manual"
-  stp_port_mode         = true # "Port Mode: Edge" in the UI
+  stp_port_mode         = true
 }
 
 # ----------------------------------------------------------------------------
-# TODO(port-profiles): the three per-VLAN profiles below were destroyed by the
-# factory reset and have NOT been recreated on the controller. Nothing on any
-# switch references a per-VLAN profile any more -- the two server/IoT ports that
-# used to use one now carry inline native-VLAN overrides instead.
+# Per-VLAN access profiles.
 #
-# Decide per profile whether to recreate it or delete it outright. Kept as-is for
-# now so the port_override blocks in ../devices/*.tf (themselves TODO, see
-# docs/unifi-manual-vs-tofu.md 3.2-3.4) still resolve.
+# All three force-authorize 802.1X: they are for appliances and servers with no
+# supplicant, where leaving dot1x_ctrl on "auto" is what caused the fallback-to-Guest
+# problem above.
+#
+# `stp_port_mode = true` and `setting_preference = "manual"` match what the UI produces
+# and what all five live profiles carry. `stp_port_mode` is the plain "STP" checkbox, NOT
+# the UI's "Port Mode: Infrastructure/Edge" control -- that one is `stp_edge_state`.
+#
+# FIXME(unifi): `stp_edge_state` cannot be managed here. go-unifi carries it
+# (`unifi/port_profile.generated.go`), the provider does not expose it on v0.55.0 --
+# a provider-only PR, unlike the two-repo mDNS gap.
+#
+# It matters: a non-Edge access port runs full STP and holds the link in
+# listening/learning for ~15-30s after link-up, dropping the DHCP handshake of whatever
+# is plugged in. All three were created as Infrastructure (the UI default) and set to
+# Edge by hand. If an apply ever recreates them they come back as Infrastructure and need
+# fixing in the UI again. `UniFi Device` stays non-Edge on purpose -- it is for
+# switch-to-switch uplinks, where STP participation is the point.
+#
+# The `port_override` blocks in ../devices/*.tf that reference these profiles record
+# intent only: every switch carries `lifecycle { ignore_changes = [port_override] }`
+# because of upstream #430 / #438, so assignment happens in the admin panel.
+#
+# TODO(port-security): both server profiles should eventually restrict which MACs may
+# appear on a server port. `port_security_enabled` and `port_security_mac_address` exist
+# at v0.55.0, but an explicitly empty allowlist collapses to SetNull and errors on every
+# apply (upstream #470, ours, open) -- so only declare them with real MACs in them.
 # ----------------------------------------------------------------------------
 
 resource "unifi_port_profile" "public_servers" {
-  name                  = "Public Servers"
+  name                  = "Public Server"
   forward               = "customize"
   native_networkconf_id = unifi_network.public_servers.id
   poe_mode              = "auto"
   autoneg               = true
   dot1x_ctrl            = "force_authorized"
   tagged_vlan_mgmt      = "auto"
-  stp_port_mode         = false
+  setting_preference    = "manual"
+  stp_port_mode         = true
 }
 
 resource "unifi_port_profile" "private_servers" {
-  name                  = "Private Servers"
+  name                  = "Private Server"
   forward               = "customize"
   native_networkconf_id = unifi_network.private_servers.id
   poe_mode              = "auto"
   autoneg               = true
   dot1x_ctrl            = "force_authorized"
   tagged_vlan_mgmt      = "auto"
-  stp_port_mode         = false
+  setting_preference    = "manual"
+  stp_port_mode         = true
 }
 
 resource "unifi_port_profile" "iot" {
-  name                  = "IoT"
+  name                  = "IoT Device"
   forward               = "customize"
   native_networkconf_id = unifi_network.iot.id
   poe_mode              = "auto"
   autoneg               = true
   dot1x_ctrl            = "force_authorized"
   tagged_vlan_mgmt      = "auto"
-  stp_port_mode         = false
+  setting_preference    = "manual"
+  stp_port_mode         = true
 }
