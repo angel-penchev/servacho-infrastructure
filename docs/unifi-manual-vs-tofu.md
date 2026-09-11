@@ -100,7 +100,7 @@ Guest access to the two TVs, plus the last two deferred ports. Intent: Guest (VL
 
 ### Changed on the live controller
 
-**All applied 2026-09-09** through the admin panel — full log in [`unifi-browser-changes.md`](unifi-browser-changes.md). Three port profiles created (`Public Server` / `Private Server` / `IoT Device`, all Force Authorized, all set to Port Mode **Edge**), applied to ports 6 and 18; three fixed IPs reserved; the `IoT` zone created (`6aa12f7b40324b4491452cf5`); the `TV Media Endpoints` address group created (`6aa1316d40324b4491452f98`); `Allow Main to IoT` retargeted and un-paused; `Allow Private Servers to IoT` and `Allow Guest to TVs` created. The Gateway mDNS Proxy was deliberately left untouched.
+**All applied 2026-09-09** through the admin panel — full log in [`unifi-browser-changes.md`](unifi-browser-changes.md). Three port profiles created (`Public Server` / `Private Server` / `IoT Device`, all Force Authorized, all set to Port Mode **Edge**), applied to ports 6 and 18; three fixed IPs reserved; the `IoT` zone created (`6aa12f7b40324b4491452cf5`); the `TV Media Endpoints` address group created (`6aa1316d40324b4491452f98`); `Allow Main to IoT` retargeted and un-paused; `Allow Private Servers to IoT` and `Allow Guest to TVs` created. The Gateway mDNS Proxy was deliberately left untouched. **The address group and `Allow Guest to TVs` were both deleted again on 2026-09-11 — see the warning below.**
 
 Because these were created by hand, the matching resources need importing before any apply — notably the IoT zone by **ID**, since a custom zone cannot be imported by name the way the built-in Hotspot/Internal zones can:
 
@@ -108,7 +108,9 @@ Because these were created by hand, the matching resources need importing before
 tofu import unifi_firewall_zone.iot 6aa12f7b40324b4491452cf5
 ```
 
-Two items needed a physical action on the device and could not be done from the controller. **Both are now resolved.** The **EON box** was power-cycled by the user on 2026-09-09 and came up on `192.168.6.10` (neither port 6 nor 18 draws PoE, so no controller-side power cycle was possible). The **BRAVIA's randomized MAC** was turned off on 2026-09-10; that swapped it to the hardware `f4:4e:b4:73:bf:19` and orphaned the reservation, which was re-pointed the same day — the TV now holds `192.168.6.11`. Both TVs are on their reserved addresses and inside the `TV Media Endpoints` group.
+Two items needed a physical action on the device and could not be done from the controller. **Both are now resolved.** The **EON box** was power-cycled by the user on 2026-09-09 and came up on `192.168.6.10` (neither port 6 nor 18 draws PoE, so no controller-side power cycle was possible). The **BRAVIA's randomized MAC** was turned off on 2026-09-10; that swapped it to the hardware `f4:4e:b4:73:bf:19` and orphaned the reservation, which was re-pointed the same day — the TV now holds `192.168.6.11`. Both TVs are on their reserved addresses.
+
+> **⚠️ Guest access to the TVs was abandoned on 2026-09-11** and both the `Allow Guest to TVs` policy and the `TV Media Endpoints` group were deleted from the controller and from the code. The zone firewall is **not** the enforcement point for a guest network: UniFi's access points drop guest traffic to other VLANs locally, ahead of any policy, so a correct ALLOW sat there and matched exactly zero packets. Everything else from this work — the IoT zone, the two remaining ALLOW policies, the port profiles, ports 6 and 18, the reservations — stands. Full write-up in [`unifi-browser-changes.md`](unifi-browser-changes.md).
 
 ### Decisions recorded
 

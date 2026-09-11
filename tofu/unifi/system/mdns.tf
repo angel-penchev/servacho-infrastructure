@@ -14,13 +14,19 @@
 #   custom_services:          []
 #
 # That is the most permissive setting there is: every service reflected across every
-# network, Guest included. It is what lets a Guest phone discover the two living-room
-# and bedroom TVs; the unicast permission to actually stream to them is a separate
-# thing and lives in ../security/firewall.tf
-# (`unifi_firewall_policy.allow_guest_to_tvs`).
+# network, Guest included. The UI tooltip for Auto says so outright -- "Automatically
+# allows all services across all VLANs" -- and the Custom picker lists Guest (3) as an
+# eligible VLAN, so guest networks are not excluded from the reflector.
 #
-# Decision (2026-09-09): leave it on Auto/all. Casting works, and narrowing it to
-# `custom` with Guest explicitly scoped in is optional hardening, not a fix.
+# Decision (2026-09-09, reaffirmed 2026-09-11): leave it on Auto/all, and note that
+# **mDNS was never the cause of anything.** When Guest clients could not see the TVs as
+# cast targets, the reflector was measurably working the whole time: 337,966 hits on the
+# predefined `Hotspot -> Gateway: Allow mDNS` policy and 127,493 on `IoT -> Gateway:
+# Allow mDNS`, both ticking over in real time. The actual cause was `l2_isolation`
+# (Client Device Isolation) on the StKr_Guest WLAN dropping the reflected multicast at
+# the access point. See the abandoned-Guest-access note in ../security/firewall.tf.
+#
+# Narrowing this to `custom` with Guest explicitly scoped in remains optional hardening.
 #
 # FIXME(unifi): managing this needs changes in BOTH upstream repos, so a
 # provider-only patch is not enough:

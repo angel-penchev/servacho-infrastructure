@@ -6,6 +6,42 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ---
 
+## Session 2026-09-11 — Guest access to the TVs abandoned and rolled back
+
+The functional test finally ran, and the feature failed it. Guest clients could not cast; the cause turned out to be structural, and the user then decided guests should not reach the TVs at all. **Everything specific to Guest→TV access has been removed from the controller and from the code.**
+
+### What the test showed, in order
+
+1. **Discovery failed, but mDNS was not the reason.** The reflector was measurably working throughout: `Hotspot → Gateway: Allow mDNS` had **337,966 hits** ticking over live, `IoT → Gateway: Allow mDNS` **127,493**. The Auto tooltip reads "Automatically allows all services across all VLANs", and the Custom picker lists Guest (3) as eligible. Nothing about mDNS needed changing — the earlier assumption that guest networks are excluded from the reflector is **wrong**.
+2. **The blocker was `l2_isolation`** (Client Device Isolation) on the `StKr_Guest` WLAN, dropping the reflected multicast at the AP. UniFi's own tooltip on that checkbox warns it "may inhibit the functionality of AirPlay, **Chromecast**, Sonos devices, screen mirroring, and wireless printers". Turning it off made the TVs appear as cast targets.
+3. **Casting still did nothing** — and this is the structural part. **For a guest network the zone firewall is not the enforcement point.** After repeated cast attempts *and* direct `http://192.168.6.10:8008` / `.11:8008` requests from a Guest phone, all three Hotspot → IoT policies read **exactly zero hits**: `Allow Guest to TVs`, the predefined `Post-Authorization Restrictions`, and `Block All Traffic`. A packet reaching the gateway increments one of them. None did. The access points drop guest traffic to RFC1918 locally, ahead of and independently of any policy.
+
+   Hit counters are only present on the policy object when non-zero (`hits` / `last_hit` are absent at zero), which is how this was measured — `Allow Main to IoT` carried `hits: 13373` at the same moment.
+
+4. Guest clients still reported **`is_guest: true`** even after the WLAN's Application was switched to Standard, because the flag follows the **network's** `purpose = "guest"`, i.e. its membership of the Hotspot zone. Making Guest→TV work would have meant moving the Guest network into a custom zone and re-pointing the policy — trading UniFi's built-in guest isolation for hand-written policy. **Declined.**
+
+### Rolled back
+
+| # | What | Result |
+|---|---|---|
+| 1 | `StKr_Guest` → **Client Device Isolation re-enabled** | `l2_isolation: true`. Security untouched: `wpapsk`, passphrase intact |
+| 2 | Firewall policy **`Allow Guest to TVs` deleted** | Gone, and deleting the parent removed the auto-generated `Allow Guest to TVs (Return)` companion too |
+| 3 | Address group **`TV Media Endpoints` deleted** | No firewall groups remain; it existed only for that policy |
+
+Remaining custom policies: `Allow Main to IoT` (idx 10000) and `Allow Private Servers to IoT` (idx 10001). Both TVs still hold their reservations (`192.168.6.10` / `192.168.6.11`) — those were left alone, they are just no longer reachable from Guest.
+
+### ⚠️ Not restored — needs the guest Wi-Fi password
+
+`StKr_Guest` is still **`is_guest: false`** (Application = Standard rather than Hotspot).
+
+**Selecting Application = Hotspot in the UI silently resets Security Protocol to `Open` and blanks the passphrase**, and switching the protocol back to WPA2/WPA3 does *not* restore it — the password field comes back empty with "Must have at least 8 characters". Applying that would have turned the guest SSID into an open network. I cancelled instead, twice, and verified `security: wpapsk` with the passphrase intact each time.
+
+To finish, someone with the password must: WiFi → `StKr_Guest` → Application → **Hotspot**, then set Security Protocol back to **WPA2/WPA3** and **re-enter the guest password** before Apply.
+
+In practice the gap is small: guest isolation is enforced from the network's `purpose = "guest"` / Hotspot-zone membership, which never changed, and step 1 above restored client isolation. The `is_guest` WLAN flag mainly governs the Hotspot Portal association.
+
+---
+
 ## Session 2026-09-10 — Bedroom TV reservation moved to the hardware MAC
 
 Follow-up to the 2026-09-09 session, Outstanding item 2. The user turned MAC randomization off on the Sony BRAVIA, rejoined `StKr_IoT` and rebooted the TV — and it stayed on `192.168.6.93`.
@@ -36,7 +72,7 @@ Living Room TV  b0:b3:69:41:2c:9b  192.168.6.10  vlan 6   (EON box, wired Pro Ma
 Bedroom TV      f4:4e:b4:73:bf:19  192.168.6.11  vlan 6   (Sony BRAVIA, StKr_IoT)
 ```
 
-Also verified: exactly seven reservations, `f4:4e:b4:73:bf:19 → 192.168.6.11` replacing the old entry; `TV Media Endpoints` still `{192.168.6.10, 192.168.6.11}`; `Allow Guest to TVs` enabled at index 10000. **The address group now matches both TVs, so the Guest cast test can be run in full.**
+Also verified: exactly seven reservations, `f4:4e:b4:73:bf:19 → 192.168.6.11` replacing the old entry; `TV Media Endpoints` still `{192.168.6.10, 192.168.6.11}`; `Allow Guest to TVs` enabled at index 10000. **The address group now matches both TVs, so the Guest cast test can be run in full.** *(The group and policy were deleted on 2026-09-11 — see the session above. The reservations themselves stand.)*
 
 **Timing note, worth remembering.** Reconnect is not instant and it is not synchronous with re-association. Immediately after the click the TV was back on the AP (uptime reset to 66s) but *still on `192.168.6.93`* — it had re-associated at L2 while carrying its old IP configuration over. It only moved to `.6.11` on a later poll, around 200s of uptime. Do not conclude from one read that a reservation has failed to take; poll for a couple of minutes first. Had it not moved, the fallbacks were to forget `StKr_IoT` on the TV and rejoin (forces a DHCPDISCOVER; safe now that randomization is off, since forgetting can no longer mint a new random MAC), or to wait out `dhcpd_leasetime = 86400` and let RENEWING at T1 ≈ 12h get NAKed onto `.6.11`.
 
@@ -144,13 +180,15 @@ All three ALLOW, protocol all, IP version Both, connection state All, **Auto All
 
 Re-read and left exactly as found: `mode: "all"`, `enabled_for: "all"`, `predefined_services: []`, `custom_services: []`. Every service is reflected across every network, Guest included, so discovery of the TVs from Guest needs no change; what was missing was only the unicast permission to stream to them, which step 6 adds. There is also a predefined `IoT → Gateway: Allow mDNS` policy.
 
+> **Vindicated 2026-09-11.** Leaving mDNS alone was the right call — measured hit counters later proved the reflector was working the whole time (337,966 Hotspot→Gateway, 127,493 IoT→Gateway). The half of the sentence above that did *not* hold up is "what was missing was only the unicast permission": the unicast permission was correct and still never matched a packet, because guest traffic is dropped at the AP. See the 2026-09-11 session.
+
 **Codifiable? No, at any level.** The provider exposes no mdns block on `unifi_setting` (v0.55.0 *or* `main`), and go-unifi's `settings.Mdns` carries only `mode` / `predefined_services` / `custom_services` — it is missing `enabled_for` and `enabled_for_network_ids`, which is what per-network scoping actually uses. **Needs a PR in both repos**; recorded as a `FIXME(unifi)` in `system/mdns.tf`, which replaced a fictional `unifi_setting_mdns` block that could never have planned.
 
 ### Outstanding — needs a physical action
 
 1. ~~**The EON box has no lease.**~~ **Resolved** — the user power-cycled it and it came up on `192.168.6.10` / VLAN 6. (It had been holding stale Guest config on an up-and-forwarding port; neither port 6 nor 18 draws PoE, so a controller-side power cycle could not have done this.)
 2. ~~**The BRAVIA's MAC is randomized.**~~ **Resolved 2026-09-10** — randomization off, hardware MAC `f4:4e:b4:73:bf:19`. That orphaned the `.6.11` reservation, which was re-pointed to the new MAC the same day; the TV now holds `192.168.6.11`. See the **2026-09-10 session** at the top of this file.
-3. **Functional test still to run:** from a Guest phone, confirm both TVs appear as cast targets *and* that a stream actually starts.
+3. ~~**Functional test still to run:** from a Guest phone, confirm both TVs appear as cast targets *and* that a stream actually starts.~~ **Run 2026-09-11 — and it failed.** Targets appeared only after Client Device Isolation was turned off, and the stream never started because the APs drop guest traffic to other VLANs before the zone firewall sees it. The whole Guest→TV feature was rolled back; see the 2026-09-11 session at the top of this file.
 
 ### Also observed
 
