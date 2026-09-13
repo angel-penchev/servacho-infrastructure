@@ -1,6 +1,6 @@
 # Runbook: move UniFi device management to VLAN 99
 
-**Decided:** 2026-09-13 · **Status:** Phase 0 done (2026-09-13); Phases 1–4 pending
+**Decided:** 2026-09-13 · **Status:** Phases 0–1 done (2026-09-13); Phases 2–4 pending
 **Goal:** infrastructure management leaves the untagged Default LAN (VLAN 1, `192.168.1.0/24`) for a tagged network **UniFi Devices, VLAN 99, `192.168.99.0/24`**. VLAN 1 becomes an empty parking lot. Nothing else moves: Main/Guest/Public/Private/IoT/Qoax/FMI keep their IDs and subnets, so the VLAN-ID-equals-third-octet convention stays intact for every network that has clients.
 
 Every step is **UI first, then read back, then mirror in code** — the same discipline as the rest of `docs/unifi-browser-changes.md`. `tofu apply` is not part of this; the code follows live.
@@ -60,7 +60,13 @@ Read back: `/rest/networkconf` shows `Default` (untagged, `.1.1/24`) and `UniFi 
 
 Mirror in code: `unifi_network.default` → `name = "Default"`; new `unifi_network.unifi_devices` (vlan 99); new output `network_unifi_devices_id`; note in `TODO(vlan1)` → decision recorded. **Commit.**
 
-## Phase 1 — Living Room U7-Pro, then Bedroom U7-Pro
+## Phase 1 — Living Room U7-Pro, then Bedroom U7-Pro — ✅ done 2026-09-13
+
+Both APs are on VLAN 99: Living Room `192.168.99.4`, Bedroom `192.168.99.5`, static, `state 1`. Done via the API (`PUT /rest/device/<id>` with `mgmt_network_id` + `config_network`), each step read back. Two lessons for the remaining phases:
+
+- **The Bedroom AP re-homed by itself** ~80 s after the DHCP write (state 5 → 1 on a `.99.x` lease). **The Living Room AP did not**: it kept informing from `.1.4` for 7 min, a controller `restart` then left it wedged for 10 min (link up, ~6.5 W, one broadcast per second, zero MACs learned on port 23, nothing reaching `br99`). A **PoE power-cycle** of port 23 fixed it in ~2.5 min. If a device does not move within ~3 min, go straight to the PoE/power cycle — skip the soft restart.
+- The static-address step applied cleanly on both within ~60 s, no reboot needed.
+
 
 Per AP, UI: Devices → *AP* → Settings → IP Settings.
 

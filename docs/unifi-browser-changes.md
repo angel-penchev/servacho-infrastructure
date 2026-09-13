@@ -8,7 +8,7 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ## Session 2026-09-13
 
-Nine topics (the UDM overrides were added on request after the USW pass; port forwards were a read-only diff; BPDU Guard and then Phase 0 of the VLAN 99 migration closed the day). RADIUS and the port profiles were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy, Pro Max port 12 (+ one client fixed IP) and the **USW port override alignment** were **changed** (each authorised by the user).
+Ten topics (the UDM overrides were added on request after the USW pass; port forwards were a read-only diff; BPDU Guard and then Phase 0 of the VLAN 99 migration closed the day). RADIUS and the port profiles were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy, Pro Max port 12 (+ one client fixed IP) and the **USW port override alignment** were **changed** (each authorised by the user).
 
 ### Management VLAN migration — Phase 0 (runbook `unifi-mgmt-vlan-99-runbook.md`)
 
@@ -20,6 +20,17 @@ Nine topics (the UDM overrides were added on request after the USW pass; port fo
 | **Codifiable?** | Yes — `unifi_network.default` renamed and `unifi_network.unifi_devices` added in `core/networks.tf`. |
 
 Two hiccups, no consequences: the first combined script threw on a cosmetic firewall-zone lookup *after* the rename and its create `POST` had already been rejected; the retry with a minimal payload succeeded but the extension filtered the response body, so success was confirmed by read-back rather than status. Devices are all still on the untagged LAN — Phases 1–4 not started.
+
+### Management VLAN migration — Phase 1, both U7-Pro APs
+
+| | |
+|---|---|
+| **Endpoint** | `PUT /api/s/default/rest/device/<id>` per AP, twice: `{mgmt_network_id: <UniFi Devices>, config_network: {type: dhcp}}`, then `config_network` static `.99.4` / `.99.5`, mask `/24`, gw + DNS `192.168.99.1` |
+| **Also** | `POST /cmd/devmgr` `force-provision` and `restart` on the Living Room AP (neither helped), then `power-cycle` on Pro Max port 23 (worked). `force-provision` on the Pro Max (no effect, harmless). |
+| **Read-back** | Living Room `192.168.99.4` static, Bedroom `192.168.99.5` static, both `state 1`, `mgmt_network_id` = UniFi Devices; VLAN 99 DHCP handed out `.99.39` and `.99.243` in between |
+| **Codifiable?** | Yes — `mgmt_network_id` + `config_network` in `devices/u7_pro_*.tf`, new `network_unifi_devices_id` variable. |
+
+The UI's IP Settings panel showed exactly the state the API wrote (Network Override ✓ UniFi Devices 99, DHCP), so the API path is equivalent to the UI. Wi-Fi on the Living Room AP was down ~20 min in total because of the wedged soft restart; Bedroom ~2 min.
 
 ### BPDU Guard enabled on the three host-facing port profiles
 

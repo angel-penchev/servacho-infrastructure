@@ -2,6 +2,7 @@ module "devices" {
   source = "./devices"
 
   network_public_servers_id       = module.core.network_public_servers_id
+  network_unifi_devices_id        = module.core.network_unifi_devices_id
   port_profile_host_device_id     = module.core.port_profile_host_device_id
   port_profile_iot_id             = module.core.port_profile_iot_id
   port_profile_public_servers_id  = module.core.port_profile_public_servers_id
