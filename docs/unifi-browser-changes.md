@@ -8,7 +8,7 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ## Session 2026-09-13
 
-Eleven topics (the UDM overrides were added on request after the USW pass; port forwards were a read-only diff; BPDU Guard and then Phase 0 of the VLAN 99 migration closed the day). RADIUS and the port profiles were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy, Pro Max port 12 (+ one client fixed IP) and the **USW port override alignment** were **changed** (each authorised by the user).
+Twelve topics (the UDM overrides were added on request after the USW pass; port forwards were a read-only diff; BPDU Guard and then Phase 0 of the VLAN 99 migration closed the day). RADIUS and the port profiles were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy, Pro Max port 12 (+ one client fixed IP) and the **USW port override alignment** were **changed** (each authorised by the user).
 
 ### Management VLAN migration — Phase 0 (runbook `unifi-mgmt-vlan-99-runbook.md`)
 
@@ -41,6 +41,17 @@ The UI's IP Settings panel showed exactly the state the API wrote (Network Overr
 | **Codifiable?** | Yes — `mgmt_network_id` + `config_network` in `devices/usw_*.tf`. |
 
 Both switches re-homed on their own within ~30 s of the DHCP write; no restarts or power cycles were needed. Phase 4 was **not** started: the Pro Max uplink (port 25) has no port profile and the laptop safety net could not be verified from here — see the runbook's Phase 4 prerequisites.
+
+### VPN servers — OpenVPN created, WireGuard prepared
+
+| | |
+|---|---|
+| **UI** | Settings → VPN → VPN Server → Create New → Other → OpenVPN: name `StKr OpenVPN Server`, everything else default (WAN1 `any`, UDP 1194, Local users = the four RADIUS accounts, Advanced Auto: `192.168.8.1/24`, Auto DNS, UDP, MTU/MSS auto) → Create |
+| **API attempts first** | `POST /rest/networkconf` with `openvpn_encryption_cipher: AES_256_GCM` → `api.err.InvalidValue` (pattern `AES_256_CBC|BF_CBC`); with `AES_256_CBC` and any of `openvpn_local_port` / `openvpn_port` (number or string) → `api.err.MissingLocalPort`. Nothing was created by these. |
+| **Read-back** | `vpn_type openvpn-server`, `ip_subnet 192.168.8.1/24`, `local_port 1194`, `vpn_protocol UDP`, `openvpn_interface wan`, `openvpn_local_wan_ip any`, `radiusprofile_id` = Default, `dhcpd_dns_enabled false`, `dhcpd_start/stop .8.2–.8.254`, `mss_clamp auto`, `interface_mtu_enabled false`, `openvpn_compression_disabled true`, `setting_preference auto`, no cipher field, certs/keys generated (`x_*`) |
+| **Codifiable?** | Yes — `unifi_vpn_server.openvpn` in `system/vpn.tf`, plus `FIXME(unifi-ui-only)` for the fields the provider lacks. Teleport documented as a `FIXME(unifi)` block (site setting, no provider support). |
+
+**Not done: the WireGuard server.** Its private key already sits in OpenBao (`secret/unifi/vpn/wireguard`, checked before touching anything — nothing new was written there). Creating it from the shell needs a controller login, and the OpenBao `secret/unifi` username/password are **rejected by the controller** (`AUTHENTICATION_FAILED_INVALID_CREDENTIALS`) — the service account did not survive the factory reset. The browser session was not used for it because that would mean pasting a private key into a form. See the drift report §10 for the two ways forward.
 
 ### BPDU Guard enabled on the three host-facing port profiles
 
