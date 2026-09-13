@@ -8,7 +8,17 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ## Session 2026-09-13
 
-Three topics. RADIUS and the port profiles were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy was **changed** (authorised by the user for this task).
+Four topics. RADIUS, the port profiles and the Pro Max port overrides were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy was **changed** (authorised by the user for this task).
+
+### USW Pro Max ports 6, 12, 18 — read back, mirrored in code (read-only)
+
+| Port | Live override | Client | Code now |
+|---|---|---|---|
+| 6 | `IoT Device`, poe auto, pref manual | Living Room TV `b0:b3:69:41:2c:9b`, fixed `192.168.6.10` | mirrors live |
+| 12 | **none** | `jetkvm-4562a8bf464c58c8` `30:52:53:0a:09:87`, `192.168.1.127` on UniFi Devices, no fixed IP | intent: `Private Server` + `192.168.5.20` (user decision) — **live pending** |
+| 18 | `Private Server`, poe auto, pref manual | `jetkvm-ce4ac3437e0d935d` `30:52:53:0d:1a:68`, fixed `192.168.5.23` | mirrors live |
+
+The switch has 24 overrides live (every port except 12 and 25). Fixed IPs live are now seven: `.5.10`, `.5.200`, `.5.201`, `.5.215`, `.5.23`, `.6.10` Living Room TV, `.6.11` Bedroom TV.
 
 ### Per-VLAN port profiles — created by the user, replicated in code (read-only)
 

@@ -69,7 +69,7 @@ Six changes — see [`unifi-browser-changes.md`](unifi-browser-changes.md) for t
 | ~~mDNS policy (§1, §11)~~ | ✅ **Resolved 2026-09-13.** Gateway mDNS Proxy set to Custom / Main + IoT / 19 services (manual runbook item, `system/mdns.tf`); `core/networks.tf` flags now mirror live |
 | ~~The other 3 port profiles (§2)~~ | ✅ **Recreated live 2026-09-13** as `Public Server`, `Private Server`, `IoT Device`; code aligned (names, `setting_preference = manual`, `stp_port_mode = true`). Assigning ports to them is the port-override work |
 | Port overrides (§3.2–§3.4) | `TODO(port-overrides)` banners; also 🚫 blocked, see §14.3 |
-| **Pro Max ports 6 and 18** | Known-bad, **deferred by the user — do not touch.** Target state recorded in §3.4 and in the browser change log |
+| ~~**Pro Max ports 6 and 18**~~ | ✅ **Assigned live by the user 2026-09-13** (6 → IoT Device, 18 → Private Server, both clients now hold their fixed IPs); code mirrors live. **Port 12** decided: Private Server + `192.168.5.20`, code updated, **live assignment still pending** |
 | RADIUS users `vl.penchev`, `v.todorova` (§6.3) | ✅ **Created live 2026-09-13, verified identical to code.** Vault `unifi/radius/users` entries confirmed. Only the `tofu import` of the four live accounts remains (see §6.3) |
 | Port forwards (§8) onwards | Deferred |
 | Static device IPs actually taking effect | 🚫 blocked on upstream #463 — declared but inert, see §14.2 |
@@ -235,22 +235,15 @@ Differences vs. `devices/usw_pro_max_24_poe.tf`:
 
 1. **No custom port names exist live.** Every one of the code's names — `LR-01`…`LR-06`, `Balc-01/02`, `K-01/02`, `BR-01`…`BR-08`, `LR-WiFi`, `BR-WiFi`, `Servacho-Gosho-JetKVM`, `SFP+ 1`, `UDM-Pro-Max` — is gone. All ports are back to `Port N` / `SFP+ N`.
 2. **Ports 9, 10, 11** — code disables them (`forward = disabled`, `poe_mode = off`); live has them on Host Device. Note the code's disable never took effect (§14.3).
-3. **Port 6** — code assigns the IoT profile; live has Host Device.
-4. **Port 12** — code assigns the Private Servers profile (`Servacho-Gosho-JetKVM`); live has no override at all.
-5. **Port 18** — code sets an inline native VLAN of Public Servers; live has Host Device.
+3. ~~**Port 6**~~ ✅ live `IoT Device` profile since 2026-09-13 (Living Room TV, fixed `192.168.6.10`); code mirrors it.
+4. **Port 12** — code assigns the `Private Server` profile (decided 2026-09-13, with `192.168.5.20` for `jetkvm-4562a8bf464c58c8` in `system/clients.tf`); **live still has no override** — the JetKVM sits on UniFi Devices at `192.168.1.127`. Pending a UI assignment.
+5. ~~**Port 18**~~ ✅ live `Private Server` profile since 2026-09-13 (`jetkvm-ce4ac3437e0d935d`, fixed `192.168.5.23`); code mirrors it — the inline Public Servers native VLAN is gone.
 6. **Port 20** — code assigns the Public Servers profile; live has Host Device.
 7. **Port 19** — code assigns the Main profile; live is a **manual** override with native VLAN Main (no profile).
 8. **Port 25** — code declares a bare `forward = customize` override; live has none.
 9. Ports 23, 24, 26 → UniFi Device matches the checklist and live; only the names differ.
 
-> **Ports 6 and 18 — target state confirmed, fix deferred (2026-09-08).** Both currently sit on `Host Device` and hold no DHCP lease. The user has confirmed the intended configuration and asked that **nothing be changed on either port for now**:
->
-> | Port | Currently | Should be |
-> |---|---|---|
-> | 6 | Host Device, client on VLAN 2, no IP | **IoT (VLAN 6)** — matches the code (`LR-06`), controller is the odd one out |
-> | 18 | Host Device, client on VLAN 3 via 802.1X fallback, no IP | **Private Servers (VLAN 5), fixed IP `192.168.5.23`** — the code says Public Servers, so **the code is wrong too** |
->
-> The `192.168.5.23` reservation is for `30:52:53:0d:1a:68`, a third JetKVM not present in `system/clients.tf` (which pins `.20` and `.21`). Adding it is blocked on §14.5.
+> **Ports 6 and 18 — resolved 2026-09-13.** The user assigned both in the UI (`IoT Device`, `Private Server`); the Living Room TV holds `192.168.6.10` and the JetKVM holds `192.168.5.23`, both as fixed IPs. Live override shape is `{name, poe_mode auto, setting_preference manual, portconf_id}` — no `forward`/`op_mode` — and the code blocks were rewritten to that shape. **Port 12** was decided at the same time (Private Server, JetKVM `30:52:53:0a:09:87` → `192.168.5.20`) but is not yet assigned live. Note `system/clients.tf` had this MAC as `38:52:…` — a typo, fixed.
 
 **Checklist vs. live discrepancy:** the checklist says Host Device was applied to "1-5, 7-11, 13-17, 19-22". Live is **1–11, 13–18, 20–22**. Concretely: ports **6** and **18** also got Host Device (not in your list), and port **19** did *not* — it is a hand-rolled native-VLAN-Main override instead. Worth deciding which is intended before codifying.
 
@@ -355,7 +348,7 @@ An apply as-is would rename the NGINX rule, repoint it at `.102`, and add the th
 
 ## 9. Fixed-IP clients (`system/clients.tf`)
 
-### Live — four fixed IPs
+### Live — four fixed IPs *(2026-09-08; seven as of 2026-09-13 — added `192.168.5.23` jetkvm-ce4ac3437e0d935d, `192.168.6.10` Living Room TV, `192.168.6.11` Bedroom TV)*
 
 | Name | MAC | IP |
 |---|---|---|
@@ -429,7 +422,7 @@ Things the controller has that are on neither the checklist nor in code:
 
 - **USW Aggregation port 1** — manual override, native VLAN Private Servers, 802.1X `force_authorized`, STP edge + BPDU guard (Servacho-Gosho's uplink).
 - **USW Pro Max port 19** — manual override, native VLAN Main, no profile.
-- **USW Pro Max ports 6 and 18** — on Host Device, though the checklist excludes them.
+- ~~**USW Pro Max ports 6 and 18** — on Host Device~~ — resolved 2026-09-13, both on their per-VLAN profiles.
 - **`hackjamhub-intercom`** fixed IP `192.168.5.215`.
 - The **Qoax /23** widening (implied by the checklist's single "Qoax VPS (10)" entry, but the /23 itself isn't written down).
 

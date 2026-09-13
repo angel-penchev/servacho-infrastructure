@@ -70,9 +70,10 @@ resource "unifi_client" "minecraft_fabric_server" {
   allow_existing = true
 }
 
+# Port 12 of the USW Pro Max 24 PoE. MAC corrected 2026-09-13 (was 38:52:…, a typo).
 resource "unifi_client" "servacho_gosho_jetkvm" {
-  mac            = "38:52:53:0a:09:87"
-  name           = "Servacho-Gosho-JetKVM"
+  mac            = "30:52:53:0a:09:87"
+  name           = "jetkvm-4562a8bf464c58c8"
   fixed_ip       = "192.168.5.20"
   network_id     = var.network_private_servers_id
   allow_existing = true

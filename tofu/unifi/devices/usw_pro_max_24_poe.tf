@@ -90,12 +90,13 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id = var.port_profile_host_device_id
   }
 
+  # Living Room TV (b0:b3:69:41:2c:9b, fixed 192.168.6.10). Mirrors live 2026-09-13.
   port_override {
-    index           = 6
-    name            = "LR-06"
-    op_mode         = "switch"
-    forward         = "customize"
-    port_profile_id = var.port_profile_iot_id
+    index              = 6
+    name               = "Port 6"
+    poe_mode           = "auto"
+    setting_preference = "manual"
+    port_profile_id    = var.port_profile_iot_id
   }
 
   port_override {
@@ -138,12 +139,16 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     poe_mode = "off"
   }
 
+  # jetkvm-4562a8bf464c58c8 (30:52:53:0a:09:87, fixed 192.168.5.20 in
+  # ../system/clients.tf). Intended state decided 2026-09-13; live still has NO
+  # override here (the JetKVM sits on UniFi Devices at 192.168.1.127) until the
+  # profile is assigned in the UI.
   port_override {
-    index           = 12
-    name            = "Servacho-Gosho-JetKVM"
-    op_mode         = "switch"
-    forward         = "customize"
-    port_profile_id = var.port_profile_private_servers_id
+    index              = 12
+    name               = "Port 12"
+    poe_mode           = "auto"
+    setting_preference = "manual"
+    port_profile_id    = var.port_profile_private_servers_id
   }
 
   port_override {
@@ -186,12 +191,14 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id = var.port_profile_host_device_id
   }
 
+  # jetkvm-ce4ac3437e0d935d (30:52:53:0d:1a:68, fixed 192.168.5.23). Mirrors live
+  # 2026-09-13; the old inline Public Servers native VLAN here was wrong.
   port_override {
-    index                 = 18
-    name                  = "BR-02"
-    op_mode               = "switch"
-    forward               = "customize"
-    native_networkconf_id = var.network_public_servers_id
+    index              = 18
+    name               = "Port 18"
+    poe_mode           = "auto"
+    setting_preference = "manual"
+    port_profile_id    = var.port_profile_private_servers_id
   }
 
   port_override {
