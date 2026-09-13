@@ -5,7 +5,11 @@ resource "unifi_device" "usw_pro_max_24_poe" {
   disabled           = false
   flowctrl_enabled   = false
   jumboframe_enabled = false
-  # Matches live exactly (verified 2026-09-13). NOTE: at v0.55.0 the provider drops
+  # Management moved to UniFi Devices (VLAN 99) on 2026-09-13, runbook Phase 2. This
+  # attribute IS in the v0.55.0 minimal update PUT, unlike config_network below.
+  mgmt_network_id = var.network_unifi_devices_id
+
+  # Matches live exactly (verified 2026-09-13 after the VLAN 99 move). NOTE: at v0.55.0 the provider drops
   # config_network from the update PUT (buildMinimalUpdateDevice, upstream PR #463),
   # so this block is read-only in practice: because live already has these values the
   # plan is a no-op, but CHANGING the address here would not reach the controller and
@@ -14,10 +18,10 @@ resource "unifi_device" "usw_pro_max_24_poe" {
   # https://github.com/ubiquiti-community/terraform-provider-unifi/pull/463
   config_network = {
     type    = "static"
-    ip      = "192.168.1.2"
+    ip      = "192.168.99.2"
     netmask = "255.255.255.0"
-    gateway = "192.168.1.1"
-    dns1    = "192.168.1.1"
+    gateway = "192.168.99.1"
+    dns1    = "192.168.99.1"
   }
 
   # ----------------------------------------------------------------------------
@@ -301,9 +305,12 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id    = var.port_profile_unifi_devices_id
   }
 
-  # SFP+ 2. Port 25 (SFP+ 1) is the live uplink to the UDM and has no override:
-  # # FIXME(unifi-ui-only): port 25 runs on the switch defaults (profile "All", native UniFi
-  # #   Devices); nothing is stored, so there is nothing to declare.
+  # SFP+ 2 (no link as of 2026-09-13). Port 25 (SFP+ 1) is the live uplink to the UDM
+  # and has no override: it runs on the switch defaults (built-in profile "All", native
+  # Default (Untagged)), so nothing is stored and there is nothing to declare. Runbook
+  # Phase 4 flips the UniFi Device profile's native network to VLAN 99, which port 25
+  # would NOT follow -- put it on the UniFi Device profile (or move the cable to 26)
+  # before that step.
   port_override {
     index              = 26
     name               = "UDM-Pro-Max"

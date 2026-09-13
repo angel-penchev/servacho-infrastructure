@@ -181,10 +181,12 @@ Still true: **nothing on any switch references the per-VLAN profiles yet.** Aggr
 | MAC | Live name | Live mgmt IP | Code name (`devices/*.tf`) | Diff |
 |---|---|---|---|---|
 | `28:70:4e:5c:b4:b2` | **UDM StKr** | WAN DHCP | `Dream Machinacho Pro Max` | **name** |
-| `9c:05:d6:e2:6b:1d` | USW Pro Max 24 PoE | **static 192.168.1.2** | USW Pro Max 24 PoE | code sets `config_network = { type = "dhcp" }` |
-| `1c:6a:1b:98:38:ee` | USW Aggregation | **static 192.168.1.3** | USW Aggregation | code declares no `config_network` |
-| `9c:05:d6:d9:ad:79` | Living Room U7-Pro | **static 192.168.1.4** | Living Room U7-Pro | code declares no `config_network` |
-| `9c:05:d6:d9:af:65` | Bedroom U7-Pro | **static 192.168.1.5** | Bedroom U7-Pro | code declares no `config_network` |
+| `9c:05:d6:e2:6b:1d` | USW Pro Max 24 PoE | **static 192.168.99.2** (VLAN 99) | USW Pro Max 24 PoE | none since 2026-09-13 |
+| `1c:6a:1b:98:38:ee` | USW Aggregation | **static 192.168.99.3** (VLAN 99) | USW Aggregation | none since 2026-09-13 |
+| `9c:05:d6:d9:ad:79` | Living Room U7-Pro | **static 192.168.99.4** (VLAN 99) | Living Room U7-Pro | none since 2026-09-13 |
+| `9c:05:d6:d9:af:65` | Bedroom U7-Pro | **static 192.168.99.5** (VLAN 99) | Bedroom U7-Pro | none since 2026-09-13 |
+
+> **Management VLAN — 2026-09-13.** All four devices were re-homed from the untagged LAN to **UniFi Devices, VLAN 99** (runbook Phases 1–3) and code mirrors `mgmt_network_id` + the `.99.x` `config_network` on each. The old `.1.x` addresses in the tables above were replaced the same day.
 
 > **`config_network` — corrected 2026-09-13.** All four devices declare the static addresses live reports, field for field (verified). Because the values match, the update `PUT` dropping the field is harmless: the read-back equals the plan and nothing is flagged. What §14.2 warns about is *changing* the address in code — that write never reaches the controller and fails post-apply. The 2026-09-08 `type = "dhcp"` block that *would* have failed is long gone.
 
@@ -314,7 +316,8 @@ The `StKr_IoT_2.4GHz` diff matters: applying the code would drop WPA3 from that 
 
 | Zone | Networks |
 |---|---|
-| Internal | UniFi Devices, Main, Private Servers, IoT, Qoax VPS, FMI{Codes} VPS |
+| Internal | Default (Untagged), UniFi Devices (VLAN 99), Main, Private Servers, Qoax VPS, FMI{Codes} VPS |
+| IoT *(non-default zone, verified 2026-09-13)* | IoT |
 | External | Vivacom Primary, Vivacom Secondary |
 | Gateway | – |
 | Vpn | – |

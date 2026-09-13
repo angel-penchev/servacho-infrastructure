@@ -4,7 +4,11 @@ resource "unifi_device" "usw_aggregation" {
   forget_on_destroy = false
   disabled          = false
 
-  # Matches live exactly (verified 2026-09-13). NOTE: at v0.55.0 the provider drops
+  # Management moved to UniFi Devices (VLAN 99) on 2026-09-13, runbook Phase 3. This
+  # attribute IS in the v0.55.0 minimal update PUT, unlike config_network below.
+  mgmt_network_id = var.network_unifi_devices_id
+
+  # Matches live exactly (verified 2026-09-13 after the VLAN 99 move). NOTE: at v0.55.0 the provider drops
   # config_network from the update PUT (buildMinimalUpdateDevice, upstream PR #463),
   # so this block is read-only in practice: because live already has these values the
   # plan is a no-op, but CHANGING the address here would not reach the controller and
@@ -13,10 +17,10 @@ resource "unifi_device" "usw_aggregation" {
   # https://github.com/ubiquiti-community/terraform-provider-unifi/pull/463
   config_network = {
     type    = "static"
-    ip      = "192.168.1.3"
+    ip      = "192.168.99.3"
     netmask = "255.255.255.0"
-    gateway = "192.168.1.1"
-    dns1    = "192.168.1.1"
+    gateway = "192.168.99.1"
+    dns1    = "192.168.99.1"
   }
 
   # FIXME(unifi): The ubiquiti-community/unifi provider crashes on apply when attempting 

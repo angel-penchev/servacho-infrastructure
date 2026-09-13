@@ -1,6 +1,6 @@
 # Runbook: move UniFi device management to VLAN 99
 
-**Decided:** 2026-09-13 · **Status:** Phases 0–1 done (2026-09-13); Phases 2–4 pending
+**Decided:** 2026-09-13 · **Status:** Phases 0–3 done (2026-09-13); Phase 4 (optional) pending — see its prerequisites
 **Goal:** infrastructure management leaves the untagged Default LAN (VLAN 1, `192.168.1.0/24`) for a tagged network **UniFi Devices, VLAN 99, `192.168.99.0/24`**. VLAN 1 becomes an empty parking lot. Nothing else moves: Main/Guest/Public/Private/IoT/Qoax/FMI keep their IDs and subnets, so the VLAN-ID-equals-third-octet convention stays intact for every network that has clients.
 
 Every step is **UI first, then read back, then mirror in code** — the same discipline as the rest of `docs/unifi-browser-changes.md`. `tofu apply` is not part of this; the code follows live.
@@ -78,7 +78,9 @@ Per AP, UI: Devices → *AP* → Settings → IP Settings.
 
 Mirror in code after both: `devices/u7_pro_*.tf` → `mgmt_network_id = var.network_unifi_devices_id`, `config_network.ip/gateway/dns1` → `.99.x` / `.99.1`. **Commit.**
 
-## Phase 2 — USW Pro Max 24 PoE
+## Phase 2 — USW Pro Max 24 PoE — ✅ done 2026-09-13
+
+API write, DHCP first: the switch was back `state 1` on `.99.178` ~30 s later with both APs still online behind it; static `192.168.99.2` applied within 20 s. Verified afterwards: a wired Host Device client on Main (port 19) and three Wi-Fi clients on the Living Room AP were still connected.
 
 This is the first step that can take clients with it (every access port hangs off this switch; the APs do too). Wi-Fi will drop for a minute while the switch re-provisions.
 
@@ -88,13 +90,21 @@ This is the first step that can take clients with it (every access port hangs of
 
 Mirror in code. **Commit.**
 
-## Phase 3 — USW Aggregation
+## Phase 3 — USW Aggregation — ✅ done 2026-09-13
+
+Same two writes: `.99.167` by DHCP in ~20 s, then static `192.168.99.3`. Servacho-Gosho (`192.168.5.10`, port 1) stayed connected throughout.
 
 Same two steps, `.99.3`. Servacho-Gosho (port 1, Private Servers) is unaffected by the switch's own management VLAN, but verify `192.168.5.10` still answers afterwards.
 
 Mirror in code. **Commit.**
 
-## Phase 4 — retire the Default LAN *(optional, recommended)*
+## Phase 4 — retire the Default LAN *(optional, recommended)* — not started
+
+**Prerequisites found on 2026-09-13, do these first:**
+
+- **Pro Max port 25** is the live uplink to UDM port 10 but has *no* override — it runs on the built-in "All" profile whose native stays Default. Port 26 carries the `UDM-Pro-Max` name and the UniFi Device profile but has no link. Either move the cable to 26 or put port 25 on the UniFi Device profile; otherwise step 1 leaves the two ends of that trunk with different native networks.
+- The laptop from *Safety net*, physically plugged in. Step 1 changes every trunk at once and a device that ends up expecting tagged 99 on a link that now delivers it untagged (or vice versa) cannot receive the fix from the controller.
+- Not yet verified: that the controller re-provisions a device to *untagged* management when its `mgmt_network_id` equals the uplink's new native network. The runbook assumed so; if it does not, all four devices drop off together. Test on one AP first by giving **only Pro Max port 23** a manual override with native = UniFi Devices, and see whether the Living Room AP stays adopted.
 
 With all four devices on 99:
 

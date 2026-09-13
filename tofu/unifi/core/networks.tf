@@ -3,8 +3,9 @@
 # is an empty parking lot whose DHCP stays on only so a factory-reset device can be
 # adopted (Phase 4 of the runbook may turn it off).
 #
-# Migration status (docs/unifi-mgmt-vlan-99-runbook.md): Phase 0 done 2026-09-13 --
-# renamed here and unifi_devices (VLAN 99) created. Devices still on this network.
+# Migration status (docs/unifi-mgmt-vlan-99-runbook.md): Phases 0-3 done 2026-09-13 --
+# all four devices manage on unifi_devices (VLAN 99). Only the trunks' native network
+# (Phase 4, optional) still points here.
 resource "unifi_network" "default" {
   name    = "Default (Untagged)"
   purpose = "corporate"

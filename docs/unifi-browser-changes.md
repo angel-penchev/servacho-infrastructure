@@ -8,7 +8,7 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ## Session 2026-09-13
 
-Ten topics (the UDM overrides were added on request after the USW pass; port forwards were a read-only diff; BPDU Guard and then Phase 0 of the VLAN 99 migration closed the day). RADIUS and the port profiles were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy, Pro Max port 12 (+ one client fixed IP) and the **USW port override alignment** were **changed** (each authorised by the user).
+Eleven topics (the UDM overrides were added on request after the USW pass; port forwards were a read-only diff; BPDU Guard and then Phase 0 of the VLAN 99 migration closed the day). RADIUS and the port profiles were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy, Pro Max port 12 (+ one client fixed IP) and the **USW port override alignment** were **changed** (each authorised by the user).
 
 ### Management VLAN migration — Phase 0 (runbook `unifi-mgmt-vlan-99-runbook.md`)
 
@@ -31,6 +31,16 @@ Two hiccups, no consequences: the first combined script threw on a cosmetic fire
 | **Codifiable?** | Yes — `mgmt_network_id` + `config_network` in `devices/u7_pro_*.tf`, new `network_unifi_devices_id` variable. |
 
 The UI's IP Settings panel showed exactly the state the API wrote (Network Override ✓ UniFi Devices 99, DHCP), so the API path is equivalent to the UI. Wi-Fi on the Living Room AP was down ~20 min in total because of the wedged soft restart; Bedroom ~2 min.
+
+### Management VLAN migration — Phases 2 and 3, both switches
+
+| | |
+|---|---|
+| **Endpoint** | `PUT /api/s/default/rest/device/<id>` per switch, twice (DHCP on UniFi Devices, then static): Pro Max `192.168.99.2`, Aggregation `192.168.99.3`, gw + DNS `192.168.99.1` |
+| **Read-back** | both `state 1` on their static address; all five devices `state 1`, four with `mgmt_network_id` = UniFi Devices (the UDM has none — it is the gateway); wired Main client, three Wi-Fi clients and Servacho-Gosho unaffected |
+| **Codifiable?** | Yes — `mgmt_network_id` + `config_network` in `devices/usw_*.tf`. |
+
+Both switches re-homed on their own within ~30 s of the DHCP write; no restarts or power cycles were needed. Phase 4 was **not** started: the Pro Max uplink (port 25) has no port profile and the laptop safety net could not be verified from here — see the runbook's Phase 4 prerequisites.
 
 ### BPDU Guard enabled on the three host-facing port profiles
 
