@@ -2,10 +2,14 @@ data "unifi_radius_profile" "default" {
   name = "Default"
 }
 
-# TODO(radius-users): vl.penchev and v.todorova do not exist on the controller yet
-# and will be created manually. They are declared here so the intent is recorded, but
-# an apply will fail on the var.radius_users_passwords lookup until both have entries
-# in the Vault `unifi/radius/users` secret.
+# All four users exist on the controller and match these attributes exactly
+# (verified 2026-09-13 against /rest/account: tunnel_type 13, tunnel_medium_type 6,
+# vlan 2, group_policy GLOBAL). vl.penchev and v.todorova were created by hand in the
+# UI, so the controller is the source of truth for their passwords.
+# All four also have entries in the Vault `unifi/radius/users` secret (2026-09-13).
+# TODO(import): unifi_radius_user has no allow_existing -- like every other resource on
+# the rebuilt controller, these must be `tofu import`ed before an apply, or the create
+# will 400 on the duplicate account name.
 locals {
   radius_users = {
     "a.penchev"  = { tunnel_type = 13, tunnel_medium_type = 6, vlan = 2 }

@@ -1,6 +1,6 @@
 # UniFi: manual rebuild vs. OpenTofu config — drift report
 
-**Date:** 2026-09-08 (drift analysis) · **Updated:** 2026-09-08 (first remediation pass)
+**Date:** 2026-09-08 (drift analysis) · **Updated:** 2026-09-08 (first remediation pass) · 2026-09-13 (RADIUS users verified in sync)
 **Branch:** `feat/unifi-port-config`
 **Companion:** [`unifi-browser-changes.md`](unifi-browser-changes.md) — everything changed on the live controller
 **Sources:** the manual rebuild checklist, the live controller (`https://192.168.1.1`, read via the Network app REST API), and `tofu/unifi/**/*.tf` as of the current working tree.
@@ -21,7 +21,7 @@ State lives on the management plane, so `tofu plan` was not run. Everything belo
 | Port overrides | ⏳ TODO (§3.2–§3.4), banner comments added to all three device files |
 | WANs | ✅ Code now reflects live |
 | Wireless | ✅ All 3 diffs applied to the live controller from code |
-| RADIUS / 802.1X | 🔧 Secret now wired into `unifi_setting.radius`; global 802.1X 🚫 not expressible; extra users ⏳ TODO |
+| RADIUS / 802.1X | 🔧 Secret now wired into `unifi_setting.radius`; global 802.1X 🚫 not expressible; **all 4 users ✅ live, matching code, and in Vault (2026-09-13)** |
 | Firewall | ✅ Hotspot zone + `Dmz` casing in code; policy **created live** |
 | Port forwards | ⏳ TODO |
 | Fixed-IP clients | ⏳ TODO (and 🚫 blocked — see §14.5) |
@@ -70,7 +70,7 @@ Six changes — see [`unifi-browser-changes.md`](unifi-browser-changes.md) for t
 | The other 3 port profiles (§2) | `TODO(port-profiles)` banner in `core/port_profiles.tf` |
 | Port overrides (§3.2–§3.4) | `TODO(port-overrides)` banners; also 🚫 blocked, see §14.3 |
 | **Pro Max ports 6 and 18** | Known-bad, **deferred by the user — do not touch.** Target state recorded in §3.4 and in the browser change log |
-| RADIUS users `vl.penchev`, `v.todorova` (§6.3) | Being created manually; also need Vault entries |
+| RADIUS users `vl.penchev`, `v.todorova` (§6.3) | ✅ **Created live 2026-09-13, verified identical to code.** Vault `unifi/radius/users` entries confirmed. Only the `tofu import` of the four live accounts remains (see §6.3) |
 | Port forwards (§8) onwards | Deferred |
 | Static device IPs actually taking effect | 🚫 blocked on upstream #463 — declared but inert, see §14.2 |
 
@@ -255,14 +255,15 @@ The `StKr_IoT_2.4GHz` diff matters: applying the code would drop WPA3 from that 
 
 - Site RADIUS setting: `enabled = true`, `configure_whole_network = true` (wired **and** wireless), shared secret set, auth 1812 / acct 1813, tunnelled reply on.
 - `global_switch.dot1x_portctrl_enabled = true`; `dot1x_fallback_networkconf_id` is **empty**.
-- RADIUS users: **`a.penchev`, `e.pencheva`** — both `tunnel_type 13`, `tunnel_medium_type 6`, `vlan 2`.
+- RADIUS users: **`a.penchev`, `e.pencheva`, `vl.penchev`, `v.todorova`** — all four `tunnel_type 13`, `tunnel_medium_type 6`, `vlan 2`, `group_policy GLOBAL`. *(Updated 2026-09-13 — the last two were created by hand; at the original 2026-09-08 read only the first two existed.)*
 - Default RADIUS profile with `vlan_enabled = true`, `use_usg_auth_server = true`.
 
 ### Differences
 
 1. **The site RADIUS setting is unmanaged.** `tofu/unifi/variables.tf` declares `radius_profile_secret` (and `tofu/unifi_module.tf` feeds it from Vault at `secret/unifi/radius/profile`), but **nothing consumes it** — there is no `unifi_setting_radius` resource anywhere. Dead variable, and the shared secret you set by hand is not in code.
 2. **Global 802.1X port control is unmanaged.** It exists only inside the commented-out `unifi_setting_switch` block in `system/settings.tf`. That block also proposes `fallback_vlan_id = var.network_guest_id`; live has **no** fallback network configured. If you uncomment it later, that's a behaviour change, not a no-op.
-3. **RADIUS users:** code declares four (`a.penchev`, `e.pencheva`, `vl.penchev`, `v.todorova`); live has two. This matches your own `TODO: vl.penchev, v.todorova`, so the code is intentionally ahead — but the two extra users need entries in the Vault `radius_users` map or the apply fails on the `var.radius_users_passwords[each.key]` lookup.
+3. **RADIUS users: ✅ in sync as of 2026-09-13.** Code declares four (`a.penchev`, `e.pencheva`, `vl.penchev`, `v.todorova`) and live now has the same four, each with exactly the attributes `unifi_radius_user` manages (`tunnel_type 13`, `tunnel_medium_type 6`, `vlan 2`). The one live-only field, `group_policy = "GLOBAL"`, is identical on the old and new pairs and is not exposed by the provider, so it is not drift. The Vault `radius_users` map carries all four keys (confirmed by the user 2026-09-13). One thing still stands between this and a clean apply:
+   - `unifi_radius_user` has no `allow_existing`, so the four live accounts need a `tofu import` first (state still holds the pre-reset `_id`s) — otherwise the create `POST` is rejected for a duplicate name. This applies to every resource on the rebuilt controller, not just these.
 
 ---
 

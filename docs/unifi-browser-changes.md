@@ -6,6 +6,27 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ---
 
+## Session 2026-09-13
+
+Read-only. No writes were made to the controller.
+
+### RADIUS users `vl.penchev` and `v.todorova` — created by the user, verified against code
+
+The user created both accounts by hand in Settings → Profiles → RADIUS → Users, then asked for a live-vs-tofu comparison. Read via `GET /api/s/default/rest/account` from the logged-in session:
+
+| Account | tunnel_type | tunnel_medium_type | vlan | group_policy |
+|---|---|---|---|---|
+| `a.penchev` | 13 | 6 | 2 | GLOBAL |
+| `e.pencheva` | 13 | 6 | 2 | GLOBAL |
+| `v.todorova` | 13 | 6 | 2 | GLOBAL |
+| `vl.penchev` | 13 | 6 | 2 | GLOBAL |
+
+All four match `local.radius_users` in `tofu/unifi/security/radius.tf` attribute for attribute; the new pair is indistinguishable from the pre-existing pair. Nothing to change on either side. The user confirmed both also have entries in the Vault `unifi/radius/users` secret. The `TODO(radius-users)` comment in that file is closed; what is left is the `tofu import` every resource on the rebuilt controller needs, now a `TODO(import)`.
+
+Also read (unchanged since 2026-09-08): the `Default` RADIUS profile — `vlan_enabled = true`, `vlan_wlan_mode = optional`, acct on 1813, interim update 3600 s.
+
+---
+
 ## Session 2026-09-08
 
 Authorised by the user for this task list. Six changes, all verified after writing.
