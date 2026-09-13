@@ -25,7 +25,7 @@ State lives on the management plane, so `tofu plan` was not run. Everything belo
 | Firewall | ✅ Hotspot zone + `Dmz` casing in code; policy **created live** |
 | Port forwards | ✅ Code reduced to the one live rule (`NGINX Server` → `192.168.5.58`), 2026-09-13 |
 | Fixed-IP clients | ✅ `system/clients.tf` rewritten to the 8 live reservations, attribute-exact (2026-09-13); in-place updates still 🚫 blocked (§14.5) so keep it mirroring live |
-| VPN | 🔧 Teleport (UI-only, FIXME) + **OpenVPN live & mirrored** 2026-09-13; WireGuard in code, ⏳ live creation blocked on controller credentials (§10) |
+| VPN | ✅ Teleport (UI-only, FIXME) + OpenVPN + WireGuard live and mirrored 2026-09-13; WireGuard peers still to add (§10) |
 | Site settings | ⏳ TODO |
 | **Provider bugs** | **See §14 — the binding constraint. Several diffs above cannot be fixed on the pinned version, and two things already in the tree are guaranteed apply failures** |
 
@@ -73,7 +73,7 @@ Six changes — see [`unifi-browser-changes.md`](unifi-browser-changes.md) for t
 | RADIUS users `vl.penchev`, `v.todorova` (§6.3) | ✅ **Created live 2026-09-13, verified identical to code.** Vault `unifi/radius/users` entries confirmed. Only the `tofu import` of the four live accounts remains (see §6.3) |
 | ~~Port forwards (§8)~~ | ✅ resolved 2026-09-13 — code mirrors the single live rule; fmicodes SSH/Postgres forwards and the two `count = 0` placeholders dropped |
 | ~~Fixed-IP clients (§9)~~ | ✅ resolved 2026-09-13 — `clients.tf` mirrors the 8 live reservations exactly; see §14.5 for why it must stay exact |
-| VPN (§10) | 🔧 2 of 3 done 2026-09-13 — WireGuard live creation pending (§10) |
+| VPN (§10) | ✅ all three servers done 2026-09-13 — peers pending (§10) |
 | Site settings (§11), imports | Deferred |
 | Static device IPs | ✅ live already has them; code mirrors live, so the plan is a no-op. *Changing* them in code is 🚫 blocked on #463 (§14.2) |
 
@@ -381,14 +381,14 @@ Re-read the same day: still exactly one live rule, unchanged. The user chose to 
 |---|---|---|
 | 1 | **Teleport** (WiFiman) enabled, `192.168.7.1/24` — the admin's current way in | 🚫 `FIXME(unifi)` comment block only: Teleport is a *site setting* (`teleport`), not a network, and `unifi_setting` v0.55.0 has no such block. No name either, so "StKr … Server" cannot apply |
 | 2 | **StKr OpenVPN Server** — created in the UI 2026-09-13: `192.168.8.1/24`, UDP `1194`, local RADIUS (Default profile, the four accounts), auto DNS, controller-generated certs | ✅ `unifi_vpn_server.openvpn`, attribute-exact; `FIXME(unifi-ui-only)` for protocol, MSS clamp, MTU, compression, DHCP range |
-| 3 | **StKr WireGuard Server** — ⏳ **not created yet** | ✅ `unifi_vpn_server.wireguard`: `192.168.9.1/24`, UDP `51820`, `private_key` from OpenBao `secret/unifi/vpn/wireguard` (present; public key `mmWQkf3m…EKSw=`) |
+| 3 | **StKr WireGuard Server** — created from the shell 2026-09-13 with the OpenBao key: `192.168.9.1/24`, UDP `51820`, WAN `any`, `setting_preference manual`, no peers yet | ✅ `unifi_vpn_server.wireguard`, attribute-exact; `private_key` from OpenBao `secret/unifi/vpn/wireguard` (public key `mmWQkf3m…EKSw=` matches live) |
 
 Findings on the way:
 
 - The controller rejects any explicit OpenVPN cipher other than `AES_256_CBC` / `BF_CBC` (`api.err.InvalidValue`) and the UI sends none. The old commented block asked for `AES_256_GCM` — the probable real cause of its "constant 400 Invalid Payload" FIXME, which blamed the provider. That block and its FIXME are gone; `encryption_cipher` stays unset.
 - The bare `POST /rest/networkconf` for an OpenVPN server also failed with `api.err.MissingLocalPort` for every port field name tried; the UI's payload uses `local_port`. Created via the UI instead, read back, mirrored.
-- **The OpenBao `secret/unifi` controller credentials are rejected** (`AUTHENTICATION_FAILED_INVALID_CREDENTIALS`). The tofu service account did not survive the factory reset. Until it is recreated (UniFi OS → Admins) or the secret updated, *no* `tofu plan` against this controller can work, and the WireGuard server cannot be created from the shell with the OpenBao key.
-- WireGuard live creation options: (a) restore the credentials, then create from the shell with the key read straight from OpenBao (never displayed); or (b) create it in the UI and paste the private key from `bao kv get -field=private_key secret/unifi/vpn/wireguard` into the Private Key field. Either way the OpenBao key must be the one on the controller.
+- ~~The OpenBao `secret/unifi` controller credentials were rejected~~ — the tofu service account had not survived the factory reset. **Recreated by hand 2026-09-13** (Admins → Create New, local admin, same username/password as the secret); login verified from the shell: `site_role admin`, `is_super true`. `tofu plan` is unblocked on the credential side.
+- WireGuard was then created from the shell: `POST /rest/networkconf` with `vpn_type wireguard-server`, `local_port` (the generic port field — `openvpn_local_port`/`openvpn_port` were the wrong guesses earlier), `wireguard_interface`, `wireguard_local_wan_ip`, `x_wireguard_private_key` piped from OpenBao and `wireguard_public_key` derived with `wg pubkey`. Accepted first try; read-back public key equals the derived one.
 - Site Magic (`magic_site_to_site_vpn`) is enabled by default with generated keys and no tunnels — UI-only, documented in the same FIXME.
 - Firewall: both new networks join the `Vpn` zone automatically (Vpn → Internal/External/Gateway/Hotspot/Dmz allow, **Vpn → IoT block**). Home Assistant is on Private Servers, so nothing to add unless IoT devices must be reached directly.
 - Peers: `unifi_wireguard_peer` (v0.55.0) covers WireGuard clients — add them to `system/vpn.tf` once the server exists.

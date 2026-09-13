@@ -51,7 +51,13 @@ Both switches re-homed on their own within ~30 s of the DHCP write; no restarts 
 | **Read-back** | `vpn_type openvpn-server`, `ip_subnet 192.168.8.1/24`, `local_port 1194`, `vpn_protocol UDP`, `openvpn_interface wan`, `openvpn_local_wan_ip any`, `radiusprofile_id` = Default, `dhcpd_dns_enabled false`, `dhcpd_start/stop .8.2–.8.254`, `mss_clamp auto`, `interface_mtu_enabled false`, `openvpn_compression_disabled true`, `setting_preference auto`, no cipher field, certs/keys generated (`x_*`) |
 | **Codifiable?** | Yes — `unifi_vpn_server.openvpn` in `system/vpn.tf`, plus `FIXME(unifi-ui-only)` for the fields the provider lacks. Teleport documented as a `FIXME(unifi)` block (site setting, no provider support). |
 
-**Not done: the WireGuard server.** Its private key already sits in OpenBao (`secret/unifi/vpn/wireguard`, checked before touching anything — nothing new was written there). Creating it from the shell needs a controller login, and the OpenBao `secret/unifi` username/password are **rejected by the controller** (`AUTHENTICATION_FAILED_INVALID_CREDENTIALS`) — the service account did not survive the factory reset. The browser session was not used for it because that would mean pasting a private key into a form. See the drift report §10 for the two ways forward.
+**WireGuard, second pass (same day).** The OpenBao `secret/unifi` credentials were first rejected (`AUTHENTICATION_FAILED_INVALID_CREDENTIALS` — the service account had not survived the reset). The user recreated the local admin by hand on the Admins page with the same username/password; the browser session was deliberately not used for that. Login then verified from the shell (`site_role admin`, `is_super true`), and the server was created from the shell, not the browser, so the private key never left OpenBao/`wg pubkey`:
+
+| | |
+|---|---|
+| **Endpoint** | `POST /api/s/default/rest/networkconf` — `name StKr WireGuard Server`, `purpose remote-user-vpn`, `vpn_type wireguard-server`, `ip_subnet 192.168.9.1/24`, `local_port 51820`, `wireguard_interface wan`, `wireguard_local_wan_ip any`, `x_wireguard_private_key` (from OpenBao), `wireguard_public_key` (derived), `setting_preference manual` |
+| **Read-back** | 200, all fields as sent, `wireguard_id 1`, in the `Vpn` zone; public key `mmWQkf3m…EKSw=` equals the one derived from the OpenBao key. `/rest/wireguardpeer` still returns `InvalidObject` on a bare GET (peers are listed per network); none exist yet. |
+| **Codifiable?** | Yes — `unifi_vpn_server.wireguard` already matched; comment updated. Peers → `unifi_wireguard_peer`. |
 
 ### BPDU Guard enabled on the three host-facing port profiles
 

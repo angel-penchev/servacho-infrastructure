@@ -74,9 +74,12 @@ resource "unifi_vpn_server" "openvpn" {
 # without a private key (api.err.WireguardMissingPrivateKey), so live creation must use
 # this same key or the two sides disagree forever.
 #
-# STATUS 2026-09-13: NOT YET CREATED LIVE -- see docs/unifi-browser-changes.md. Peers
-# (clients) will follow as `unifi_wireguard_peer` resources (name, interface_ip,
-# public_key) once the server exists; peer public keys are not secret.
+# Created live 2026-09-13 from the shell (`POST /rest/networkconf`, key piped from
+# OpenBao, never displayed); read-back: vpn_type wireguard-server, 192.168.9.1/24,
+# local_port 51820, wireguard_interface wan, wireguard_local_wan_ip any,
+# setting_preference manual, wireguard_public_key as above. No peers yet -- they go
+# here as `unifi_wireguard_peer` resources (name, interface_ip, public_key); peer
+# public keys are not secret.
 resource "unifi_vpn_server" "wireguard" {
   name    = "StKr WireGuard Server"
   enabled = true
