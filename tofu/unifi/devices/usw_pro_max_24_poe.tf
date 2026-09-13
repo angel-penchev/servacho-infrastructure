@@ -44,53 +44,53 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     ignore_changes = [port_override]
   }
 
-  # TODO(port-overrides): every port_override block below is stale -- the factory reset
-  # wiped all custom port names and most assignments, and none of this is reconciled
-  # while ignore_changes is on. See docs/unifi-manual-vs-tofu.md 3.2-3.4 for the
-  # live-vs-code table. Also note `forward = "disabled"` never disabled a port: Port
-  # State is port_security_enabled + an empty MAC allowlist (upstream PR #470).
-
+  # Port overrides mirror the live controller as of 2026-09-13: every port renamed
+  # to the room labels below, 9-11 disabled, 6/12/18 on their per-VLAN profiles,
+  # port 25 (SFP+ 1, UDM uplink) deliberately has no override. Stored shape is
+  # {name, poe_mode, setting_preference, portconf_id} for profiled ports -- no
+  # forward/op_mode. None of this is reconciled by apply while ignore_changes is on
+  # (upstream #430/#438, see docs/unifi-manual-vs-tofu.md 14.3).
   port_override {
-    index           = 1
-    name            = "LR-01"
-    op_mode         = "switch"
-    forward         = "customize"
-    port_profile_id = var.port_profile_host_device_id
+    index              = 1
+    name               = "LR-01"
+    poe_mode           = "auto"
+    setting_preference = "auto"
+    port_profile_id    = var.port_profile_host_device_id
   }
 
   port_override {
-    index           = 2
-    name            = "LR-02"
-    op_mode         = "switch"
-    forward         = "customize"
-    port_profile_id = var.port_profile_host_device_id
+    index              = 2
+    name               = "LR-02"
+    poe_mode           = "auto"
+    setting_preference = "auto"
+    port_profile_id    = var.port_profile_host_device_id
   }
 
   port_override {
-    index           = 3
-    name            = "LR-03"
-    op_mode         = "switch"
-    forward         = "customize"
-    port_profile_id = var.port_profile_host_device_id
+    index              = 3
+    name               = "LR-03"
+    poe_mode           = "auto"
+    setting_preference = "auto"
+    port_profile_id    = var.port_profile_host_device_id
   }
 
   port_override {
-    index           = 4
-    name            = "LR-04"
-    op_mode         = "switch"
-    forward         = "customize"
-    port_profile_id = var.port_profile_host_device_id
+    index              = 4
+    name               = "LR-04"
+    poe_mode           = "auto"
+    setting_preference = "auto"
+    port_profile_id    = var.port_profile_host_device_id
   }
 
   port_override {
-    index           = 5
-    name            = "LR-05"
-    op_mode         = "switch"
-    forward         = "customize"
-    port_profile_id = var.port_profile_host_device_id
+    index              = 5
+    name               = "LR-05"
+    poe_mode           = "auto"
+    setting_preference = "auto"
+    port_profile_id    = var.port_profile_host_device_id
   }
 
-  # Living Room TV (b0:b3:69:41:2c:9b, fixed 192.168.6.10). Mirrors live 2026-09-13.
+  # Living Room TV (b0:b3:69:41:2c:9b, fixed 192.168.6.10).
   port_override {
     index              = 6
     name               = "Port 6"
@@ -100,48 +100,76 @@ resource "unifi_device" "usw_pro_max_24_poe" {
   }
 
   port_override {
-    index           = 7
-    name            = "Balc-01"
-    op_mode         = "switch"
-    forward         = "customize"
-    port_profile_id = var.port_profile_host_device_id
+    index              = 7
+    name               = "Balc-01"
+    poe_mode           = "auto"
+    setting_preference = "auto"
+    port_profile_id    = var.port_profile_host_device_id
   }
 
   port_override {
-    index           = 8
-    name            = "Balc-02"
-    op_mode         = "switch"
-    forward         = "customize"
-    port_profile_id = var.port_profile_host_device_id
+    index              = 8
+    name               = "Balc-02"
+    poe_mode           = "auto"
+    setting_preference = "auto"
+    port_profile_id    = var.port_profile_host_device_id
+  }
+
+  # Port State: Disabled, exactly as the controller stores it when set in the UI
+  # (verified 2026-09-13 on port 9): forward "disabled" + port security on with an
+  # empty allowlist + Block All tagged VLANs, no native network, manual preference.
+  # Live also carries UI-only fields the provider cannot express: stp_edge_state
+  # "enabled", stp_bpdu_guard_enabled true, stp_uplink false, eee_enabled false,
+  # link_debounce_auto true, multicast_router_mode "NONE", sd_wan_underlay_port false.
+  port_override {
+    index                     = 9
+    name                      = "Port 9"
+    forward                   = "disabled"
+    port_security_enabled     = true
+    port_security_mac_address = []
+    tagged_vlan_mgmt          = "block_all"
+    native_networkconf_id     = null
+    setting_preference        = "manual"
+    poe_mode                  = "auto"
+    autoneg                   = true
+    dot1x_ctrl                = "auto"
+    lldpmed_enabled           = true
+    stp_port_mode             = true
   }
 
   port_override {
-    index    = 9
-    name     = "Port 9"
-    op_mode  = "switch"
-    forward  = "disabled"
-    poe_mode = "off"
+    index                     = 10
+    name                      = "Port 10"
+    forward                   = "disabled"
+    port_security_enabled     = true
+    port_security_mac_address = []
+    tagged_vlan_mgmt          = "block_all"
+    native_networkconf_id     = null
+    setting_preference        = "manual"
+    poe_mode                  = "auto"
+    autoneg                   = true
+    dot1x_ctrl                = "auto"
+    lldpmed_enabled           = true
+    stp_port_mode             = true
   }
 
   port_override {
-    index    = 10
-    name     = "Port 10"
-    op_mode  = "switch"
-    forward  = "disabled"
-    poe_mode = "off"
+    index                     = 11
+    name                      = "Port 11"
+    forward                   = "disabled"
+    port_security_enabled     = true
+    port_security_mac_address = []
+    tagged_vlan_mgmt          = "block_all"
+    native_networkconf_id     = null
+    setting_preference        = "manual"
+    poe_mode                  = "auto"
+    autoneg                   = true
+    dot1x_ctrl                = "auto"
+    lldpmed_enabled           = true
+    stp_port_mode             = true
   }
 
-  port_override {
-    index    = 11
-    name     = "Port 11"
-    op_mode  = "switch"
-    forward  = "disabled"
-    poe_mode = "off"
-  }
-
-  # jetkvm-4562a8bf464c58c8 (30:52:53:0a:09:87, fixed 192.168.5.20 in
-  # ../system/clients.tf). Mirrors live 2026-09-13 (set via the API, see
-  # docs/unifi-browser-changes.md).
+  # jetkvm-4562a8bf464c58c8 (30:52:53:0a:09:87, fixed 192.168.5.20 in ../system/clients.tf).
   port_override {
     index              = 12
     name               = "Port 12"
@@ -151,47 +179,46 @@ resource "unifi_device" "usw_pro_max_24_poe" {
   }
 
   port_override {
-    index           = 13
-    name            = "K-01"
-    op_mode         = "switch"
-    forward         = "customize"
-    port_profile_id = var.port_profile_host_device_id
+    index              = 13
+    name               = "K-01"
+    poe_mode           = "auto"
+    setting_preference = "auto"
+    port_profile_id    = var.port_profile_host_device_id
   }
 
   port_override {
-    index           = 14
-    name            = "K-02"
-    op_mode         = "switch"
-    forward         = "customize"
-    port_profile_id = var.port_profile_host_device_id
+    index              = 14
+    name               = "K-02"
+    poe_mode           = "auto"
+    setting_preference = "auto"
+    port_profile_id    = var.port_profile_host_device_id
   }
 
   port_override {
-    index           = 15
-    name            = "BR-07"
-    op_mode         = "switch"
-    forward         = "customize"
-    port_profile_id = var.port_profile_host_device_id
+    index              = 15
+    name               = "BR-07"
+    poe_mode           = "auto"
+    setting_preference = "auto"
+    port_profile_id    = var.port_profile_host_device_id
   }
 
   port_override {
-    index           = 16
-    name            = "BR-08"
-    op_mode         = "switch"
-    forward         = "customize"
-    port_profile_id = var.port_profile_host_device_id
+    index              = 16
+    name               = "BR-08"
+    poe_mode           = "auto"
+    setting_preference = "auto"
+    port_profile_id    = var.port_profile_host_device_id
   }
 
   port_override {
-    index           = 17
-    name            = "BR-01"
-    op_mode         = "switch"
-    forward         = "customize"
-    port_profile_id = var.port_profile_host_device_id
+    index              = 17
+    name               = "BR-01"
+    poe_mode           = "auto"
+    setting_preference = "auto"
+    port_profile_id    = var.port_profile_host_device_id
   }
 
-  # jetkvm-ce4ac3437e0d935d (30:52:53:0d:1a:68, fixed 192.168.5.23). Mirrors live
-  # 2026-09-13; the old inline Public Servers native VLAN here was wrong.
+  # jetkvm-ce4ac3437e0d935d (30:52:53:0d:1a:68, fixed 192.168.5.23).
   port_override {
     index              = 18
     name               = "Port 18"
@@ -201,65 +228,59 @@ resource "unifi_device" "usw_pro_max_24_poe" {
   }
 
   port_override {
-    index           = 19
-    name            = "BR-03"
-    op_mode         = "switch"
-    forward         = "customize"
-    port_profile_id = var.port_profile_host_device_id
+    index              = 19
+    name               = "BR-03"
+    poe_mode           = "auto"
+    setting_preference = "auto"
+    port_profile_id    = var.port_profile_host_device_id
+  }
+
+  # Live is Host Device; the pre-reset code had Public Servers here. Nothing is plugged in.
+  port_override {
+    index              = 20
+    name               = "BR-04"
+    poe_mode           = "auto"
+    setting_preference = "auto"
+    port_profile_id    = var.port_profile_host_device_id
   }
 
   port_override {
-    index           = 20
-    name            = "BR-04"
-    op_mode         = "switch"
-    forward         = "customize"
-    port_profile_id = var.port_profile_public_servers_id
+    index              = 21
+    name               = "BR-05"
+    poe_mode           = "auto"
+    setting_preference = "auto"
+    port_profile_id    = var.port_profile_host_device_id
   }
 
   port_override {
-    index           = 21
-    name            = "BR-05"
-    op_mode         = "switch"
-    forward         = "customize"
-    port_profile_id = var.port_profile_host_device_id
+    index              = 22
+    name               = "BR-06"
+    poe_mode           = "auto"
+    setting_preference = "auto"
+    port_profile_id    = var.port_profile_host_device_id
   }
 
+  # Living Room U7-Pro uplink.
   port_override {
-    index           = 22
-    name            = "BR-06"
-    op_mode         = "switch"
-    forward         = "customize"
-    port_profile_id = var.port_profile_host_device_id
+    index              = 23
+    name               = "LR-WiFi"
+    setting_preference = "auto"
+    port_profile_id    = var.port_profile_unifi_devices_id
   }
 
+  # Bedroom U7-Pro uplink.
   port_override {
-    index           = 23
-    name            = "LR-WiFi"
-    op_mode         = "switch"
-    forward         = "customize"
-    port_profile_id = var.port_profile_unifi_devices_id
+    index              = 24
+    name               = "BR-WiFi"
+    setting_preference = "auto"
+    port_profile_id    = var.port_profile_unifi_devices_id
   }
 
+  # SFP+ 2. (SFP+ 1 / port 25 is the live uplink to the UDM and has no override.)
   port_override {
-    index           = 24
-    name            = "BR-WiFi"
-    op_mode         = "switch"
-    forward         = "customize"
-    port_profile_id = var.port_profile_unifi_devices_id
-  }
-
-  port_override {
-    index   = 25
-    name    = "SFP+ 1"
-    op_mode = "switch"
-    forward = "customize"
-  }
-
-  port_override {
-    index           = 26
-    name            = "UDM-Pro-Max"
-    op_mode         = "switch"
-    forward         = "customize"
-    port_profile_id = var.port_profile_unifi_devices_id
+    index              = 26
+    name               = "UDM-Pro-Max"
+    setting_preference = "auto"
+    port_profile_id    = var.port_profile_unifi_devices_id
   }
 }

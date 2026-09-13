@@ -8,7 +8,21 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ## Session 2026-09-13
 
-Four topics. RADIUS and the port profiles were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy and Pro Max port 12 (+ one client fixed IP) were **changed** (each authorised by the user).
+Five topics. RADIUS and the port profiles were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy, Pro Max port 12 (+ one client fixed IP) and the **USW port override alignment** were **changed** (each authorised by the user).
+
+### USW Pro Max + USW Aggregation port overrides — aligned to the code's intent
+
+Authorised by the user ("use the names from the code… 9, 10, 11 default settings but disabled… Aggregation 2–7 disabled, port 8 renamed, port 1 on a profile; don't touch the UDM").
+
+| Device | Endpoint | Result |
+|---|---|---|
+| USW Pro Max 24 PoE | port 9: **UI** (Port Manager → Port 9 → Port Profile off → Port State Disabled → Apply) to learn the stored shape; then `PUT /rest/device/<id>` with the full 25-entry `port_overrides` array | `200`. Renamed 1–5, 7, 8, 13–17, 19–24, 26 to the code's labels; 10 and 11 written as byte-identical copies of the UI-made port 9. 6/12/18/25 untouched. Read back: 25 overrides, disabled trio identical, every other override unchanged except `name`. |
+| USW Aggregation | `PUT /rest/device/<id>` with the full 8-entry array | `200`. Port 1 inline override → `{name "Servacho-Gosho", portconf_id Private Server, setting_preference auto}`; 2–7 → disabled shape, `SFP+ N`; 8 → `UDM-Pro-Max`. Read back OK; Servacho-Gosho still `192.168.5.10` on port 1. |
+| UDM StKr | — | **not touched** |
+
+**Aggregation port 1 — what the profile switch changed.** The old inline override and the Private Server profile agree on native Private Servers, `dot1x_ctrl force_authorized`, `stp_edge_state enabled`, `tagged_vlan_mgmt auto`, `stp_port_mode true`, `lldpmed_enabled true`, and all the off-by-default knobs. The one real difference: the inline override had **`stp_bpdu_guard_enabled = true`** and the profile has it `false`, so BPDU Guard on Servacho-Gosho's uplink is now off. It is a UI-only field on the profile (no provider attribute); if it should stay on, enable it on the *Private Server* profile — which would also cover the two JetKVM ports 12 and 18.
+
+**Disabled shape** (recorded once, in the drift report §3.4): `forward "disabled"` + `port_security_enabled true` + `port_security_mac_address []` + `tagged_vlan_mgmt "block_all"` + no native network + `setting_preference "manual"` + carried-over defaults.
 
 ### USW Pro Max ports 6, 12, 18 — 6 and 18 read back; **port 12 set via the API**
 

@@ -1,6 +1,6 @@
 # UniFi: manual rebuild vs. OpenTofu config — drift report
 
-**Date:** 2026-09-08 (drift analysis) · **Updated:** 2026-09-08 (first remediation pass) · 2026-09-13 (RADIUS users verified in sync; mDNS scoped to Main + IoT; per-VLAN port profiles recreated)
+**Date:** 2026-09-08 (drift analysis) · **Updated:** 2026-09-08 (first remediation pass) · 2026-09-13 (RADIUS users verified in sync; mDNS scoped to Main + IoT; per-VLAN port profiles recreated; USW port overrides aligned live and in code)
 **Branch:** `feat/unifi-port-config`
 **Companion:** [`unifi-browser-changes.md`](unifi-browser-changes.md) — everything changed on the live controller
 **Sources:** the manual rebuild checklist, the live controller (`https://192.168.1.1`, read via the Network app REST API), and `tofu/unifi/**/*.tf` as of the current working tree.
@@ -18,7 +18,7 @@ State lives on the management plane, so `tofu plan` was not run. Everything belo
 | Networks / VLANs | ✅ VLAN layout fixed in code; **mDNS decided and applied live 2026-09-13** (Custom, Main + IoT, 19 services) — per-network flags now match live |
 | Port profiles | ✅ All five profiles live and matching code (per-VLAN trio recreated by hand 2026-09-13); 802.1X DHCP problem **fixed live** |
 | Device names & IPs | 🔧 Code updated (UDM StKr, static IPs, LEDs off) — but static IPs are 🚫 blocked on provider until v0.56.0 |
-| Port overrides | ⏳ TODO (§3.2–§3.4), banner comments added to all three device files |
+| Port overrides | 🔧 **Both USW switches aligned 2026-09-13** — live changed to the code's intent (names, 9–11 and Agg 2–7 disabled, Agg 1 on a profile) and code rewritten to the stored shape (§3.3, §3.4). **UDM untouched** by request (§3.2). Still 🚫 not reconcilable by apply (§14.3) |
 | WANs | ✅ Code now reflects live |
 | Wireless | ✅ All 3 diffs applied to the live controller from code |
 | RADIUS / 802.1X | 🔧 Secret now wired into `unifi_setting.radius`; global 802.1X 🚫 not expressible; **all 4 users ✅ live, matching code, and in Vault (2026-09-13)** |
@@ -68,7 +68,7 @@ Six changes — see [`unifi-browser-changes.md`](unifi-browser-changes.md) for t
 |---|---|
 | ~~mDNS policy (§1, §11)~~ | ✅ **Resolved 2026-09-13.** Gateway mDNS Proxy set to Custom / Main + IoT / 19 services (manual runbook item, `system/mdns.tf`); `core/networks.tf` flags now mirror live |
 | ~~The other 3 port profiles (§2)~~ | ✅ **Recreated live 2026-09-13** as `Public Server`, `Private Server`, `IoT Device`; code aligned (names, `setting_preference = manual`, `stp_port_mode = true`). Assigning ports to them is the port-override work |
-| Port overrides (§3.2–§3.4) | `TODO(port-overrides)` banners; also 🚫 blocked, see §14.3 |
+| Port overrides (§3.2–§3.4) | USW Pro Max + USW Aggregation ✅ mirrored 2026-09-13; **UDM StKr ⏳ deliberately untouched**; all three still 🚫 inert under `ignore_changes` (§14.3) |
 | ~~**Pro Max ports 6 and 18**~~ | ✅ **Assigned live by the user 2026-09-13** (6 → IoT Device, 18 → Private Server, both clients now hold their fixed IPs); code mirrors live. **Port 12** set live via the API the same day: Private Server + fixed `192.168.5.20` — all three now match code |
 | RADIUS users `vl.penchev`, `v.todorova` (§6.3) | ✅ **Created live 2026-09-13, verified identical to code.** Vault `unifi/radius/users` entries confirmed. Only the `tofu import` of the four live accounts remains (see §6.3) |
 | Port forwards (§8) onwards | Deferred |
@@ -206,46 +206,41 @@ Also:
 - Ports 1 and 9 are the WAN ports per the checklist, but live has **no port override** for them — WAN-to-port binding is handled by the UniFi OS WAN configuration, not by a `port_override` with `native_networkconf_id`. The code's approach here is almost certainly wrong and is what a `wan_primary_id`/`wan_secondary_id` plumb-through in `main.tf` exists to feed.
 - The disabled-port block for 2–8 has no live counterpart — **and never worked**: `forward = "disabled"` alone does not disable a port (§14.3).
 
-### 3.3 USW Aggregation
+### 3.3 USW Aggregation — ✅ aligned 2026-09-13
 
-| Port | Live | Code |
+| Port | Live (= code) | Note |
 |---|---|---|
-| 1 | `SFP+ 1`, **manual/customize**, native = Private Servers, 802.1X `force_authorized`, STP edge enabled + BPDU guard | `Servacho-Gosho`, profile Private Servers |
-| 2–7 | *no override* | `SFP+ N`, `forward = disabled`, `poe_mode = off` |
-| 8 | `SFP+ 8`, profile **UniFi Device** | `UDM-Pro-Max`, profile UniFi Devices |
+| 1 | `Servacho-Gosho`, **Private Server profile**, pref auto | Was an inline native-VLAN override with ~20 explicit fields. Moved to the profile at the user's request. **Functional difference: the inline override had BPDU Guard on; the Private Server profile has it off** (UI-only field, cannot be set through the provider). Everything else was identical to the profile: native Private Servers, `force_authorized`, Port Mode Edge, tagged Allow All, STP on, LLDP-MED on, no isolation/storm control/rate limit. Servacho-Gosho verified still up at `192.168.5.10` afterwards. |
+| 2–7 | `SFP+ N`, **disabled** | Same stored shape as Pro Max 9 (below). Previously no override at all (the code's `forward = "disabled"` blocks were phantoms). |
+| 8 | `UDM-Pro-Max`, UniFi Device profile, pref auto | Renamed from `SFP+ 8`. |
 
-- Port 1 carries Servacho-Gosho (the 192.168.5.10 client uplinks here). Live uses an **inline** native-VLAN override; code uses a **profile** that no longer exists.
-- Port names differ on both ports 1 and 8.
-- The 2–7 disabled block has no live counterpart — **and never worked** (§14.3).
-- **The checklist doesn't mention configuring aggregation port 1 at all** — it only lists port 8. Undocumented manual step.
+Written via `PUT /rest/device/<id>` with the full `port_overrides` array (8 entries); read back and verified.
 
-### 3.4 USW Pro Max 24 PoE
+### 3.4 USW Pro Max 24 PoE — ✅ aligned 2026-09-13
 
-Live, grouped:
+Live, grouped (25 overrides; port 25 has none):
 
-| Ports | Live assignment | Live names |
+| Ports | Live (= code) | Names |
 |---|---|---|
-| 1–11, 13–18, 20–22 | profile **Host Device** | default (`Port N`) |
-| 19 | **manual/customize**, native = **Main** | `Port 19` |
-| 23, 24 | profile **UniFi Device** | `Port 23`, `Port 24` |
-| 26 | profile **UniFi Device** | `SFP+ 2` |
-| 12, 25 | *no override* | – |
+| 1–5 | Host Device, poe auto, pref auto | `LR-01`…`LR-05` |
+| 7, 8 | Host Device | `Balc-01`, `Balc-02` |
+| 13, 14 | Host Device | `K-01`, `K-02` |
+| 15, 16, 17, 19, 21, 22 | Host Device | `BR-07`, `BR-08`, `BR-01`, `BR-03`, `BR-05`, `BR-06` |
+| **20** | **Host Device** | `BR-04` — the pre-reset code had the Public Servers profile here; live was Host Device and stayed so (only the name changed). Nothing plugged in. Flagged for the user. |
+| 6 | IoT Device, pref manual | `Port 6` — Living Room TV |
+| 12, 18 | Private Server, pref manual | `Port 12`, `Port 18` — the two JetKVMs |
+| **9, 10, 11** | **disabled** | `Port 9`…`Port 11` |
+| 23, 24 | UniFi Device, pref auto | `LR-WiFi`, `BR-WiFi` (AP uplinks) |
+| 26 | UniFi Device, pref auto | `UDM-Pro-Max` (SFP+ 2) |
+| 25 | *no override* | `SFP+ 1` — the live uplink to the UDM |
 
-Differences vs. `devices/usw_pro_max_24_poe.tf`:
+**What "disabled" actually is on the wire.** Port 9 was disabled through the UI (Port Profile toggle off → Port State: Disabled → Apply) and read back; ports 10, 11 and Aggregation 2–7 were then written as byte-identical copies. The stored override is a full manual one: `forward "disabled"`, `port_security_enabled true` + `port_security_mac_address []`, `tagged_vlan_mgmt "block_all"`, no `native_networkconf_id`, `setting_preference "manual"`, plus carried-over defaults (`dot1x_ctrl auto`, `stp_port_mode true`, `stp_edge_state enabled`, `stp_bpdu_guard_enabled true`, `lldpmed_enabled true`, `autoneg true`, `poe_mode auto`, `link_debounce_auto true`, `eee_enabled false`, `multicast_router_mode NONE`, `sd_wan_underlay_port false`, `isolation false`, `egress_rate_limit_kbps_enabled false`, `port_keepalive_enabled false`, `stp_uplink false`, `dot1x_idle_timeout 300`). The port table confirms `forward = disabled` on all three. This settles §14.3's point empirically: `forward = "disabled"` alone was never it.
 
-1. **No custom port names exist live.** Every one of the code's names — `LR-01`…`LR-06`, `Balc-01/02`, `K-01/02`, `BR-01`…`BR-08`, `LR-WiFi`, `BR-WiFi`, `Servacho-Gosho-JetKVM`, `SFP+ 1`, `UDM-Pro-Max` — is gone. All ports are back to `Port N` / `SFP+ N`.
-2. **Ports 9, 10, 11** — code disables them (`forward = disabled`, `poe_mode = off`); live has them on Host Device. Note the code's disable never took effect (§14.3).
-3. ~~**Port 6**~~ ✅ live `IoT Device` profile since 2026-09-13 (Living Room TV, fixed `192.168.6.10`); code mirrors it.
-4. ~~**Port 12**~~ ✅ live `Private Server` profile since 2026-09-13 (set via the API at the user's request), `jetkvm-4562a8bf464c58c8` pinned to `192.168.5.20` on Private Servers; code mirrors it.
-5. ~~**Port 18**~~ ✅ live `Private Server` profile since 2026-09-13 (`jetkvm-ce4ac3437e0d935d`, fixed `192.168.5.23`); code mirrors it — the inline Public Servers native VLAN is gone.
-6. **Port 20** — code assigns the Public Servers profile; live has Host Device.
-7. **Port 19** — code assigns the Main profile; live is a **manual** override with native VLAN Main (no profile).
-8. **Port 25** — code declares a bare `forward = customize` override; live has none.
-9. Ports 23, 24, 26 → UniFi Device matches the checklist and live; only the names differ.
+Stored shape for profiled ports is `{name, poe_mode?, setting_preference, portconf_id}` — no `forward`, no `op_mode`. The code blocks now use exactly that. Ports 23/24/26 have no `poe_mode` key.
 
-> **Ports 6 and 18 — resolved 2026-09-13.** The user assigned both in the UI (`IoT Device`, `Private Server`); the Living Room TV holds `192.168.6.10` and the JetKVM holds `192.168.5.23`, both as fixed IPs. Live override shape is `{name, poe_mode auto, setting_preference manual, portconf_id}` — no `forward`/`op_mode` — and the code blocks were rewritten to that shape. **Port 12** was decided at the same time (Private Server, JetKVM `30:52:53:0a:09:87` → `192.168.5.20`) and applied live via the API a few minutes later — all 25 other overrides verified intact afterwards. Note `system/clients.tf` had this MAC as `38:52:…` — a typo, fixed.
+Live write: two `PUT /rest/device/<id>` calls with the full array; all overrides not being changed were diffed before/after and matched except for the intended renames.
 
-**Checklist vs. live discrepancy:** the checklist says Host Device was applied to "1-5, 7-11, 13-17, 19-22". Live is **1–11, 13–18, 20–22**. Concretely: ports **6** and **18** also got Host Device (not in your list), and port **19** did *not* — it is a hand-rolled native-VLAN-Main override instead. Worth deciding which is intended before codifying.
+> **Ports 6 and 18 — resolved 2026-09-13**, see the change log; port 12 likewise. The `Checklist vs. live discrepancy` note from 2026-09-08 (Host Device on 6/18, port 19 hand-rolled) is moot: 6 and 18 are on their profiles, and 19 is on Host Device like its neighbours.
 
 ---
 
@@ -420,8 +415,8 @@ Independent of live state, worth cleaning while you're in here:
 
 Things the controller has that are on neither the checklist nor in code:
 
-- **USW Aggregation port 1** — manual override, native VLAN Private Servers, 802.1X `force_authorized`, STP edge + BPDU guard (Servacho-Gosho's uplink).
-- **USW Pro Max port 19** — manual override, native VLAN Main, no profile.
+- ~~**USW Aggregation port 1** — manual override~~ — moved to the Private Server profile 2026-09-13 (BPDU guard dropped in the process, see §3.3).
+- ~~**USW Pro Max port 19** — manual override~~ — on Host Device since before 2026-09-13.
 - ~~**USW Pro Max ports 6 and 18** — on Host Device~~ — resolved 2026-09-13, both on their per-VLAN profiles.
 - **`hackjamhub-intercom`** fixed IP `192.168.5.215`.
 - The **Qoax /23** widening (implied by the checklist's single "Qoax VPS (10)" entry, but the /23 itself isn't written down).
