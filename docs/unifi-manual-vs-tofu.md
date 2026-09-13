@@ -23,7 +23,7 @@ State lives on the management plane, so `tofu plan` was not run. Everything belo
 | Wireless | ✅ All 3 diffs applied to the live controller from code |
 | RADIUS / 802.1X | 🔧 Secret now wired into `unifi_setting.radius`; global 802.1X 🚫 not expressible; **all 4 users ✅ live, matching code, and in Vault (2026-09-13)** |
 | Firewall | ✅ Hotspot zone + `Dmz` casing in code; policy **created live** |
-| Port forwards | ⏳ TODO |
+| Port forwards | ✅ Code reduced to the one live rule (`NGINX Server` → `192.168.5.58`), 2026-09-13 |
 | Fixed-IP clients | ⏳ TODO (and 🚫 blocked — see §14.5) |
 | VPN | ⏳ TODO |
 | Site settings | ⏳ TODO |
@@ -71,7 +71,8 @@ Six changes — see [`unifi-browser-changes.md`](unifi-browser-changes.md) for t
 | Port overrides (§3.2–§3.4) | ✅ all three devices mirrored 2026-09-13; still 🚫 inert under `ignore_changes` (§14.3) |
 | ~~**Pro Max ports 6 and 18**~~ | ✅ **Assigned live by the user 2026-09-13** (6 → IoT Device, 18 → Private Server, both clients now hold their fixed IPs); code mirrors live. **Port 12** set live via the API the same day: Private Server + fixed `192.168.5.20` — all three now match code |
 | RADIUS users `vl.penchev`, `v.todorova` (§6.3) | ✅ **Created live 2026-09-13, verified identical to code.** Vault `unifi/radius/users` entries confirmed. Only the `tofu import` of the four live accounts remains (see §6.3) |
-| Port forwards (§8) onwards | Deferred |
+| ~~Port forwards (§8)~~ | ✅ resolved 2026-09-13 — code mirrors the single live rule; fmicodes SSH/Postgres forwards and the two `count = 0` placeholders dropped |
+| Fixed-IP clients (§9) onwards | Deferred |
 | Static device IPs actually taking effect | 🚫 blocked on upstream #463 — declared but inert, see §14.2 |
 
 ---
@@ -237,7 +238,7 @@ Live, grouped (25 overrides; port 25 has none):
 | 7, 8 | Host Device | `Balc-01`, `Balc-02` |
 | 13, 14 | Host Device | `K-01`, `K-02` |
 | 15, 16, 17, 19, 21, 22 | Host Device | `BR-07`, `BR-08`, `BR-01`, `BR-03`, `BR-05`, `BR-06` |
-| **20** | **Host Device** | `BR-04` — the pre-reset code had the Public Servers profile here; live was Host Device and stayed so (only the name changed). Nothing plugged in. Flagged for the user. |
+| **20** | **Host Device** | `BR-04` — the pre-reset code had the Public Servers profile here; live was Host Device and stays so by the user's decision (2026-09-13). Nothing plugged in. |
 | 6 | IoT Device, pref manual | `Port 6` — Living Room TV |
 | 12, 18 | Private Server, pref manual | `Port 12`, `Port 18` — the two JetKVMs |
 | **9, 10, 11** | **disabled** | `Port 9`…`Port 11` |
@@ -337,18 +338,9 @@ Both checklist assignments (Hotspot ← Guest, DMZ ← Public Servers) are done,
 |---|---|---|---|
 | **NGINX Server** | tcp_udp | wan 80,443 | **192.168.5.58**:80,443 |
 
-### Differences
+### Differences — ✅ resolved 2026-09-13
 
-| Code resource | Status |
-|---|---|
-| `nginx_proxy` — "Personal Server Nginx Proxy Manager", → **192.168.5.102** | **Name and target IP both differ** from the live "NGINX Server" → 192.168.5.58 |
-| `fmicodes_db` — 5432 → 192.168.5.200:5432 | **missing live** |
-| `fmicodes_ssh` — 2242 → 192.168.5.200:22 | **missing live** |
-| `fmicodes_ssh_worker` — 2243 → 192.168.5.201:22 | **missing live** |
-| `minecraft_server` (`count = 0`) | inert, matches live absence ✅ |
-| `fmicodes_intercom` (`count = 0`) | inert, matches live absence ✅ |
-
-An apply as-is would rename the NGINX rule, repoint it at `.102`, and add the three fmicodes rules back.
+Re-read the same day: still exactly one live rule, unchanged. The user chose to keep what is live. `security/port_forwards.tf` now declares only `nginx_proxy`, renamed **`NGINX Server`** and pointed at **`192.168.5.58`** (resource address unchanged). Dropped from code: `fmicodes_db` (5432), `fmicodes_ssh` (2242), `fmicodes_ssh_worker` (2243) — the `.5.200/.201` nodes are still live clients, so this is a deliberate end to their public SSH/Postgres exposure — and the two `count = 0` placeholders `minecraft_server` and `fmicodes_intercom`. Live-only fields (`enabled`, `log`, `src_limiting_enabled`, `destination_ips`) are all defaults and have no provider attribute.
 
 ---
 

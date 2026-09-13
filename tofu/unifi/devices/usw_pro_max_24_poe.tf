@@ -259,7 +259,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id    = var.port_profile_host_device_id
   }
 
-  # Live is Host Device; the pre-reset code had Public Servers here. Nothing is plugged in.
+  # Host Device by decision (2026-09-13); the pre-reset code had Public Servers here.
   port_override {
     index              = 20
     name               = "BR-04"

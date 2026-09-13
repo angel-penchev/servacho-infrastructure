@@ -1,22 +1,12 @@
-resource "unifi_port_forward" "minecraft_server" {
-  name     = "Minecraft Server"
-  count    = 0
-  protocol = "tcp_udp"
-
-  wan = {
-    interface  = "both"
-    ip_address = "any"
-    port       = "25565"
-  }
-
-  forward = {
-    ip   = "192.168.4.20"
-    port = "25565"
-  }
-}
-
+# Port forwards mirror the live controller as of 2026-09-13: a single rule. The
+# pre-reset code also had public SSH (2242/2243) and Postgres (5432) forwards to the
+# fmicodes nodes and two count = 0 placeholders (Minecraft, intercom UDP ranges); none
+# were recreated after the rebuild and all were dropped here by decision.
+#
+# Live-only fields with no provider attribute, all at their defaults: enabled true,
+# log false, src_limiting_enabled false, destination_ips [].
 resource "unifi_port_forward" "nginx_proxy" {
-  name     = "Personal Server Nginx Proxy Manager"
+  name     = "NGINX Server"
   protocol = "tcp_udp"
 
   wan = {
@@ -26,72 +16,7 @@ resource "unifi_port_forward" "nginx_proxy" {
   }
 
   forward = {
-    ip   = "192.168.5.102"
+    ip   = "192.168.5.58"
     port = "80,443"
-  }
-}
-
-resource "unifi_port_forward" "fmicodes_db" {
-  name     = "fmicodes db"
-  protocol = "tcp_udp"
-
-  wan = {
-    interface  = "wan"
-    ip_address = "any"
-    port       = "5432"
-  }
-
-  forward = {
-    ip   = "192.168.5.200"
-    port = "5432"
-  }
-}
-
-resource "unifi_port_forward" "fmicodes_ssh" {
-  name     = "fmicodes ssh"
-  protocol = "tcp_udp"
-
-  wan = {
-    interface  = "wan"
-    ip_address = "any"
-    port       = "2242"
-  }
-
-  forward = {
-    ip   = "192.168.5.200"
-    port = "22"
-  }
-}
-
-resource "unifi_port_forward" "fmicodes_ssh_worker" {
-  name     = "fmicodes ssh (worker)"
-  protocol = "tcp_udp"
-
-  wan = {
-    interface  = "wan"
-    ip_address = "any"
-    port       = "2243"
-  }
-
-  forward = {
-    ip   = "192.168.5.201"
-    port = "22"
-  }
-}
-
-resource "unifi_port_forward" "fmicodes_intercom" {
-  name     = "fmicodes intercom bullshit"
-  count    = 0
-  protocol = "udp"
-
-  wan = {
-    interface  = "wan"
-    ip_address = "any"
-    port       = "10000-11433,11435-25564,25566-51819,51821-60000"
-  }
-
-  forward = {
-    ip   = "192.168.5.215"
-    port = "10000-11433,11435-25564,25566-51819,51821-60000"
   }
 }

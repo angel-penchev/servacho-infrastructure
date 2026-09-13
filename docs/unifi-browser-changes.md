@@ -8,7 +8,11 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ## Session 2026-09-13
 
-Six topics (the UDM overrides were added on request after the USW pass). RADIUS and the port profiles were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy, Pro Max port 12 (+ one client fixed IP) and the **USW port override alignment** were **changed** (each authorised by the user).
+Seven topics (the UDM overrides were added on request after the USW pass; port forwards were a read-only diff). RADIUS and the port profiles were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy, Pro Max port 12 (+ one client fixed IP) and the **USW port override alignment** were **changed** (each authorised by the user).
+
+### Port forwards — read-only diff, code reduced to live
+
+`GET /rest/portforward`: one rule, `NGINX Server`, tcp_udp, wan any:80,443 → 192.168.5.58:80,443. Code had six resources; trimmed to that one rule (details in the drift report §8). No writes.
 
 ### USW Pro Max + USW Aggregation port overrides — aligned to the code's intent
 
