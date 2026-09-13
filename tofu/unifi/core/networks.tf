@@ -1,12 +1,12 @@
-# The untagged/native LAN. Carries UniFi device management only; every host-facing
-# port lives behind the "Host Device" profile, so nothing untrusted lands here.
+# The untagged/native LAN (VLAN 1). Cannot be deleted (attr_no_delete). Until the
+# VLAN 99 migration completes it still carries UniFi device management; afterwards it
+# is an empty parking lot whose DHCP stays on only so a factory-reset device can be
+# adopted (Phase 4 of the runbook may turn it off).
 #
-# DECIDED 2026-09-13: device management moves to a new tagged network, UniFi Devices
-# VLAN 99 (192.168.99.0/24); this untagged network becomes an empty "Default". Done
-# phase by phase in the UI and mirrored here after each -- see
-# docs/unifi-mgmt-vlan-99-runbook.md. Status: not started.
+# Migration status (docs/unifi-mgmt-vlan-99-runbook.md): Phase 0 done 2026-09-13 --
+# renamed here and unifi_devices (VLAN 99) created. Devices still on this network.
 resource "unifi_network" "default" {
-  name    = "UniFi Devices"
+  name    = "Default (Untagged)"
   purpose = "corporate"
   subnet  = "192.168.1.1/24"
 
@@ -20,6 +20,23 @@ resource "unifi_network" "default" {
     enabled = true
     start   = "192.168.1.6"
     stop    = "192.168.1.254"
+  }
+}
+
+# Tagged management network for the UDM, switches and APs. Created 2026-09-13
+# (runbook Phase 0). Same Internal zone as Main, so devices can reach the controller
+# at 192.168.1.1 while they are re-homed one by one.
+resource "unifi_network" "unifi_devices" {
+  name          = "UniFi Devices"
+  purpose       = "corporate"
+  vlan          = 99
+  subnet        = "192.168.99.1/24"
+  multicast_dns = false
+
+  dhcp_server = {
+    enabled = true
+    start   = "192.168.99.6"
+    stop    = "192.168.99.254"
   }
 }
 

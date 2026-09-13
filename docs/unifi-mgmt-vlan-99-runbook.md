@@ -1,6 +1,6 @@
 # Runbook: move UniFi device management to VLAN 99
 
-**Decided:** 2026-09-13 · **Status:** not started
+**Decided:** 2026-09-13 · **Status:** Phase 0 done (2026-09-13); Phases 1–4 pending
 **Goal:** infrastructure management leaves the untagged Default LAN (VLAN 1, `192.168.1.0/24`) for a tagged network **UniFi Devices, VLAN 99, `192.168.99.0/24`**. VLAN 1 becomes an empty parking lot. Nothing else moves: Main/Guest/Public/Private/IoT/Qoax/FMI keep their IDs and subnets, so the VLAN-ID-equals-third-octet convention stays intact for every network that has clients.
 
 Every step is **UI first, then read back, then mirror in code** — the same discipline as the rest of `docs/unifi-browser-changes.md`. `tofu apply` is not part of this; the code follows live.
@@ -39,13 +39,15 @@ Nothing else has an address on VLAN 1 today (the two JetKVMs were moved to Priva
 
 ---
 
-## Phase 0 — create the network *(non-disruptive)*
+## Phase 0 — create the network *(non-disruptive)* — ✅ done 2026-09-13
+
+Done via the API from the logged-in session; the untagged network was named **`Default (Untagged)`** (user's choice, to make its role obvious in every dropdown). Read back: VLAN 99 `UniFi Devices`, `192.168.99.1/24`, DHCP `.6–.254`, lease 86400, mDNS off, Internal zone (same `firewall_zone_id` as Main), `is_nat true`, `setting_preference manual`. Code mirrored in `core/networks.tf` (`unifi_network.default` renamed, `unifi_network.unifi_devices` added) and `core/outputs.tf`.
 
 UI: Settings → Networks → Create New.
 
 | Field | Value |
 |---|---|
-| Name | `UniFi Devices` — but see the naming note |
+| Name | `UniFi Devices` (the old untagged network became `Default (Untagged)`) |
 | Zone | Internal (same as today's UniFi Devices network; inter-VLAN routing to the Default LAN stays open so devices can still reach `192.168.1.1:8080/inform` during the move) |
 | VLAN ID | 99 |
 | Gateway IP/Subnet | `192.168.99.1/24` |

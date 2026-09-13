@@ -33,7 +33,8 @@
 
 # Uplinks between UniFi devices themselves (UDM <-> switches, switches <-> APs).
 # Trunks every VLAN and never runs 802.1X, otherwise the infrastructure could not
-# come up before RADIUS is reachable.
+# come up before RADIUS is reachable. Native stays the untagged Default until Phase 4
+# of docs/unifi-mgmt-vlan-99-runbook.md; VLAN 99 is already carried tagged ("all").
 resource "unifi_port_profile" "unifi_devices" {
   name                  = "UniFi Device"
   forward               = "all"

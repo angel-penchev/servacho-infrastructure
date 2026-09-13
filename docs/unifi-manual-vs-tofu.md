@@ -86,7 +86,8 @@ Six changes — see [`unifi-browser-changes.md`](unifi-browser-changes.md) for t
 |---|---|---|---|---|---|
 | Vivacom Primary | wan (`WAN`) | – | – | – | – |
 | Vivacom Secondary | wan (`WAN2`) | – | – | – | – |
-| **UniFi Devices** | corporate | untagged | 192.168.1.1/24 | .6–.254 | on |
+| **Default (Untagged)** *(was UniFi Devices until 2026-09-13)* | corporate | untagged | 192.168.1.1/24 | .6–.254 | off |
+| **UniFi Devices** *(new 2026-09-13, runbook Phase 0)* | corporate | **99** | 192.168.99.1/24 | .6–.254 | off |
 | Main | corporate | 2 | 192.168.2.1/24 | .6–.254 | on |
 | Guest | guest | 3 | 192.168.3.1/24 | .6–.254 | on |
 | Public Servers | corporate | 4 | 192.168.4.1/24 | .6–.254 | on |

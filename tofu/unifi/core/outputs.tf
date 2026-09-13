@@ -1,4 +1,5 @@
 output "network_default_id" { value = unifi_network.default.id }
+output "network_unifi_devices_id" { value = unifi_network.unifi_devices.id }
 output "network_main_id" { value = unifi_network.main.id }
 output "network_guest_id" { value = unifi_network.guest.id }
 output "network_public_servers_id" { value = unifi_network.public_servers.id }

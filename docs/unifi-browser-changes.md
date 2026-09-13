@@ -8,7 +8,18 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ## Session 2026-09-13
 
-Eight topics (the UDM overrides were added on request after the USW pass; port forwards were a read-only diff; BPDU Guard was the last change of the day). RADIUS and the port profiles were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy, Pro Max port 12 (+ one client fixed IP) and the **USW port override alignment** were **changed** (each authorised by the user).
+Nine topics (the UDM overrides were added on request after the USW pass; port forwards were a read-only diff; BPDU Guard and then Phase 0 of the VLAN 99 migration closed the day). RADIUS and the port profiles were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy, Pro Max port 12 (+ one client fixed IP) and the **USW port override alignment** were **changed** (each authorised by the user).
+
+### Management VLAN migration — Phase 0 (runbook `unifi-mgmt-vlan-99-runbook.md`)
+
+| | |
+|---|---|
+| **Endpoint 1** | `PUT /api/s/default/rest/networkconf/<default-id>` — untagged Default LAN renamed `UniFi Devices` → **`Default (Untagged)`** |
+| **Endpoint 2** | `POST /api/s/default/rest/networkconf` — new **`UniFi Devices`**, `vlan 99`, `192.168.99.1/24`, DHCP `.6–.254` lease 86400, mDNS off, Internal zone, corporate/LAN |
+| **Read-back** | both present, VLAN 99 exactly as specified, exactly one VLAN 99 network |
+| **Codifiable?** | Yes — `unifi_network.default` renamed and `unifi_network.unifi_devices` added in `core/networks.tf`. |
+
+Two hiccups, no consequences: the first combined script threw on a cosmetic firewall-zone lookup *after* the rename and its create `POST` had already been rejected; the retry with a minimal payload succeeded but the extension filtered the response body, so success was confirmed by read-back rather than status. Devices are all still on the untagged LAN — Phases 1–4 not started.
 
 ### BPDU Guard enabled on the three host-facing port profiles
 
