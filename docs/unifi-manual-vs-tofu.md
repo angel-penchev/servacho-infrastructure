@@ -141,7 +141,7 @@ The per-VLAN trio was recreated by hand on 2026-09-13.
 | 802.1X Control | `dot1x_ctrl`, `dot1x_idle_timeout` | same | ✅ / unset (computed, live 300 s = provider default) |
 | Port Isolation | `isolation` | `isolation` | unset (computed) — live false |
 | Services → STP | **`stp_port_mode`** | `stp_port_mode` | ✅ `true` on all five |
-| Services → STP Uplink / BPDU Guard | `stp_uplink` / `stp_bpdu_guard_enabled` | none | 🚫 UI-only; both false |
+| Services → STP Uplink / BPDU Guard | `stp_uplink` / `stp_bpdu_guard_enabled` | none | 🚫 UI-only; STP Uplink false everywhere; **BPDU Guard true on Host Device, Private Server, IoT Device since 2026-09-13**, false on UniFi Device (by design) and Public Server |
 | Link Debounce | `link_debounce_auto`, `link_debounce` | none | 🚫 UI-only; Auto, 300 ms |
 | Energy Efficient Ethernet | `eee_enabled` | none | 🚫 UI-only; false |
 | LLDP-MED | `lldpmed_enabled` | `lldpmed_enabled` | unset (computed) — live true |
@@ -214,7 +214,7 @@ Profile assignments now match live on every port of every device. What the UI st
 | Disabled port, switches (Pro Max 9–11, Agg 2–7) | `forward`, `port_security_enabled`, `port_security_mac_address`, `tagged_vlan_mgmt`, `native_networkconf_id = null`, `voice_networkconf_id = null`, `setting_preference`, `poe_mode`, `autoneg`, `dot1x_ctrl`, `lldpmed_enabled`, `stp_port_mode`, `isolation`, `egress_rate_limit_kbps_enabled`, `port_keepalive_enabled` | `stp_edge_state "enabled"`, `stp_bpdu_guard_enabled true`, `stp_uplink false`, `eee_enabled false`, `link_debounce_auto true`, `multicast_router_mode "NONE"`, `sd_wan_underlay_port false`; `dot1x_idle_timeout 300` is expressible but left at the provider default |
 | Disabled port, gateway (UDM 2–8) | same minus dot1x/STP/PoE (the gateway doesn't store them) | `sd_wan_underlay_port false` |
 | No override (Pro Max 25, UDM 1, 9) | nothing to declare | Pro Max 25 runs on switch defaults; UDM 1/9 are WAN-bound in UniFi OS |
-| Agg port 1 specifically | profile assignment | the replaced inline override had `stp_bpdu_guard_enabled true`; the profile has it off |
+| Agg port 1 specifically | profile assignment | BPDU Guard now comes from the Private Server profile (on) — UI-only |
 
 `FIXME(unifi-ui-only)` count: Pro Max 9, Aggregation 9, UDM 2, `port_profiles.tf` 9.
 
@@ -222,7 +222,7 @@ Profile assignments now match live on every port of every device. What the UI st
 
 | Port | Live (= code) | Note |
 |---|---|---|
-| 1 | `Servacho-Gosho`, **Private Server profile**, pref auto | Was an inline native-VLAN override with ~20 explicit fields. Moved to the profile at the user's request. **Functional difference: the inline override had BPDU Guard on; the Private Server profile has it off** (UI-only field, cannot be set through the provider). Everything else was identical to the profile: native Private Servers, `force_authorized`, Port Mode Edge, tagged Allow All, STP on, LLDP-MED on, no isolation/storm control/rate limit. Servacho-Gosho verified still up at `192.168.5.10` afterwards. |
+| 1 | `Servacho-Gosho`, **Private Server profile**, pref auto | Was an inline native-VLAN override with ~20 explicit fields. Moved to the profile at the user's request. The inline override had BPDU Guard on and the profile initially did not; **BPDU Guard was enabled on the Private Server profile later the same day** (UI-only field, set via the API), so nothing was lost. Everything else was identical to the profile: native Private Servers, `force_authorized`, Port Mode Edge, tagged Allow All, STP on, LLDP-MED on, no isolation/storm control/rate limit. Servacho-Gosho verified still up at `192.168.5.10` afterwards. |
 | 2–7 | `SFP+ N`, **disabled** | Same stored shape as Pro Max 9 (below). Previously no override at all (the code's `forward = "disabled"` blocks were phantoms). |
 | 8 | `UDM-Pro-Max`, UniFi Device profile, pref auto | Renamed from `SFP+ 8`. |
 

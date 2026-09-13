@@ -19,7 +19,9 @@
 # FIXME(unifi-ui-only): precision_time_protocol_enabled = true  (PTP)
 # FIXME(unifi-ui-only): qos_profile = {mode custom, no policies}  (QoS Mode: Off)
 # FIXME(unifi-ui-only): stp_uplink = false                 (Services -> STP Uplink)
-# FIXME(unifi-ui-only): stp_bpdu_guard_enabled = false     (Services -> BPDU Guard)
+# FIXME(unifi-ui-only): stp_bpdu_guard_enabled -- Services -> BPDU Guard. Host Device,
+#   Private Server, IoT Device: true (set 2026-09-13, end-host ports); UniFi Device: false
+#   (must stay off, it carries BPDUs between switches and APs); Public Server: false
 # FIXME(unifi-ui-only): link_debounce_auto = true, 300 ms  (Link Debounce)
 # FIXME(unifi-ui-only): eee_enabled = false                (Energy Efficient Ethernet)
 # FIXME(unifi-ui-only): multicast_router_mode = "NONE"     (Multicast Router Port)

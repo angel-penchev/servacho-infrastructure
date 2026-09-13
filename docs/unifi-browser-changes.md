@@ -8,7 +8,19 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ## Session 2026-09-13
 
-Seven topics (the UDM overrides were added on request after the USW pass; port forwards were a read-only diff). RADIUS and the port profiles were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy, Pro Max port 12 (+ one client fixed IP) and the **USW port override alignment** were **changed** (each authorised by the user).
+Eight topics (the UDM overrides were added on request after the USW pass; port forwards were a read-only diff; BPDU Guard was the last change of the day). RADIUS and the port profiles were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy, Pro Max port 12 (+ one client fixed IP) and the **USW port override alignment** were **changed** (each authorised by the user).
+
+### BPDU Guard enabled on the three host-facing port profiles
+
+| | |
+|---|---|
+| **Where** | Settings → Overview → Port Profiles → *Host Device*, *Private Server*, *IoT Device* → Services → BPDU Guard |
+| **Endpoint** | `PUT /api/s/default/rest/portconf/<id>` × 3, read-modify-write of the full profile with `stp_bpdu_guard_enabled: true` |
+| **Before** | `false` on all five profiles |
+| **After** | **`true`** on Host Device, Private Server, IoT Device; `false` on UniFi Device (deliberately — inter-switch/AP links carry BPDUs) and Public Server (no ports assigned, left as is) |
+| **Codifiable?** | **No.** `unifi_port_profile` has no `stp_bpdu_guard_enabled`; recorded as `FIXME(unifi-ui-only)` in `core/port_profiles.tf`. |
+
+Recommended and authorised in conversation: every port on these profiles is an end host, so a BPDU arriving means a rogue switch or a bridging host, and the guard err-disables the port rather than letting STP renegotiate around it. This also restores the protection Aggregation port 1 had under its old inline override. Read-back verified all other profile fields unchanged.
 
 ### Port forwards — read-only diff, code reduced to live
 

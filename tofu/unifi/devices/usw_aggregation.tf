@@ -37,8 +37,8 @@ resource "unifi_device" "usw_aggregation" {
 
   # Servacho-Gosho (38:05:25:30:79:97, fixed 192.168.5.10). Moved from an inline
   # native-VLAN override to the Private Server profile on 2026-09-13.
-  # FIXME(unifi-ui-only): the inline override had stp_bpdu_guard_enabled = true; the
-  #   profile has BPDU Guard off and the provider cannot set it on either layer.
+  # FIXME(unifi-ui-only): BPDU Guard comes from the profile now (Private Server, on
+  #   since 2026-09-13) and the provider cannot set it on either layer.
   port_override {
     index              = 1
     name               = "Servacho-Gosho"
