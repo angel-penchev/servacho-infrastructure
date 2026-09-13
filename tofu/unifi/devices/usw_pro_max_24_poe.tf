@@ -140,7 +140,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
   #   string ("5m0s"); left unset because 300 s is the provider default anyway.
   port_override {
     index                          = 9
-    name                           = "Port 9"
+    name                           = "Port 9 (Disabled)"
     forward                        = "disabled"
     port_security_enabled          = true
     port_security_mac_address      = []
@@ -160,7 +160,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
 
   port_override {
     index                          = 10
-    name                           = "Port 10"
+    name                           = "Port 10 (Disabled)"
     forward                        = "disabled"
     port_security_enabled          = true
     port_security_mac_address      = []
@@ -180,7 +180,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
 
   port_override {
     index                          = 11
-    name                           = "Port 11"
+    name                           = "Port 11 (Disabled)"
     forward                        = "disabled"
     port_security_enabled          = true
     port_security_mac_address      = []

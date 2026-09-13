@@ -43,7 +43,7 @@ resource "unifi_device" "udm_pro_max" {
   # FIXME(unifi-ui-only): sd_wan_underlay_port = false     (SD-WAN Underlay Port off)
   port_override {
     index                          = 2
-    name                           = "Port 2"
+    name                           = "Port 2 (Disabled)"
     forward                        = "disabled"
     port_security_enabled          = true
     port_security_mac_address      = []
@@ -59,7 +59,7 @@ resource "unifi_device" "udm_pro_max" {
 
   port_override {
     index                          = 3
-    name                           = "Port 3"
+    name                           = "Port 3 (Disabled)"
     forward                        = "disabled"
     port_security_enabled          = true
     port_security_mac_address      = []
@@ -75,7 +75,7 @@ resource "unifi_device" "udm_pro_max" {
 
   port_override {
     index                          = 4
-    name                           = "Port 4"
+    name                           = "Port 4 (Disabled)"
     forward                        = "disabled"
     port_security_enabled          = true
     port_security_mac_address      = []
@@ -91,7 +91,7 @@ resource "unifi_device" "udm_pro_max" {
 
   port_override {
     index                          = 5
-    name                           = "Port 5"
+    name                           = "Port 5 (Disabled)"
     forward                        = "disabled"
     port_security_enabled          = true
     port_security_mac_address      = []
@@ -107,7 +107,7 @@ resource "unifi_device" "udm_pro_max" {
 
   port_override {
     index                          = 6
-    name                           = "Port 6"
+    name                           = "Port 6 (Disabled)"
     forward                        = "disabled"
     port_security_enabled          = true
     port_security_mac_address      = []
@@ -123,7 +123,7 @@ resource "unifi_device" "udm_pro_max" {
 
   port_override {
     index                          = 7
-    name                           = "Port 7"
+    name                           = "Port 7 (Disabled)"
     forward                        = "disabled"
     port_security_enabled          = true
     port_security_mac_address      = []
@@ -139,7 +139,7 @@ resource "unifi_device" "udm_pro_max" {
 
   port_override {
     index                          = 8
-    name                           = "Port 8"
+    name                           = "Port 8 (Disabled)"
     forward                        = "disabled"
     port_security_enabled          = true
     port_security_mac_address      = []

@@ -8,7 +8,7 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ## Session 2026-09-13
 
-Thirteen topics (the UDM overrides were added on request after the USW pass; port forwards were a read-only diff; BPDU Guard and then Phase 0 of the VLAN 99 migration closed the day). RADIUS and the port profiles were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy, Pro Max port 12 (+ one client fixed IP) and the **USW port override alignment** were **changed** (each authorised by the user).
+Fifteen topics (the UDM overrides were added on request after the USW pass; port forwards were a read-only diff; BPDU Guard and then Phase 0 of the VLAN 99 migration closed the day). RADIUS and the port profiles were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy, Pro Max port 12 (+ one client fixed IP) and the **USW port override alignment** were **changed** (each authorised by the user).
 
 ### Management VLAN migration — Phase 0 (runbook `unifi-mgmt-vlan-99-runbook.md`)
 
@@ -62,6 +62,22 @@ Both switches re-homed on their own within ~30 s of the DHCP write; no restarts 
 ### Console page audit (read-only) and admin list
 
 Read `Control Plane → Console` in the UI plus `/get/setting` (`mgmt`, `lcm`, `locale`, `country`, `ntp`, `super_mail`, `super_mgmt`) and `/api/stat/admin`. No writes. Result: `mgmt` and `lcm` blocks added to `unifi_setting.default`; every other item on the page is UniFi OS-side or a `super_*` setting and is listed as `FIXME(unifi)` in `system/settings.tf`; the two admin accounts are documented in `system/admins.tf` (no provider resource). Also listed the fixed-IP reservations without a name for the user (six of eight, all on Private Servers).
+
+### Disabled ports renamed "… (Disabled)"
+
+| | |
+|---|---|
+| **Endpoint** | `PUT /api/s/default/rest/device/<id>` with the full `port_overrides` array per device (read-modify-write), only `name` changed on overrides with `forward: disabled` |
+| **Read-back** | UDM ports 2–8 → `Port N (Disabled)`; Pro Max 9–11 → `Port N (Disabled)`; Aggregation 2–7 → `SFP+ N (Disabled)` (first pass wrote `Port N (Disabled)` there, corrected in a second PUT to keep the original base name); override counts unchanged (9 / 25 / 8) |
+| **Codifiable?** | Yes — `name` updated in the 16 disabled `port_override` blocks across `devices/*.tf`. |
+
+### Auto speedtest enabled
+
+| | |
+|---|---|
+| **Endpoint** | `POST /api/s/default/set/setting/auto_speedtest` `{enabled: true, cron_expr: "0 4 * * *"}` — the key did not exist before |
+| **Read-back** | `{key auto_speedtest, enabled true, cron_expr "0 4 * * *"}` |
+| **Codifiable?** | Already was — `unifi_setting.default.auto_speedtest` in `system/settings.tf` now matches live instead of being code-ahead-of-reality. |
 
 ### Fixed-IP clients named
 

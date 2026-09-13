@@ -12,6 +12,8 @@ resource "unifi_setting" "default" {
     enabled = false
   }
 
+  # Daily at 04:00. Set live via `/set/setting/auto_speedtest` on 2026-09-13 to match
+  # this block (the setting key did not exist before); read-back identical.
   auto_speedtest = {
     enabled   = true
     cron_expr = "0 4 * * *"
@@ -86,8 +88,6 @@ resource "unifi_setting" "default" {
 #   and the UniFi OS/application update channels are UniFi OS only.
 # FIXME(unifi): Backups tab: auto backup on, `super_mgmt.autobackup_cron_expr
 #   "30 0 1 * *"` (monthly), timezone Europe/Sofia, keep 0 days -- no block.
-# FIXME(unifi): Auto speedtest -- declared above but ABSENT live (no `auto_speedtest`
-#   setting key exists). An apply would create it; decision pending whether to keep.
 # ----------------------------------------------------------------------------
 
 # ----------------------------------------------------------------------------

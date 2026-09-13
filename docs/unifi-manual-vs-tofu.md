@@ -26,7 +26,7 @@ State lives on the management plane, so `tofu plan` was not run. Everything belo
 | Port forwards | ✅ Code reduced to the one live rule (`NGINX Server` → `192.168.5.58`), 2026-09-13 |
 | Fixed-IP clients | ✅ `system/clients.tf` mirrors the 8 live reservations, attribute-exact, **all named** (2026-09-13); in-place updates still 🚫 blocked (§14.5) so keep it mirroring live |
 | VPN | ✅ Teleport (UI-only, FIXME) + OpenVPN + WireGuard live and mirrored 2026-09-13; WireGuard peers still to add (§10) |
-| Site settings | 🔧 `mgmt` + `lcm` blocks added from the Console page 2026-09-13; UniFi OS-only items carry `FIXME(unifi)`; auto speedtest decision pending (§11) |
+| Site settings | ✅ `mgmt` + `lcm` blocks added from the Console page and auto speedtest set live 2026-09-13; UniFi OS-only items carry `FIXME(unifi)` (§11) |
 | **Provider bugs** | **See §14 — the binding constraint. Several diffs above cannot be fixed on the pinned version, and two things already in the tree are guaranteed apply failures** |
 
 > **Read §14 before acting on any of this.** `ubiquiti-community/unifi` v0.55.0 (2026-07-10) is still the latest release, `main` is ~88 commits and 13 unreleased fixes ahead, and the device-update code path silently drops most configured fields. That determines which of the differences below are worth fixing today.
@@ -74,7 +74,7 @@ Six changes — see [`unifi-browser-changes.md`](unifi-browser-changes.md) for t
 | ~~Port forwards (§8)~~ | ✅ resolved 2026-09-13 — code mirrors the single live rule; fmicodes SSH/Postgres forwards and the two `count = 0` placeholders dropped |
 | ~~Fixed-IP clients (§9)~~ | ✅ resolved 2026-09-13 — `clients.tf` mirrors the 8 live reservations exactly; see §14.5 for why it must stay exact |
 | VPN (§10) | ✅ all three servers done 2026-09-13 — peers pending (§10) |
-| Site settings (§11) | 🔧 Console page audited 2026-09-13; only the auto-speedtest decision is open |
+| Site settings (§11) | ✅ Console page audited and auto speedtest set live 2026-09-13; everything provider-expressible matches |
 | Imports | Deferred — next up now that the service account works |
 | Static device IPs | ✅ live already has them; code mirrors live, so the plan is a no-op. *Changing* them in code is 🚫 blocked on #463 (§14.2) |
 
@@ -420,7 +420,7 @@ Decisions needed: keep Teleport (yes, recommended — zero-config for phones, an
 | Country | `100` (Bulgaria) | `100` | ✅ |
 | NTP | `setting_preference = auto` | same | ✅ |
 | IGMP snooping | `enabled = false` | `enabled = false` | ✅ |
-| **Auto speedtest** | **setting key absent entirely** | `enabled = true`, `cron_expr = "0 4 * * *"` | code would create it — decision pending, flagged in a FIXME |
+| Auto speedtest | ✅ `enabled true`, `cron_expr "0 4 * * *"` — **set live 2026-09-13** (key was absent before) | same | ✅ |
 | Updates schedule | `mgmt.auto_upgrade = true`, `auto_upgrade_hour = 3`, no weekday | ✅ `mgmt` block added 2026-09-13 (`auto_upgrade`, `auto_upgrade_hour`, `advanced_feature_enabled`, `debug_tools_enabled`, `unifi_idp_enabled`, `wifiman_enabled`) | weekday stays UniFi OS-only |
 | **Console page** (Control Plane → Console, audited 2026-09-13) | Name `UDM StKr`; TZ Europe/Sofia; Screen on 80 %, idle 300 s, sync, touch; Night Mode 22:00–08:00; Email = UI Mail Server; Analytics Off; Support File Full; no certificates; Remote Access on; Direct Remote Connection off; SSH off | ✅ `lcm` block added (enabled, brightness, idle_timeout, sync, touch_event); country already managed | everything else 🚫 `FIXME(unifi)` in `system/settings.tf`: timezone, night mode, mail, analytics, support file, certificates, remote access, SSH, backup schedule are UniFi OS or `super_*` settings without a provider block |
 | **Admin accounts** | Owner + local admin `servacho-managment-plane` (is_super, site admin) | 🚫 no provider resource — documented as `FIXME(unifi)` in new `system/admins.tf` | UI-only |

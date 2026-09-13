@@ -67,7 +67,7 @@ resource "unifi_device" "usw_aggregation" {
   #   string ("5m0s"); left unset because 300 s is the provider default anyway.
   port_override {
     index                          = 2
-    name                           = "SFP+ 2"
+    name                           = "SFP+ 2 (Disabled)"
     forward                        = "disabled"
     port_security_enabled          = true
     port_security_mac_address      = []
@@ -87,7 +87,7 @@ resource "unifi_device" "usw_aggregation" {
 
   port_override {
     index                          = 3
-    name                           = "SFP+ 3"
+    name                           = "SFP+ 3 (Disabled)"
     forward                        = "disabled"
     port_security_enabled          = true
     port_security_mac_address      = []
@@ -107,7 +107,7 @@ resource "unifi_device" "usw_aggregation" {
 
   port_override {
     index                          = 4
-    name                           = "SFP+ 4"
+    name                           = "SFP+ 4 (Disabled)"
     forward                        = "disabled"
     port_security_enabled          = true
     port_security_mac_address      = []
@@ -127,7 +127,7 @@ resource "unifi_device" "usw_aggregation" {
 
   port_override {
     index                          = 5
-    name                           = "SFP+ 5"
+    name                           = "SFP+ 5 (Disabled)"
     forward                        = "disabled"
     port_security_enabled          = true
     port_security_mac_address      = []
@@ -147,7 +147,7 @@ resource "unifi_device" "usw_aggregation" {
 
   port_override {
     index                          = 6
-    name                           = "SFP+ 6"
+    name                           = "SFP+ 6 (Disabled)"
     forward                        = "disabled"
     port_security_enabled          = true
     port_security_mac_address      = []
@@ -167,7 +167,7 @@ resource "unifi_device" "usw_aggregation" {
 
   port_override {
     index                          = 7
-    name                           = "SFP+ 7"
+    name                           = "SFP+ 7 (Disabled)"
     forward                        = "disabled"
     port_security_enabled          = true
     port_security_mac_address      = []
