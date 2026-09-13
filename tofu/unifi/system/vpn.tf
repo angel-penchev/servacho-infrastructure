@@ -8,7 +8,8 @@
 #
 # All three land in the controller's default `Vpn` firewall zone (Vpn -> Internal,
 # External, Gateway, Hotspot, Dmz allowed; Vpn -> IoT blocked). Nothing in
-# ../security/firewall.tf touches that zone yet.
+# ../security/firewall.tf touches that zone, and by decision (2026-09-13) nothing
+# will: VPN clients do not get direct access to IoT.
 #
 # Discipline is the same as everywhere else in this module: the controller is
 # configured first (UI or API), read back, and mirrored here. See
@@ -77,8 +78,9 @@ resource "unifi_vpn_server" "openvpn" {
 # Created live 2026-09-13 from the shell (`POST /rest/networkconf`, key piped from
 # OpenBao, never displayed); read-back: vpn_type wireguard-server, 192.168.9.1/24,
 # local_port 51820, wireguard_interface wan, wireguard_local_wan_ip any,
-# setting_preference manual, wireguard_public_key as above. No peers yet -- they go
-# here as `unifi_wireguard_peer` resources (name, interface_ip, public_key); peer
+# setting_preference manual, wireguard_public_key as above. No peers by decision
+# (2026-09-13, "we will add devices in the future") -- when they come they go here as
+# `unifi_wireguard_peer` resources (name, interface_ip from .9.2 up, public_key); peer
 # public keys are not secret.
 resource "unifi_vpn_server" "wireguard" {
   name    = "StKr WireGuard Server"

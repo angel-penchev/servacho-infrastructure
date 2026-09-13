@@ -24,9 +24,9 @@ State lives on the management plane, so `tofu plan` was not run. Everything belo
 | RADIUS / 802.1X | 🔧 Secret now wired into `unifi_setting.radius`; global 802.1X 🚫 not expressible; **all 4 users ✅ live, matching code, and in Vault (2026-09-13)** |
 | Firewall | ✅ Hotspot zone + `Dmz` casing in code; policy **created live** |
 | Port forwards | ✅ Code reduced to the one live rule (`NGINX Server` → `192.168.5.58`), 2026-09-13 |
-| Fixed-IP clients | ✅ `system/clients.tf` rewritten to the 8 live reservations, attribute-exact (2026-09-13); in-place updates still 🚫 blocked (§14.5) so keep it mirroring live |
+| Fixed-IP clients | ✅ `system/clients.tf` mirrors the 8 live reservations, attribute-exact, **all named** (2026-09-13); in-place updates still 🚫 blocked (§14.5) so keep it mirroring live |
 | VPN | ✅ Teleport (UI-only, FIXME) + OpenVPN + WireGuard live and mirrored 2026-09-13; WireGuard peers still to add (§10) |
-| Site settings | ⏳ TODO |
+| Site settings | 🔧 `mgmt` + `lcm` blocks added from the Console page 2026-09-13; UniFi OS-only items carry `FIXME(unifi)`; auto speedtest decision pending (§11) |
 | **Provider bugs** | **See §14 — the binding constraint. Several diffs above cannot be fixed on the pinned version, and two things already in the tree are guaranteed apply failures** |
 
 > **Read §14 before acting on any of this.** `ubiquiti-community/unifi` v0.55.0 (2026-07-10) is still the latest release, `main` is ~88 commits and 13 unreleased fixes ahead, and the device-update code path silently drops most configured fields. That determines which of the differences below are worth fixing today.
@@ -74,7 +74,8 @@ Six changes — see [`unifi-browser-changes.md`](unifi-browser-changes.md) for t
 | ~~Port forwards (§8)~~ | ✅ resolved 2026-09-13 — code mirrors the single live rule; fmicodes SSH/Postgres forwards and the two `count = 0` placeholders dropped |
 | ~~Fixed-IP clients (§9)~~ | ✅ resolved 2026-09-13 — `clients.tf` mirrors the 8 live reservations exactly; see §14.5 for why it must stay exact |
 | VPN (§10) | ✅ all three servers done 2026-09-13 — peers pending (§10) |
-| Site settings (§11), imports | Deferred |
+| Site settings (§11) | 🔧 Console page audited 2026-09-13; only the auto-speedtest decision is open |
+| Imports | Deferred — next up now that the service account works |
 | Static device IPs | ✅ live already has them; code mirrors live, so the plan is a no-op. *Changing* them in code is 🚫 blocked on #463 (§14.2) |
 
 ---
@@ -181,7 +182,7 @@ Still true: **nothing on any switch references the per-VLAN profiles yet.** Aggr
 
 | MAC | Live name | Live mgmt IP | Code name (`devices/*.tf`) | Diff |
 |---|---|---|---|---|
-| `28:70:4e:5c:b4:b2` | **UDM StKr** | WAN DHCP | `Dream Machinacho Pro Max` | **name** |
+| `28:70:4e:5c:b4:b2` | **UDM StKr** | WAN DHCP | UDM StKr | none (renamed in code before 2026-09-13) |
 | `9c:05:d6:e2:6b:1d` | USW Pro Max 24 PoE | **static 192.168.99.2** (VLAN 99) | USW Pro Max 24 PoE | none since 2026-09-13 |
 | `1c:6a:1b:98:38:ee` | USW Aggregation | **static 192.168.99.3** (VLAN 99) | USW Aggregation | none since 2026-09-13 |
 | `9c:05:d6:d9:ad:79` | Living Room U7-Pro | **static 192.168.99.4** (VLAN 99) | Living Room U7-Pro | none since 2026-09-13 |
@@ -390,8 +391,8 @@ Findings on the way:
 - ~~The OpenBao `secret/unifi` controller credentials were rejected~~ — the tofu service account had not survived the factory reset. **Recreated by hand 2026-09-13** (Admins → Create New, local admin, same username/password as the secret); login verified from the shell: `site_role admin`, `is_super true`. `tofu plan` is unblocked on the credential side.
 - WireGuard was then created from the shell: `POST /rest/networkconf` with `vpn_type wireguard-server`, `local_port` (the generic port field — `openvpn_local_port`/`openvpn_port` were the wrong guesses earlier), `wireguard_interface`, `wireguard_local_wan_ip`, `x_wireguard_private_key` piped from OpenBao and `wireguard_public_key` derived with `wg pubkey`. Accepted first try; read-back public key equals the derived one.
 - Site Magic (`magic_site_to_site_vpn`) is enabled by default with generated keys and no tunnels — UI-only, documented in the same FIXME.
-- Firewall: both new networks join the `Vpn` zone automatically (Vpn → Internal/External/Gateway/Hotspot/Dmz allow, **Vpn → IoT block**). Home Assistant is on Private Servers, so nothing to add unless IoT devices must be reached directly.
-- Peers: `unifi_wireguard_peer` (v0.55.0) covers WireGuard clients — add them to `system/vpn.tf` once the server exists.
+- Firewall: both new networks join the `Vpn` zone automatically (Vpn → Internal/External/Gateway/Hotspot/Dmz allow, **Vpn → IoT block**). **Decided 2026-09-13: no Vpn → IoT policy.**
+- Peers: `unifi_wireguard_peer` (v0.55.0) covers WireGuard clients. **Decided 2026-09-13: none for now**; devices will be added later, one resource each.
 
 ---|---|
 | **Teleport** enabled, `192.168.7.1/24` — the only VPN server; it is how the admin session reaches the controller today | nothing — `unifi_setting` at v0.55.0 has no `teleport` block, so this is **UI-only** |
@@ -419,8 +420,10 @@ Decisions needed: keep Teleport (yes, recommended — zero-config for phones, an
 | Country | `100` (Bulgaria) | `100` | ✅ |
 | NTP | `setting_preference = auto` | same | ✅ |
 | IGMP snooping | `enabled = false` | `enabled = false` | ✅ |
-| **Auto speedtest** | **setting key absent entirely** | `enabled = true`, `cron_expr = "0 4 * * *"` | code would create it |
-| Updates schedule | `mgmt.auto_upgrade = true`, `auto_upgrade_hour = 3`, no weekday | not managed | **unmanaged** |
+| **Auto speedtest** | **setting key absent entirely** | `enabled = true`, `cron_expr = "0 4 * * *"` | code would create it — decision pending, flagged in a FIXME |
+| Updates schedule | `mgmt.auto_upgrade = true`, `auto_upgrade_hour = 3`, no weekday | ✅ `mgmt` block added 2026-09-13 (`auto_upgrade`, `auto_upgrade_hour`, `advanced_feature_enabled`, `debug_tools_enabled`, `unifi_idp_enabled`, `wifiman_enabled`) | weekday stays UniFi OS-only |
+| **Console page** (Control Plane → Console, audited 2026-09-13) | Name `UDM StKr`; TZ Europe/Sofia; Screen on 80 %, idle 300 s, sync, touch; Night Mode 22:00–08:00; Email = UI Mail Server; Analytics Off; Support File Full; no certificates; Remote Access on; Direct Remote Connection off; SSH off | ✅ `lcm` block added (enabled, brightness, idle_timeout, sync, touch_event); country already managed | everything else 🚫 `FIXME(unifi)` in `system/settings.tf`: timezone, night mode, mail, analytics, support file, certificates, remote access, SSH, backup schedule are UniFi OS or `super_*` settings without a provider block |
+| **Admin accounts** | Owner + local admin `servacho-managment-plane` (is_super, site admin) | 🚫 no provider resource — documented as `FIXME(unifi)` in new `system/admins.tf` | UI-only |
 | Captive portal | `guest_access.portal_enabled = false` | not managed | **unmanaged** (checklist step done by hand) |
 | mDNS | **`mode = "custom"`, `enabled_for = "some"`, Main + IoT, 19 services** (set 2026-09-13) | commented-out `unifi_setting_mdns` in `system/mdns.tf`, now with the verified identifier catalogue and wire format | 🚫 unmanaged (no provider resource) — **manual runbook item, live matches the documented intent** |
 | Global switch | rstp, jumbo off, flowctrl off, DHCP snooping on, auto STP edge detection off, 802.1X on, RADIUS profile bound | commented-out `unifi_setting_switch` | **unmanaged** |

@@ -21,8 +21,33 @@ resource "unifi_setting" "default" {
     code = local.unifi_country_codes["Bulgaria"]
   }
 
+  # NTP: Auto == the four ubnt pool servers (0-3.ubnt.pool.ntp.org), computed.
   ntp = {
     setting_preference = "auto"
+  }
+
+  # Control Plane -> Console and Updates, mirrored from `/get/setting` key `mgmt`
+  # (2026-09-13). Only the fields the controller actually stores are declared; SSH and
+  # Direct Remote Connection are OFF in the UI and simply absent from the record, so
+  # they are left undeclared rather than pinned to false (null vs false would be a
+  # permanent plan diff).
+  mgmt = {
+    advanced_feature_enabled = true
+    auto_upgrade             = true
+    auto_upgrade_hour        = 3 # the "weekly, Sunday" part lives in UniFi OS, see FIXME below
+    debug_tools_enabled      = false
+    unifi_idp_enabled        = true
+    wifiman_enabled          = true
+  }
+
+  # Control Plane -> Console -> LED / Screen (`/get/setting` key `lcm`, 2026-09-13):
+  # Screen on, brightness 80 %, 5 min idle timeout, settings synced, touch enabled.
+  lcm = {
+    enabled      = true
+    brightness   = 80
+    idle_timeout = 300
+    sync         = true
+    touch_event  = true
   }
 
   # Site RADIUS server. Backs both the StKr WLAN (wpaeap) and wired 802.1X.
@@ -38,6 +63,32 @@ resource "unifi_setting" "default" {
     accounting_enabled = false
   }
 }
+
+# ----------------------------------------------------------------------------
+# Control Plane -> Console: the rest of the page (audited 2026-09-13)
+#
+# Everything on that page not covered by `mgmt`/`lcm`/`country` above is either a
+# UniFi OS console setting (outside the Network application the provider talks to)
+# or a Network `super_*` setting with no `unifi_setting` block at v0.55.0. Live values:
+# FIXME(unifi): Name "UDM StKr"            -- the console name; the Network device name
+#   of the same box is managed in ../devices/udm_pro_max.tf, the console name is not.
+# FIXME(unifi): Location / Time Zone       -- `locale.timezone = "Europe/Sofia"`, no block.
+#   Country = Bulgaria (100) IS managed above.
+# FIXME(unifi): Night Mode 10:00 PM - 8:00 AM -- not even in the Network `lcm` record;
+#   UniFi OS only.
+# FIXME(unifi): Email Services = UI Mail Server -- `super_mail.provider = "cloud"`.
+# FIXME(unifi): Analytics & Improvements = Off -- `super_mgmt.enable_analytics = false`.
+# FIXME(unifi): Support File = Full, Certificates = none, Remote Access = on,
+#   Direct Remote Connection = off, SSH = off -- UniFi OS console settings (the two
+#   last ones also surface as absent `mgmt.direct_connect_enabled` / `mgmt.ssh_enabled`).
+# FIXME(unifi): Updates tab: auto-update on, "weekly, Sunday 4 AM" -- only
+#   `mgmt.auto_upgrade_hour = 3` reaches the Network app (managed above); the weekday
+#   and the UniFi OS/application update channels are UniFi OS only.
+# FIXME(unifi): Backups tab: auto backup on, `super_mgmt.autobackup_cron_expr
+#   "30 0 1 * *"` (monthly), timezone Europe/Sofia, keep 0 days -- no block.
+# FIXME(unifi): Auto speedtest -- declared above but ABSENT live (no `auto_speedtest`
+#   setting key exists). An apply would create it; decision pending whether to keep.
+# ----------------------------------------------------------------------------
 
 # ----------------------------------------------------------------------------
 # Global Switch Settings & Security Posture

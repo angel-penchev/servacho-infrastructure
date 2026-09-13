@@ -8,7 +8,7 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ## Session 2026-09-13
 
-Twelve topics (the UDM overrides were added on request after the USW pass; port forwards were a read-only diff; BPDU Guard and then Phase 0 of the VLAN 99 migration closed the day). RADIUS and the port profiles were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy, Pro Max port 12 (+ one client fixed IP) and the **USW port override alignment** were **changed** (each authorised by the user).
+Thirteen topics (the UDM overrides were added on request after the USW pass; port forwards were a read-only diff; BPDU Guard and then Phase 0 of the VLAN 99 migration closed the day). RADIUS and the port profiles were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy, Pro Max port 12 (+ one client fixed IP) and the **USW port override alignment** were **changed** (each authorised by the user).
 
 ### Management VLAN migration — Phase 0 (runbook `unifi-mgmt-vlan-99-runbook.md`)
 
@@ -58,6 +58,18 @@ Both switches re-homed on their own within ~30 s of the DHCP write; no restarts 
 | **Endpoint** | `POST /api/s/default/rest/networkconf` — `name StKr WireGuard Server`, `purpose remote-user-vpn`, `vpn_type wireguard-server`, `ip_subnet 192.168.9.1/24`, `local_port 51820`, `wireguard_interface wan`, `wireguard_local_wan_ip any`, `x_wireguard_private_key` (from OpenBao), `wireguard_public_key` (derived), `setting_preference manual` |
 | **Read-back** | 200, all fields as sent, `wireguard_id 1`, in the `Vpn` zone; public key `mmWQkf3m…EKSw=` equals the one derived from the OpenBao key. `/rest/wireguardpeer` still returns `InvalidObject` on a bare GET (peers are listed per network); none exist yet. |
 | **Codifiable?** | Yes — `unifi_vpn_server.wireguard` already matched; comment updated. Peers → `unifi_wireguard_peer`. |
+
+### Console page audit (read-only) and admin list
+
+Read `Control Plane → Console` in the UI plus `/get/setting` (`mgmt`, `lcm`, `locale`, `country`, `ntp`, `super_mail`, `super_mgmt`) and `/api/stat/admin`. No writes. Result: `mgmt` and `lcm` blocks added to `unifi_setting.default`; every other item on the page is UniFi OS-side or a `super_*` setting and is listed as `FIXME(unifi)` in `system/settings.tf`; the two admin accounts are documented in `system/admins.tf` (no provider resource). Also listed the fixed-IP reservations without a name for the user (six of eight, all on Private Servers).
+
+### Fixed-IP clients named
+
+| | |
+|---|---|
+| **Endpoint** | `PUT /api/s/default/rest/user/<id>` with `{name}` for the six unnamed reservations (names chosen by the user; the three VMs reuse their reported hostnames) |
+| **Read-back** | all eight reservations now named; `fixed_ip`/`use_fixedip`/network binding unchanged: `Servacho-Gosho` .5.10, `JetKVM-Servacho-Gosho` .5.20, `JetKVM-Michelangelo` .5.23, `fmicodes-master-node` .5.200, `fmicodes-worker-node-1` .5.201, `hackjamhub-intercom` .5.215 |
+| **Codifiable?** | Yes — `name` added to each block in `system/clients.tf` (still attribute-exact, see the #428 note there); the two JetKVM resources renamed after their hosts. |
 
 ### BPDU Guard enabled on the three host-facing port profiles
 
