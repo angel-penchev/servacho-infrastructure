@@ -1,6 +1,6 @@
 # UniFi: manual rebuild vs. OpenTofu config — drift report
 
-**Date:** 2026-09-08 (drift analysis) · **Updated:** 2026-09-08 (first remediation pass) · 2026-09-13 (RADIUS users verified in sync; mDNS scoped to Main + IoT; per-VLAN port profiles recreated; USW port overrides aligned live and in code)
+**Date:** 2026-09-08 (drift analysis) · **Updated:** 2026-09-08 (first remediation pass) · 2026-09-13 (RADIUS users verified in sync; mDNS scoped to Main + IoT; per-VLAN port profiles recreated; all port overrides aligned live and in code, UI-only fields marked FIXME)
 **Branch:** `feat/unifi-port-config`
 **Companion:** [`unifi-browser-changes.md`](unifi-browser-changes.md) — everything changed on the live controller
 **Sources:** the manual rebuild checklist, the live controller (`https://192.168.1.1`, read via the Network app REST API), and `tofu/unifi/**/*.tf` as of the current working tree.
@@ -18,7 +18,7 @@ State lives on the management plane, so `tofu plan` was not run. Everything belo
 | Networks / VLANs | ✅ VLAN layout fixed in code; **mDNS decided and applied live 2026-09-13** (Custom, Main + IoT, 19 services) — per-network flags now match live |
 | Port profiles | ✅ All five profiles live and matching code (per-VLAN trio recreated by hand 2026-09-13); 802.1X DHCP problem **fixed live** |
 | Device names & IPs | 🔧 Code updated (UDM StKr, static IPs, LEDs off) — but static IPs are 🚫 blocked on provider until v0.56.0 |
-| Port overrides | 🔧 **Both USW switches aligned 2026-09-13** — live changed to the code's intent (names, 9–11 and Agg 2–7 disabled, Agg 1 on a profile) and code rewritten to the stored shape (§3.3, §3.4). **UDM untouched** by request (§3.2). Still 🚫 not reconcilable by apply (§14.3) |
+| Port overrides | ✅ **All three devices aligned 2026-09-13** — live changed to the code's intent and code rewritten to the stored shape (§3.2–§3.4); every provider-expressible field declared, every UI-only field carries a `FIXME(unifi-ui-only)`. Still 🚫 not reconcilable by apply (§14.3) |
 | WANs | ✅ Code now reflects live |
 | Wireless | ✅ All 3 diffs applied to the live controller from code |
 | RADIUS / 802.1X | 🔧 Secret now wired into `unifi_setting.radius`; global 802.1X 🚫 not expressible; **all 4 users ✅ live, matching code, and in Vault (2026-09-13)** |
@@ -68,7 +68,7 @@ Six changes — see [`unifi-browser-changes.md`](unifi-browser-changes.md) for t
 |---|---|
 | ~~mDNS policy (§1, §11)~~ | ✅ **Resolved 2026-09-13.** Gateway mDNS Proxy set to Custom / Main + IoT / 19 services (manual runbook item, `system/mdns.tf`); `core/networks.tf` flags now mirror live |
 | ~~The other 3 port profiles (§2)~~ | ✅ **Recreated live 2026-09-13** as `Public Server`, `Private Server`, `IoT Device`; code aligned (names, `setting_preference = manual`, `stp_port_mode = true`). Assigning ports to them is the port-override work |
-| Port overrides (§3.2–§3.4) | USW Pro Max + USW Aggregation ✅ mirrored 2026-09-13; **UDM StKr ⏳ deliberately untouched**; all three still 🚫 inert under `ignore_changes` (§14.3) |
+| Port overrides (§3.2–§3.4) | ✅ all three devices mirrored 2026-09-13; still 🚫 inert under `ignore_changes` (§14.3) |
 | ~~**Pro Max ports 6 and 18**~~ | ✅ **Assigned live by the user 2026-09-13** (6 → IoT Device, 18 → Private Server, both clients now hold their fixed IPs); code mirrors live. **Port 12** set live via the API the same day: Private Server + fixed `192.168.5.20` — all three now match code |
 | RADIUS users `vl.penchev`, `v.todorova` (§6.3) | ✅ **Created live 2026-09-13, verified identical to code.** Vault `unifi/radius/users` entries confirmed. Only the `tofu import` of the four live accounts remains (see §6.3) |
 | Port forwards (§8) onwards | Deferred |
@@ -192,19 +192,30 @@ Also:
 - `devices/u7_pro_living_room.tf` still carries `lifecycle { ignore_changes = [disabled] }` with a FIXME about the AP being offline/unadopted. It is adopted and online (`state = 1`) now, so that block can go.
 - All three `lifecycle { ignore_changes = [port_override] }` blocks (UDM, USW Aggregation, USW Pro Max) are still in place for the provider port-disable crash. As long as they stay, **none of the port drift in §3.2–§3.4 will ever be reconciled by an apply** — the code is documentation only. **Keep them** until v0.56.0: upstream #430 (merged, unreleased) shows a single declared `port_override` silently strips settings from *every* port on the device, which is very likely what flattened these switches in the first place (§14.3).
 
-### 3.2 UDM StKr
+### 3.2 UDM StKr — ✅ aligned 2026-09-13
 
-| Port | Live | Code |
+| Port | Live (= code) | Note |
 |---|---|---|
-| 1 | *no override* | `Port 1`, customize, native = **WAN2** |
-| 2–8 | *no override* | `Port N`, `forward = disabled`, `poe_mode = off` |
-| 9 | *no override* | `Port 9`, customize, native = **WAN1** |
-| 10 | `SFP+ 1`, profile **UniFi Device** | `SFP+ 1`, profile **Private Servers** |
-| 11 | `SFP+ 2`, profile **UniFi Device** | `USW-Aggregation`, profile UniFi Devices |
+| 1, 9 | *no override* | WAN2 / WAN1. Binding a WAN to a physical port is UniFi OS Internet configuration, not a `port_override` — the pre-reset code's `native_networkconf_id = var.wan_*` blocks never corresponded to anything stored. Removed, along with the `wan_primary_id`/`wan_secondary_id` plumbing into the `devices` module. `FIXME(unifi-ui-only)` in the file. |
+| 2–8 | `Port N`, **disabled** | Port 2 disabled through the UI to learn the gateway's shape, 3–8 written as identical copies. The gateway stores a **smaller** disabled object than the switches: `forward "disabled"`, `port_security_enabled true` + `[]`, `tagged_vlan_mgmt "block_all"`, no native/voice network, `setting_preference "auto"`, `autoneg true`, `isolation/egress_rate_limit/port_keepalive false`, `sd_wan_underlay_port false` — no dot1x, STP or PoE keys at all. |
+| 10 | `SFP+ 1`, UniFi Device profile | Uplink to the Pro Max. The pre-reset code had the **Private Servers** profile here — wrong for an inter-switch trunk. |
+| 11 | `USW-Aggregation`, UniFi Device profile | Renamed from `SFP+ 2`. |
 
-- Checklist ("UDM StKr ports 10 and 11 → UniFi Device") matches live. Code has port 10 on the wrong profile and a different name on port 11.
-- Ports 1 and 9 are the WAN ports per the checklist, but live has **no port override** for them — WAN-to-port binding is handled by the UniFi OS WAN configuration, not by a `port_override` with `native_networkconf_id`. The code's approach here is almost certainly wrong and is what a `wan_primary_id`/`wan_secondary_id` plumb-through in `main.tf` exists to feed.
-- The disabled-port block for 2–8 has no live counterpart — **and never worked**: `forward = "disabled"` alone does not disable a port (§14.3).
+Written via one `PUT /rest/device/<id>` (9 entries); read back, ports 10/11 unchanged except the rename, all four uplink/WAN ports still `up`, all four downstream devices still `state 1`.
+
+#### Port assignments vs. the UI — what is *not* in tofu (2026-09-13 audit)
+
+Profile assignments now match live on every port of every device. What the UI stores beyond that, per override shape:
+
+| Shape | Provider-expressible — now declared explicitly | UI-only — `FIXME(unifi-ui-only)` in the file |
+|---|---|---|
+| Profiled port (all devices) | `name`, `poe_mode` (where present), `setting_preference`, `port_profile_id` — that *is* the whole stored object | none at this layer (the profile layer has its own FIXMEs in `core/port_profiles.tf`) |
+| Disabled port, switches (Pro Max 9–11, Agg 2–7) | `forward`, `port_security_enabled`, `port_security_mac_address`, `tagged_vlan_mgmt`, `native_networkconf_id = null`, `voice_networkconf_id = null`, `setting_preference`, `poe_mode`, `autoneg`, `dot1x_ctrl`, `lldpmed_enabled`, `stp_port_mode`, `isolation`, `egress_rate_limit_kbps_enabled`, `port_keepalive_enabled` | `stp_edge_state "enabled"`, `stp_bpdu_guard_enabled true`, `stp_uplink false`, `eee_enabled false`, `link_debounce_auto true`, `multicast_router_mode "NONE"`, `sd_wan_underlay_port false`; `dot1x_idle_timeout 300` is expressible but left at the provider default |
+| Disabled port, gateway (UDM 2–8) | same minus dot1x/STP/PoE (the gateway doesn't store them) | `sd_wan_underlay_port false` |
+| No override (Pro Max 25, UDM 1, 9) | nothing to declare | Pro Max 25 runs on switch defaults; UDM 1/9 are WAN-bound in UniFi OS |
+| Agg port 1 specifically | profile assignment | the replaced inline override had `stp_bpdu_guard_enabled true`; the profile has it off |
+
+`FIXME(unifi-ui-only)` count: Pro Max 9, Aggregation 9, UDM 2, `port_profiles.tf` 9.
 
 ### 3.3 USW Aggregation — ✅ aligned 2026-09-13
 

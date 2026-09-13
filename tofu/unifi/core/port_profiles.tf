@@ -13,15 +13,16 @@
 # UI fields with NO provider attribute -- live value on all five profiles unless
 # noted; managed in the UI only, so a from-scratch create lands on controller
 # defaults, not on these:
-#   Port Mode (Infrastructure/Edge)  stp_edge_state   UniFi Device: disabled (Infrastructure)
-#                                                     the other four: enabled (Edge)
-#   Flow Control                     flow_control_enabled = true
-#   Precision Time Protocol          precision_time_protocol_enabled = true
-#   QoS Mode                         qos_profile = {mode custom, no policies}  (UI: Off)
-#   STP Uplink / BPDU Guard          stp_uplink = false / stp_bpdu_guard_enabled = false
-#   Link Debounce                    link_debounce_auto = true (300 ms)
-#   Energy Efficient Ethernet        eee_enabled = false
-#   Multicast Router Port            multicast_router_mode = "NONE"
+# FIXME(unifi-ui-only): stp_edge_state -- Port Mode. UniFi Device: "disabled"
+#   (Infrastructure); Host Device, Public Server, Private Server, IoT Device: "enabled" (Edge)
+# FIXME(unifi-ui-only): flow_control_enabled = true        (Flow Control)
+# FIXME(unifi-ui-only): precision_time_protocol_enabled = true  (PTP)
+# FIXME(unifi-ui-only): qos_profile = {mode custom, no policies}  (QoS Mode: Off)
+# FIXME(unifi-ui-only): stp_uplink = false                 (Services -> STP Uplink)
+# FIXME(unifi-ui-only): stp_bpdu_guard_enabled = false     (Services -> BPDU Guard)
+# FIXME(unifi-ui-only): link_debounce_auto = true, 300 ms  (Link Debounce)
+# FIXME(unifi-ui-only): eee_enabled = false                (Energy Efficient Ethernet)
+# FIXME(unifi-ui-only): multicast_router_mode = "NONE"     (Multicast Router Port)
 #
 # NOTE stp_port_mode is the Services -> STP toggle (true on all five, including
 # UniFi Device), NOT the Port Mode: Edge radio. Earlier comments here and in the

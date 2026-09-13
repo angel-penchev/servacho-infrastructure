@@ -46,10 +46,14 @@ resource "unifi_device" "usw_pro_max_24_poe" {
 
   # Port overrides mirror the live controller as of 2026-09-13: every port renamed
   # to the room labels below, 9-11 disabled, 6/12/18 on their per-VLAN profiles,
-  # port 25 (SFP+ 1, UDM uplink) deliberately has no override. Stored shape is
-  # {name, poe_mode, setting_preference, portconf_id} for profiled ports -- no
-  # forward/op_mode. None of this is reconciled by apply while ignore_changes is on
-  # (upstream #430/#438, see docs/unifi-manual-vs-tofu.md 14.3).
+  # port 25 (SFP+ 1, UDM uplink) deliberately has no override. Not reconciled by
+  # apply while ignore_changes is on (upstream #430/#438, see
+  # docs/unifi-manual-vs-tofu.md 14.3).
+
+  # Profiled ports: the controller stores exactly {name, poe_mode?, setting_preference,
+  # portconf_id} -- all four are declared, nothing UI-only is involved. Everything else
+  # comes from the profile (see ../core/port_profiles.tf for that layer's FIXMEs).
+
   port_override {
     index              = 1
     name               = "LR-01"
@@ -115,58 +119,78 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id    = var.port_profile_host_device_id
   }
 
-  # Port State: Disabled, exactly as the controller stores it when set in the UI
-  # (verified 2026-09-13 on port 9): forward "disabled" + port security on with an
-  # empty allowlist + Block All tagged VLANs, no native network, manual preference.
-  # Live also carries UI-only fields the provider cannot express: stp_edge_state
-  # "enabled", stp_bpdu_guard_enabled true, stp_uplink false, eee_enabled false,
-  # link_debounce_auto true, multicast_router_mode "NONE", sd_wan_underlay_port false.
+  # Ports 9-11: Port State Disabled, exactly as the controller stores it when set in
+  # the UI (verified 2026-09-13 on port 9). Every attribute the provider exposes is set
+  # explicitly below to the live value. The live override also carries these UI-only
+  # keys, which unifi_device.port_override has no attribute for -- a from-scratch
+  # apply would leave them at controller defaults:
+  # FIXME(unifi-ui-only): stp_edge_state = "enabled"       (Port Mode: Edge)
+  # FIXME(unifi-ui-only): stp_bpdu_guard_enabled = true    (Services -> BPDU Guard)
+  # FIXME(unifi-ui-only): stp_uplink = false               (Services -> STP Uplink)
+  # FIXME(unifi-ui-only): eee_enabled = false              (Energy Efficient Ethernet)
+  # FIXME(unifi-ui-only): link_debounce_auto = true        (Link Debounce: Auto, 300 ms)
+  # FIXME(unifi-ui-only): multicast_router_mode = "NONE"   (Multicast Router Port off)
+  # FIXME(unifi-ui-only): sd_wan_underlay_port = false     (SD-WAN Underlay Port off)
+  # FIXME(unifi-ui-only): dot1x_idle_timeout = 300 s -- exposed, but as a Go duration
+  #   string ("5m0s"); left unset because 300 s is the provider default anyway.
   port_override {
-    index                     = 9
-    name                      = "Port 9"
-    forward                   = "disabled"
-    port_security_enabled     = true
-    port_security_mac_address = []
-    tagged_vlan_mgmt          = "block_all"
-    native_networkconf_id     = null
-    setting_preference        = "manual"
-    poe_mode                  = "auto"
-    autoneg                   = true
-    dot1x_ctrl                = "auto"
-    lldpmed_enabled           = true
-    stp_port_mode             = true
+    index                          = 9
+    name                           = "Port 9"
+    forward                        = "disabled"
+    port_security_enabled          = true
+    port_security_mac_address      = []
+    tagged_vlan_mgmt               = "block_all"
+    native_networkconf_id          = null
+    voice_networkconf_id           = null
+    setting_preference             = "manual"
+    poe_mode                       = "auto"
+    autoneg                        = true
+    dot1x_ctrl                     = "auto"
+    lldpmed_enabled                = true
+    stp_port_mode                  = true
+    isolation                      = false
+    egress_rate_limit_kbps_enabled = false
+    port_keepalive_enabled         = false
   }
 
   port_override {
-    index                     = 10
-    name                      = "Port 10"
-    forward                   = "disabled"
-    port_security_enabled     = true
-    port_security_mac_address = []
-    tagged_vlan_mgmt          = "block_all"
-    native_networkconf_id     = null
-    setting_preference        = "manual"
-    poe_mode                  = "auto"
-    autoneg                   = true
-    dot1x_ctrl                = "auto"
-    lldpmed_enabled           = true
-    stp_port_mode             = true
+    index                          = 10
+    name                           = "Port 10"
+    forward                        = "disabled"
+    port_security_enabled          = true
+    port_security_mac_address      = []
+    tagged_vlan_mgmt               = "block_all"
+    native_networkconf_id          = null
+    voice_networkconf_id           = null
+    setting_preference             = "manual"
+    poe_mode                       = "auto"
+    autoneg                        = true
+    dot1x_ctrl                     = "auto"
+    lldpmed_enabled                = true
+    stp_port_mode                  = true
+    isolation                      = false
+    egress_rate_limit_kbps_enabled = false
+    port_keepalive_enabled         = false
   }
 
   port_override {
-    index                     = 11
-    name                      = "Port 11"
-    forward                   = "disabled"
-    port_security_enabled     = true
-    port_security_mac_address = []
-    tagged_vlan_mgmt          = "block_all"
-    native_networkconf_id     = null
-    setting_preference        = "manual"
-    poe_mode                  = "auto"
-    autoneg                   = true
-    dot1x_ctrl                = "auto"
-    lldpmed_enabled           = true
-    stp_port_mode             = true
+    index                          = 11
+    name                           = "Port 11"
+    forward                        = "disabled"
+    port_security_enabled          = true
+    port_security_mac_address      = []
+    tagged_vlan_mgmt               = "block_all"
+    native_networkconf_id          = null
+    voice_networkconf_id           = null
+    setting_preference             = "manual"
+    poe_mode                       = "auto"
+    autoneg                        = true
+    dot1x_ctrl                     = "auto"
+    lldpmed_enabled                = true
+    stp_port_mode                  = true
+    isolation                      = false
+    egress_rate_limit_kbps_enabled = false
+    port_keepalive_enabled         = false
   }
 
   # jetkvm-4562a8bf464c58c8 (30:52:53:0a:09:87, fixed 192.168.5.20 in ../system/clients.tf).
@@ -276,7 +300,9 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id    = var.port_profile_unifi_devices_id
   }
 
-  # SFP+ 2. (SFP+ 1 / port 25 is the live uplink to the UDM and has no override.)
+  # SFP+ 2. Port 25 (SFP+ 1) is the live uplink to the UDM and has no override:
+  # # FIXME(unifi-ui-only): port 25 runs on the switch defaults (profile "All", native UniFi
+  # #   Devices); nothing is stored, so there is nothing to declare.
   port_override {
     index              = 26
     name               = "UDM-Pro-Max"
