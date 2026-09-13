@@ -1,6 +1,6 @@
 # UniFi: manual rebuild vs. OpenTofu config — drift report
 
-**Date:** 2026-09-08 (drift analysis) · **Updated:** 2026-09-08 (first remediation pass) · 2026-09-13 (RADIUS users verified in sync)
+**Date:** 2026-09-08 (drift analysis) · **Updated:** 2026-09-08 (first remediation pass) · 2026-09-13 (RADIUS users verified in sync; mDNS scoped to Main + IoT)
 **Branch:** `feat/unifi-port-config`
 **Companion:** [`unifi-browser-changes.md`](unifi-browser-changes.md) — everything changed on the live controller
 **Sources:** the manual rebuild checklist, the live controller (`https://192.168.1.1`, read via the Network app REST API), and `tofu/unifi/**/*.tf` as of the current working tree.
@@ -15,7 +15,7 @@ State lives on the management plane, so `tofu plan` was not run. Everything belo
 
 | Area | Verdict |
 |---|---|
-| Networks / VLANs | 🔧 VLAN layout fixed in code; **mDNS left as `TODO(mdns)`** at your request |
+| Networks / VLANs | ✅ VLAN layout fixed in code; **mDNS decided and applied live 2026-09-13** (Custom, Main + IoT, 19 services) — per-network flags now match live |
 | Port profiles | 🔧 Both live profiles renamed + corrected in code; 802.1X DHCP problem **fixed live**; other 3 profiles ⏳ TODO |
 | Device names & IPs | 🔧 Code updated (UDM StKr, static IPs, LEDs off) — but static IPs are 🚫 blocked on provider until v0.56.0 |
 | Port overrides | ⏳ TODO (§3.2–§3.4), banner comments added to all three device files |
@@ -66,7 +66,7 @@ Six changes — see [`unifi-browser-changes.md`](unifi-browser-changes.md) for t
 
 | Item | Why |
 |---|---|
-| mDNS policy (§1, §11) | Deliberating — `TODO(mdns)` markers in `core/networks.tf` |
+| ~~mDNS policy (§1, §11)~~ | ✅ **Resolved 2026-09-13.** Gateway mDNS Proxy set to Custom / Main + IoT / 19 services (manual runbook item, `system/mdns.tf`); `core/networks.tf` flags now mirror live |
 | The other 3 port profiles (§2) | `TODO(port-profiles)` banner in `core/port_profiles.tf` |
 | Port overrides (§3.2–§3.4) | `TODO(port-overrides)` banners; also 🚫 blocked, see §14.3 |
 | **Pro Max ports 6 and 18** | Known-bad, **deferred by the user — do not touch.** Target state recorded in §3.4 and in the browser change log |
@@ -98,7 +98,7 @@ Six changes — see [`unifi-browser-changes.md`](unifi-browser-changes.md) for t
 1. **`unifi_network.default` name.** Code says `"Default"`; live is `"UniFi Devices"`. Applying as-is renames the untagged LAN.
 2. **VLAN 11 no longer exists.** Code declares `unifi_network.qoax_community_broadcast_vps` (VLAN 11, `192.168.11.1/24`). Live has no VLAN 11 — the Qoax network was widened to a **/23** that spans 192.168.10.0–192.168.11.255 instead. `core/outputs.tf` still exports `network_qoax_community_broadcast_vps_id`.
 3. **Qoax network renamed and resized.** Code: `"Qoax Community VPS"`, `192.168.10.1/24`, DHCP `.6`–`.254`. Live: `"Qoax VPS"`, `192.168.10.1/23`, DHCP `192.168.10.11`–`192.168.11.254`.
-4. **mDNS is on everywhere.** Code sets `multicast_dns = false` on `default`, `public_servers`, `private_servers`, `qoax_*` and `fmicodes_vps`. Live has it enabled on every corporate network, because the site-wide `mdns` setting is now `mode: "all"` (see §11). Applying the code would flip five networks off — **except that on UniFi OS gateways the per-network flag is largely cosmetic; the site-wide setting is what's in force (see §14.8).** Don't fight it.
+4. ~~**mDNS is on everywhere.**~~ **Resolved 2026-09-13.** The site-wide Gateway mDNS Proxy was still at the factory `mode: "all"`; it is now `custom`, scoped to **Main + IoT** with 19 services (§11, `system/mdns.tf`). After that change the controller reports `mdns_enabled = true` on exactly Main and IoT and `false` on the other six — i.e. the per-network flag is *derived from* the site-wide scope (upstream #282). Code now matches: only `unifi_network.guest` changed (`true → false`), and the `TODO(mdns)` markers are gone.
 5. Main / Guest / Public Servers / Private Servers / IoT / FMI{Codes} VPS otherwise match exactly (VLAN id, subnet, DHCP range, purpose).
 
 > Checklist note: the checklist lists "Qoax VPS (10)" with no VLAN 11 — so the /23 consolidation was deliberate, and the code is the stale side.
@@ -356,7 +356,7 @@ An apply as-is would rename the NGINX rule, repoint it at `.102`, and add the th
 | **Auto speedtest** | **setting key absent entirely** | `enabled = true`, `cron_expr = "0 4 * * *"` | code would create it |
 | Updates schedule | `mgmt.auto_upgrade = true`, `auto_upgrade_hour = 3`, no weekday | not managed | **unmanaged** |
 | Captive portal | `guest_access.portal_enabled = false` | not managed | **unmanaged** (checklist step done by hand) |
-| mDNS | `mode = "all"` | commented-out `unifi_setting_mdns` wanting `mode = "custom"` + 3 VLANs + 17 services | **unmanaged**, and would be a real change |
+| mDNS | **`mode = "custom"`, `enabled_for = "some"`, Main + IoT, 19 services** (set 2026-09-13) | commented-out `unifi_setting_mdns` in `system/mdns.tf`, now with the verified identifier catalogue and wire format | 🚫 unmanaged (no provider resource) — **manual runbook item, live matches the documented intent** |
 | Global switch | rstp, jumbo off, flowctrl off, DHCP snooping on, auto STP edge detection off, 802.1X on, RADIUS profile bound | commented-out `unifi_setting_switch` | **unmanaged** |
 | Etherlighting | controller defaults (per-network auto colours; speed defaults `10M=#FFC105` etc.) | commented-out `unifi_setting_ether_lighting` with custom FE/GbE/2.5GbE/10GbE colours + a device-level block | **unmanaged**, and the live speed colours are *not* the ones in code |
 | WAN SLA | not checked | commented-out `unifi_wan_sla` | **unmanaged** |
@@ -484,7 +484,7 @@ Separately, and independent of any provider bug: the commented OpenVPN block ref
 | Block | Claim | Reality on 2026-09-08 |
 |---|---|---|
 | `system/etherlighting.tf` + the `ether_lighting` block in `usw_pro_max_24_poe.tf` | "no native resource, PR #463" | ✅ Accurate. [#463](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/463) still **OPEN** since 2026-08-31. |
-| `system/mdns.tf` | "no `unifi_setting_mdns` for granular filtering" | ✅ Still accurate — nothing upstream addresses it. Note live is `mode: "all"`, so uncommenting would be a real behaviour change, not a no-op. |
+| `system/mdns.tf` | "no `unifi_setting_mdns` for granular filtering" | ✅ Still accurate — nothing upstream addresses it. Live was brought to the documented Custom scope on 2026-09-13, so the block is now a faithful runbook rather than an aspiration. |
 | `system/slas.tf` | "no `unifi_wan_sla`, PR in progress: N/A" | ✅ Still accurate, still nothing upstream. |
 | `system/settings.tf` — `unifi_setting_switch` / `unifi_setting_security` | "no native support for Global Switch Settings / Default Security Posture" | ✅ Accurate. Note [#476](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/476) shows even per-device `stp_version`/`stp_priority` don't persist, so STP is unmanageable from either direction right now. |
 
@@ -494,7 +494,7 @@ All four are honest. Worth adding the check date to each so they can be re-audit
 
 1. **`devices/u7_pro_living_room.tf`** — "the U7-Pro AP is currently physically offline or unadopted … remove this `ignore_changes` once it is plugged in". It **is** adopted and online (`state = 1`, static 192.168.1.4). *But* — `disabled` is one of the fields `buildMinimalUpdateDevice` drops (§14.2), so removing the ignore may just trade one error for another. Remove it and see, but don't be surprised.
 2. **LED override is manageable now.** [#337](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/337) (`unifi_device` LED updates fail with inconsistent result) was **fixed in v0.54.0** — `led_override*` is in the minimal PUT, and the update path re-asserts the planned values because the controller applies LED changes to APs asynchronously. So the §3.1 finding (both APs report `led_override = "on"` despite your checklist saying you disabled them) **is codifiable today**: add `led_override = "off"` to both AP resources.
-3. **`unifi_network.multicast_dns`** — [#282](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/282) fixed in v0.54.0: the corporate read path now preserves the configured value, falling back to the controller only when unset. Some UniFi OS gateways ignore per-network `mdns_enabled` entirely and always store `false`. Since live reports `true` everywhere *and* the site-wide `mdns` setting is `mode: "all"`, the site-wide setting is what's actually in force — treat the per-network flag in §1 as cosmetic and don't fight it.
+3. **`unifi_network.multicast_dns`** — [#282](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/282) fixed in v0.54.0: the corporate read path now preserves the configured value, falling back to the controller only when unset. Some UniFi OS gateways ignore per-network `mdns_enabled` entirely and always store `false`. Confirmed empirically on 2026-09-13: with the site-wide setting at `all` every network reported `true`; after scoping it to Main + IoT, exactly those two report `true`. The per-network flag is derived from the site-wide scope, so `core/networks.tf` should simply mirror it.
 
 ### 14.9 Things to know before touching the firewall (§7)
 

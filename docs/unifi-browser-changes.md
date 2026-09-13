@@ -8,9 +8,34 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ## Session 2026-09-13
 
-Read-only. No writes were made to the controller.
+Two topics. RADIUS was read-only; the Gateway mDNS Proxy was **changed** (authorised by the user for this task).
 
-### RADIUS users `vl.penchev` and `v.todorova` — created by the user, verified against code
+### Gateway mDNS Proxy — factory `all` → Custom, Main + IoT, 19 services
+
+| | |
+|---|---|
+| **Where** | Settings → Networks → Global → Gateway mDNS Proxy |
+| **Key** | site setting `mdns` |
+| **Endpoint** | `POST /api/s/default/set/setting/mdns` (plus one UI-driven apply, see below) |
+| **Before** | `mode: all`, `enabled_for: all`, no VLAN scope, no service list — the factory default |
+| **After** | `mode: custom`, `enabled_for: some`, `enabled_for_network_ids: [Main, IoT]`, 19 `predefined_services` |
+| **Codifiable?** | **No.** No `unifi_setting_mdns` resource at v0.55.0. Runbook lives in `tofu/unifi/system/mdns.tf`, now with the full 25-entry identifier catalogue and the wire format. |
+
+Decided by the user: services = casting/media/smart-home plus Apple File Sharing and iTunes; VLAN scope = **Main + IoT only** (Guest deliberately excluded). Dropped from the 25-service default: `apple_iChat`, `ftp_servers`, `ssh_servers`, `time_capsule`, `web_servers`, `windows_file_sharing_samba`.
+
+Kept (19): `amazon_devices`, `android_tv_remote`, `apple_airDrop`, `apple_airPlay`, `apple_file_sharing`, `apple_iTunes`, `aqara`, `bose`, `dns_service_discovery`, `google_chromecast`, `homeKit`, `matter_network`, `philips_hue`, `printers`, `roku`, `scanners`, `shelly`, `sonos`, `spotify_connect`.
+
+How it actually went, for the record:
+
+1. Service identifiers were read from the UI's Custom-mode picker (checkbox ids) — they are mixed-case (`apple_airPlay`, `homeKit`), not the snake_case the old `mdns.tf` guessed.
+2. A first API write with `enabled_for: "custom"` and string service ids was rejected `400 api.err.InvalidPayload`; read-back confirmed nothing changed.
+3. To learn the real schema, an in-page interceptor was installed and the UI form was driven to Custom / Main + IoT / Specific and applied. **The interceptor was bypassed** (the app holds its own `fetch` reference) and the UI write went through for real — landing at the intended scope but with all 25 default services. Harmless intermediate state, but it was a write.
+4. From that read-back the wire format was clear: `enabled_for: "some"`, `predefined_services: [{"code": …}]`. A second API write filtered the list to the 19 above: `200`.
+5. Verified after a page reload: `mode custom | enabled_for some | vlans IoT+Main | services 19 | custom 0`.
+
+**Side effect worth knowing:** per-network `mdns_enabled` flipped from `true` on all eight networks to `true` on exactly Main and IoT. The flag is derived from the site-wide scope — `core/networks.tf` was updated to mirror it (`guest` `true → false`; all `TODO(mdns)` markers removed).
+
+### RADIUS users `vl.penchev` and `v.todorova` — created by the user, verified against code (read-only)
 
 The user created both accounts by hand in Settings → Profiles → RADIUS → Users, then asked for a live-vs-tofu comparison. Read via `GET /api/s/default/rest/account` from the logged-in session:
 
