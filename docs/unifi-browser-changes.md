@@ -8,7 +8,22 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ## Session 2026-09-13
 
-Two topics. RADIUS was read-only; the Gateway mDNS Proxy was **changed** (authorised by the user for this task).
+Three topics. RADIUS and the port profiles were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy was **changed** (authorised by the user for this task).
+
+### Per-VLAN port profiles — created by the user, replicated in code (read-only)
+
+The user recreated the three profiles the factory reset destroyed. Read via `GET /api/s/default/rest/portconf`:
+
+| Name | forward | native | 802.1X | pref | STP port mode |
+|---|---|---|---|---|---|
+| `Public Server` | customize | Public Servers | `force_authorized` | manual | true |
+| `Private Server` | customize | Private Servers | `force_authorized` | manual | true |
+| `IoT Device` | customize | IoT | `force_authorized` | manual | true |
+
+`core/port_profiles.tf` was aligned: names (the old code had the plural `Public Servers` / `Private Servers` and bare `IoT`), `setting_preference = "manual"`, `stp_port_mode = true`. Resource addresses unchanged. No writes to the controller.
+
+A second pass walked every field of the profile editor side panel (Settings → Overview → Port Profiles → *Public Server*) against the API object and the provider schema — table in the drift report §2. Outcome: everything the provider can express is in code; Port Mode: Edge (`stp_edge_state`), Flow Control, PTP, QoS, STP Uplink/BPDU Guard, Link Debounce, EEE and Multicast Router Port have no provider attribute and are UI-only. Also corrected: `stp_port_mode` is the Services → STP toggle, not Port Mode: Edge.
+
 
 ### Gateway mDNS Proxy — factory `all` → Custom, Main + IoT, 19 services
 

@@ -1,9 +1,31 @@
 # ----------------------------------------------------------------------------
 # Port profiles
 #
-# Only two profiles exist on the controller after the 2026-09 rebuild. Both are
-# declared here. The three per-VLAN profiles further down are TODO: they were
-# wiped by the factory reset and have not been recreated.
+# Five profiles exist on the controller after the 2026-09 rebuild and all five are
+# declared here. The three per-VLAN profiles were recreated by hand on 2026-09-13
+# and this file was aligned to them (names, setting_preference, stp_port_mode).
+#
+# Audit 2026-09-13: every field of the UI profile editor was mapped against
+# /rest/portconf and the v0.55.0 unifi_port_profile schema. Everything the provider
+# can express matches live. Attributes left unset here are optional+computed (the
+# provider adopts the controller value) or absent on the controller.
+#
+# UI fields with NO provider attribute -- live value on all five profiles unless
+# noted; managed in the UI only, so a from-scratch create lands on controller
+# defaults, not on these:
+#   Port Mode (Infrastructure/Edge)  stp_edge_state   UniFi Device: disabled (Infrastructure)
+#                                                     the other four: enabled (Edge)
+#   Flow Control                     flow_control_enabled = true
+#   Precision Time Protocol          precision_time_protocol_enabled = true
+#   QoS Mode                         qos_profile = {mode custom, no policies}  (UI: Off)
+#   STP Uplink / BPDU Guard          stp_uplink = false / stp_bpdu_guard_enabled = false
+#   Link Debounce                    link_debounce_auto = true (300 ms)
+#   Energy Efficient Ethernet        eee_enabled = false
+#   Multicast Router Port            multicast_router_mode = "NONE"
+#
+# NOTE stp_port_mode is the Services -> STP toggle (true on all five, including
+# UniFi Device), NOT the Port Mode: Edge radio. Earlier comments here and in the
+# docs had that backwards.
 # ----------------------------------------------------------------------------
 
 # Uplinks between UniFi devices themselves (UDM <-> switches, switches <-> APs).
@@ -50,49 +72,49 @@ resource "unifi_port_profile" "host_device" {
   dot1x_ctrl            = "auto"
   tagged_vlan_mgmt      = "auto"
   setting_preference    = "manual"
-  stp_port_mode         = true # "Port Mode: Edge" in the UI
+  stp_port_mode         = true # Services -> STP (not Port Mode, see header)
 }
 
 # ----------------------------------------------------------------------------
-# TODO(port-profiles): the three per-VLAN profiles below were destroyed by the
-# factory reset and have NOT been recreated on the controller. Nothing on any
-# switch references a per-VLAN profile any more -- the two server/IoT ports that
-# used to use one now carry inline native-VLAN overrides instead.
-#
-# Decide per profile whether to recreate it or delete it outright. Kept as-is for
-# now so the port_override blocks in ../devices/*.tf (themselves TODO, see
-# docs/unifi-manual-vs-tofu.md 3.2-3.4) still resolve.
+# Per-VLAN access profiles for wired servers and IoT gear. Recreated on the
+# controller by hand on 2026-09-13 (verified via /rest/portconf). Untagged on
+# the named VLAN, no 802.1X (force_authorized), Port Mode: Edge like Host Device
+# (stp_edge_state, UI-only -- see header). Assigning ports to them is the
+# TODO(port-overrides) work in ../devices/*.tf.
 # ----------------------------------------------------------------------------
 
 resource "unifi_port_profile" "public_servers" {
-  name                  = "Public Servers"
+  name                  = "Public Server"
   forward               = "customize"
   native_networkconf_id = unifi_network.public_servers.id
   poe_mode              = "auto"
   autoneg               = true
   dot1x_ctrl            = "force_authorized"
   tagged_vlan_mgmt      = "auto"
-  stp_port_mode         = false
+  setting_preference    = "manual"
+  stp_port_mode         = true # Services -> STP (not Port Mode, see header)
 }
 
 resource "unifi_port_profile" "private_servers" {
-  name                  = "Private Servers"
+  name                  = "Private Server"
   forward               = "customize"
   native_networkconf_id = unifi_network.private_servers.id
   poe_mode              = "auto"
   autoneg               = true
   dot1x_ctrl            = "force_authorized"
   tagged_vlan_mgmt      = "auto"
-  stp_port_mode         = false
+  setting_preference    = "manual"
+  stp_port_mode         = true # Services -> STP (not Port Mode, see header)
 }
 
 resource "unifi_port_profile" "iot" {
-  name                  = "IoT"
+  name                  = "IoT Device"
   forward               = "customize"
   native_networkconf_id = unifi_network.iot.id
   poe_mode              = "auto"
   autoneg               = true
   dot1x_ctrl            = "force_authorized"
   tagged_vlan_mgmt      = "auto"
-  stp_port_mode         = false
+  setting_preference    = "manual"
+  stp_port_mode         = true # Services -> STP (not Port Mode, see header)
 }

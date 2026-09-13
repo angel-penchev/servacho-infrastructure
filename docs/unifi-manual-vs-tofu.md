@@ -1,6 +1,6 @@
 # UniFi: manual rebuild vs. OpenTofu config — drift report
 
-**Date:** 2026-09-08 (drift analysis) · **Updated:** 2026-09-08 (first remediation pass) · 2026-09-13 (RADIUS users verified in sync; mDNS scoped to Main + IoT)
+**Date:** 2026-09-08 (drift analysis) · **Updated:** 2026-09-08 (first remediation pass) · 2026-09-13 (RADIUS users verified in sync; mDNS scoped to Main + IoT; per-VLAN port profiles recreated)
 **Branch:** `feat/unifi-port-config`
 **Companion:** [`unifi-browser-changes.md`](unifi-browser-changes.md) — everything changed on the live controller
 **Sources:** the manual rebuild checklist, the live controller (`https://192.168.1.1`, read via the Network app REST API), and `tofu/unifi/**/*.tf` as of the current working tree.
@@ -16,7 +16,7 @@ State lives on the management plane, so `tofu plan` was not run. Everything belo
 | Area | Verdict |
 |---|---|
 | Networks / VLANs | ✅ VLAN layout fixed in code; **mDNS decided and applied live 2026-09-13** (Custom, Main + IoT, 19 services) — per-network flags now match live |
-| Port profiles | 🔧 Both live profiles renamed + corrected in code; 802.1X DHCP problem **fixed live**; other 3 profiles ⏳ TODO |
+| Port profiles | ✅ All five profiles live and matching code (per-VLAN trio recreated by hand 2026-09-13); 802.1X DHCP problem **fixed live** |
 | Device names & IPs | 🔧 Code updated (UDM StKr, static IPs, LEDs off) — but static IPs are 🚫 blocked on provider until v0.56.0 |
 | Port overrides | ⏳ TODO (§3.2–§3.4), banner comments added to all three device files |
 | WANs | ✅ Code now reflects live |
@@ -67,7 +67,7 @@ Six changes — see [`unifi-browser-changes.md`](unifi-browser-changes.md) for t
 | Item | Why |
 |---|---|
 | ~~mDNS policy (§1, §11)~~ | ✅ **Resolved 2026-09-13.** Gateway mDNS Proxy set to Custom / Main + IoT / 19 services (manual runbook item, `system/mdns.tf`); `core/networks.tf` flags now mirror live |
-| The other 3 port profiles (§2) | `TODO(port-profiles)` banner in `core/port_profiles.tf` |
+| ~~The other 3 port profiles (§2)~~ | ✅ **Recreated live 2026-09-13** as `Public Server`, `Private Server`, `IoT Device`; code aligned (names, `setting_preference = manual`, `stp_port_mode = true`). Assigning ports to them is the port-override work |
 | Port overrides (§3.2–§3.4) | `TODO(port-overrides)` banners; also 🚫 blocked, see §14.3 |
 | **Pro Max ports 6 and 18** | Known-bad, **deferred by the user — do not touch.** Target state recorded in §3.4 and in the browser change log |
 | RADIUS users `vl.penchev`, `v.todorova` (§6.3) | ✅ **Created live 2026-09-13, verified identical to code.** Vault `unifi/radius/users` entries confirmed. Only the `tofu import` of the four live accounts remains (see §6.3) |
@@ -107,28 +107,67 @@ Six changes — see [`unifi-browser-changes.md`](unifi-browser-changes.md) for t
 
 ## 2. Port profiles
 
-### Live — only two exist
+### Live — five exist (updated 2026-09-13)
 
-| Name | forward | native | PoE | 802.1X | tagged | STP port mode | autoneg |
-|---|---|---|---|---|---|---|---|
-| **UniFi Device** | all | UniFi Devices (untagged) | auto | `force_authorized` | auto | true | true |
-| **Host Device** | customize | Guest (VLAN 3) | auto | `auto` | auto | true | true |
+| Name | forward | native | PoE | 802.1X | tagged | pref | STP (`stp_port_mode`) | Port Mode (`stp_edge_state`) |
+|---|---|---|---|---|---|---|---|---|
+| **UniFi Device** | all | UniFi Devices (untagged) | auto | `force_authorized` | auto | auto | true | Infrastructure |
+| **Host Device** | customize | Main (VLAN 2) | auto | `auto` | auto | manual | true | Edge |
+| **Public Server** | customize | Public Servers (VLAN 4) | auto | `force_authorized` | auto | manual | true | Edge |
+| **Private Server** | customize | Private Servers (VLAN 5) | auto | `force_authorized` | auto | manual | true | Edge |
+| **IoT Device** | customize | IoT (VLAN 6) | auto | `force_authorized` | auto | manual | true | Edge |
 
-### Code — five exist (`core/port_profiles.tf`)
+The per-VLAN trio was recreated by hand on 2026-09-13.
 
-| Resource | Name | native | 802.1X | STP port mode |
-|---|---|---|---|---|
-| `unifi_devices` | UniFi Device**s** | default LAN | `auto` | true |
-| `main` | Main | **Guest** | `auto` | **false** |
-| `public_servers` | Public Servers | Public Servers | `force_authorized` | false |
-| `private_servers` | Private Servers | Private Servers | `force_authorized` | false |
-| `iot` | IoT | IoT | `force_authorized` | false |
+**Full UI-field audit (2026-09-13).** Every field in the profile editor side panel was mapped to the `/rest/portconf` object and to the v0.55.0 `unifi_port_profile` schema (`tofu providers schema -json`):
+
+| UI field | API key | Provider attribute | In code? |
+|---|---|---|---|
+| Name | `name` | `name` | ✅ |
+| Port State (Active/Disabled) | `port_security_enabled` + empty allowlist (see §14.3) | `port_security_enabled`, `port_security_mac_address` | unset — live Active, matches |
+| **Port Mode (Infrastructure/Edge)** | **`stp_edge_state`** | **none** | 🚫 UI-only. UniFi Device = Infrastructure, the other four = Edge |
+| Native VLAN / Network | `native_networkconf_id` | `native_networkconf_id` | ✅ |
+| Tagged VLAN Management | `tagged_vlan_mgmt` (`auto` = Allow All) | `tagged_vlan_mgmt` | ✅ |
+| Auto PoE | `poe_mode` | `poe_mode` | ✅ |
+| Auto Negotiate Link Speed | `autoneg` | `autoneg` | ✅ |
+| Advanced (Auto/Manual) | `setting_preference` | `setting_preference` | ✅ (unset on UniFi Device = auto, matches) |
+| QoS Mode | `qos_profile` | none | 🚫 UI-only; live `custom` with no policies (UI shows Off) |
+| Precision Time Protocol | `precision_time_protocol_enabled` | none | 🚫 UI-only; live `true` |
+| Storm Control | `stormctrl_*` | `stormctrl_*` | unset (computed) — live off, matches |
+| Egress Rate Limit | `egress_rate_limit_kbps*` | same | unset (computed) — live off |
+| Flow Control | `flow_control_enabled` | none | 🚫 UI-only; live `true` |
+| Port Security / MAC filter | `port_security_*` | same | unset — live off |
+| 802.1X Control | `dot1x_ctrl`, `dot1x_idle_timeout` | same | ✅ / unset (computed, live 300 s = provider default) |
+| Port Isolation | `isolation` | `isolation` | unset (computed) — live false |
+| Services → STP | **`stp_port_mode`** | `stp_port_mode` | ✅ `true` on all five |
+| Services → STP Uplink / BPDU Guard | `stp_uplink` / `stp_bpdu_guard_enabled` | none | 🚫 UI-only; both false |
+| Link Debounce | `link_debounce_auto`, `link_debounce` | none | 🚫 UI-only; Auto, 300 ms |
+| Energy Efficient Ethernet | `eee_enabled` | none | 🚫 UI-only; false |
+| LLDP-MED | `lldpmed_enabled` | `lldpmed_enabled` | unset (computed) — live true |
+| Voice VLAN | `voice_networkconf_id` | `voice_networkconf_id` | unset — live none |
+| Multicast Router Port | `multicast_router_mode` | `multicast_router_networkconf_ids` (different shape) | unset — live NONE |
+
+**Correction to earlier analysis:** `stp_port_mode` is the Services → **STP** toggle, not "Port Mode: Edge". Edge mode is `stp_edge_state`, which the provider does not expose — so it is a UI-only property, and a from-scratch `tofu apply` would create these profiles as Infrastructure. The 2026-09-08 note that Host Device's `stp_port_mode = true` "is what the Port Mode: Edge toggle produces" was wrong; both were true, for different reasons.
+
+### Code — `core/port_profiles.tf`
+
+| Resource | Name | native | 802.1X | pref | `stp_port_mode` |
+|---|---|---|---|---|---|
+| `unifi_devices` | UniFi Device | default LAN | `force_authorized` | (auto) | true |
+| `host_device` | Host Device | Main | `auto` | manual | true |
+| `public_servers` | Public Server | Public Servers | `force_authorized` | manual | true |
+| `private_servers` | Private Server | Private Servers | `force_authorized` | manual | true |
+| `iot` | IoT Device | IoT | `force_authorized` | manual | true |
 
 ### Differences
 
-1. **`unifi_devices` → live "UniFi Device"** (singular). Also `dot1x_ctrl`: code `auto`, live `force_authorized`. Everything else matches.
-2. **`main` is really the live "Host Device"** — same idea (native = Guest so unauthenticated ports land in Guest, 802.1X `auto` moves them to Main on success), but two diffs: the **name** (`Main` vs `Host Device`) and **`stp_port_mode`** (code `false`, live `true`). Live `true` is what the "Port Mode: Edge" toggle produces, which is what the checklist asked for — so the code value is wrong.
-3. **`public_servers`, `private_servers` and `iot` profiles do not exist live.** Nothing on the switches references a per-VLAN profile any more; the two remaining server/IoT ports use inline native-VLAN overrides instead (§3). Their outputs in `core/outputs.tf` and the matching `devices/variables.tf` entries are dead weight unless you recreate them.
+**None as of 2026-09-13** for anything `unifi_port_profile` can express. The UI-only fields above (Port Mode Edge, Flow Control, PTP, …) are recorded as comments in `core/port_profiles.tf`. Resolved history:
+
+1. ~~`unifi_devices` → live "UniFi Device" (singular), `dot1x_ctrl` `auto` vs `force_authorized`~~ — fixed in code 2026-09-08.
+2. ~~`main` is really the live "Host Device"~~ — renamed, native → Main, `stp_port_mode` → true, 2026-09-08.
+3. ~~`public_servers`, `private_servers`, `iot` do not exist live~~ — recreated by the user 2026-09-13 as **`Public Server`**, **`Private Server`**, **`IoT Device`** (singular names, `setting_preference = manual`, Port Mode Edge). Code aligned the same day; the resource addresses were kept (`public_servers`, `private_servers`, `iot`) so `devices/*.tf` and `core/outputs.tf` did not need to change.
+
+Still true: **nothing on any switch references the per-VLAN profiles yet.** Aggregation port 1 and Pro Max port 19 use inline native-VLAN overrides (§3.3, §3.4). Moving ports onto the profiles is the `TODO(port-overrides)` work, blocked on §14.3.
 
 ---
 
@@ -376,7 +415,7 @@ Independent of live state, worth cleaning while you're in here:
 1. **`radius_profile_secret`** — declared in `tofu/unifi/variables.tf`, passed in from Vault by `tofu/unifi_module.tf`, **never referenced**. Either add the `unifi_setting_radius` resource it was meant for, or delete both ends.
 2. **`network_default_id`** — passed into the `devices` module by `main.tf` and declared in `devices/variables.tf`, **never used** by any device file.
 3. **`network_qoax_community_broadcast_vps_id`** output — points at a network that no longer exists on the box.
-4. **`port_profile_public_servers_id` / `port_profile_iot_id`** — each used exactly once (ports 20 and 6 of the Pro Max), both of which are Host Device live. If you drop those profiles, drop the plumbing too.
+4. ~~**`port_profile_public_servers_id` / `port_profile_iot_id`** — each used exactly once~~ — the profiles exist again (2026-09-13), so the plumbing is live, not dead. Whether ports 20 and 6 end up on them is the §3.4 port-override decision.
 5. **Three `ignore_changes = [port_override]` blocks** — until upstream PR #470 *and* the unreleased #430/#438 land, every port assignment in `devices/*.tf` is decorative. Anything you "fix" there today has no effect on the controller (§14.3).
    - The FIXME text itself is worth updating: it blames "a bug parsing the empty MAC allowlist required for the new UniFi OS Port State toggles", which is #470 and correct — but omits that `forward = "disabled"` was never the right mechanism, and that #430 (whole-array replacement stripping undeclared ports) is the more dangerous of the two.
 6. **`system/vpn.tf`** OpenVPN block references `data.unifi_radius_profile.default`, which the `system` module never declares.
