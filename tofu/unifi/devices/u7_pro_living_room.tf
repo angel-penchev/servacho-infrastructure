@@ -8,11 +8,12 @@ resource "unifi_device" "u7_pro_living_room" {
   # update PUT) was fixed in v0.54.0, so unlike config_network this one does apply.
   led_override = "off"
 
-  # FIXME(unifi): `config_network` is populated by modelToAPIDevice but dropped by
-  # buildMinimalUpdateDevice, so at v0.55.0 it is only honoured on create/adopt --
-  # an update silently discards it and the apply fails with "inconsistent result
-  # after apply". Declared here so the code states the intended reality; it will not
-  # take effect until upstream PR #463 ships (checked 2026-09-08).
+  # Matches live exactly (verified 2026-09-13). NOTE: at v0.55.0 the provider drops
+  # config_network from the update PUT (buildMinimalUpdateDevice, upstream PR #463),
+  # so this block is read-only in practice: because live already has these values the
+  # plan is a no-op, but CHANGING the address here would not reach the controller and
+  # the apply would fail with "inconsistent result after apply". Change the management
+  # IP in the UI first, then mirror it here, until #463 ships.
   # https://github.com/ubiquiti-community/terraform-provider-unifi/pull/463
   config_network = {
     type    = "static"
@@ -22,11 +23,10 @@ resource "unifi_device" "u7_pro_living_room" {
     dns1    = "192.168.1.1"
   }
 
-  # NOTE(2026-09-08): the original FIXME here said the AP was offline/unadopted. It is
-  # adopted and online now (state=1, static 192.168.1.4), so that reason is gone. The
-  # ignore is kept only because `disabled` is another field buildMinimalUpdateDevice
-  # drops on update (same class as config_network above) -- removing it likely trades
-  # one inconsistent-result error for another. Retry after v0.56.0.
+  # Precautionary. The AP is adopted and online; `disabled` is another field the
+  # v0.55.0 update PUT drops, and the controller does not report it at all for APs,
+  # so a null-vs-false mismatch could surface as "inconsistent result after apply".
+  # Live matches code today; drop this ignore after v0.56.0 and see.
   lifecycle {
     ignore_changes = [disabled]
   }

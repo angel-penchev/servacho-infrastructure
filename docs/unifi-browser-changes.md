@@ -22,6 +22,10 @@ Eight topics (the UDM overrides were added on request after the USW pass; port f
 
 Recommended and authorised in conversation: every port on these profiles is an end host, so a BPDU arriving means a rogue switch or a bridging host, and the guard err-disables the port rather than letting STP renegotiate around it. This also restores the protection Aggregation port 1 had under its old inline override. Read-back verified all other profile fields unchanged.
 
+### Fixed-IP clients and device `config_network` — read-only, code aligned
+
+`GET /rest/user` (fixed IPs) and `GET /stat/device` (`config_network`). Eight reservations live; `system/clients.tf` rewritten to match them attribute-for-attribute. All four managed devices report exactly the static management addresses the code declares, so the `config_network` blocks are no-op, not a failure — their FIXME text was corrected. No writes.
+
 ### Port forwards — read-only diff, code reduced to live
 
 `GET /rest/portforward`: one rule, `NGINX Server`, tcp_udp, wan any:80,443 → 192.168.5.58:80,443. Code had six resources; trimmed to that one rule (details in the drift report §8). No writes.

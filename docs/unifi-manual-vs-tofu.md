@@ -17,14 +17,14 @@ State lives on the management plane, so `tofu plan` was not run. Everything belo
 |---|---|
 | Networks / VLANs | ✅ VLAN layout fixed in code; **mDNS decided and applied live 2026-09-13** (Custom, Main + IoT, 19 services) — per-network flags now match live |
 | Port profiles | ✅ All five profiles live and matching code (per-VLAN trio recreated by hand 2026-09-13); 802.1X DHCP problem **fixed live** |
-| Device names & IPs | 🔧 Code updated (UDM StKr, static IPs, LEDs off) — but static IPs are 🚫 blocked on provider until v0.56.0 |
+| Device names & IPs | ✅ Code matches live incl. static IPs and LEDs; `config_network` is read-only in practice until v0.56.0 (no-op plan while live matches — **not** an apply failure, correction 2026-09-13) |
 | Port overrides | ✅ **All three devices aligned 2026-09-13** — live changed to the code's intent and code rewritten to the stored shape (§3.2–§3.4); every provider-expressible field declared, every UI-only field carries a `FIXME(unifi-ui-only)`. Still 🚫 not reconcilable by apply (§14.3) |
 | WANs | ✅ Code now reflects live |
 | Wireless | ✅ All 3 diffs applied to the live controller from code |
 | RADIUS / 802.1X | 🔧 Secret now wired into `unifi_setting.radius`; global 802.1X 🚫 not expressible; **all 4 users ✅ live, matching code, and in Vault (2026-09-13)** |
 | Firewall | ✅ Hotspot zone + `Dmz` casing in code; policy **created live** |
 | Port forwards | ✅ Code reduced to the one live rule (`NGINX Server` → `192.168.5.58`), 2026-09-13 |
-| Fixed-IP clients | ⏳ TODO (and 🚫 blocked — see §14.5) |
+| Fixed-IP clients | ✅ `system/clients.tf` rewritten to the 8 live reservations, attribute-exact (2026-09-13); in-place updates still 🚫 blocked (§14.5) so keep it mirroring live |
 | VPN | ⏳ TODO |
 | Site settings | ⏳ TODO |
 | **Provider bugs** | **See §14 — the binding constraint. Several diffs above cannot be fixed on the pinned version, and two things already in the tree are guaranteed apply failures** |
@@ -72,8 +72,9 @@ Six changes — see [`unifi-browser-changes.md`](unifi-browser-changes.md) for t
 | ~~**Pro Max ports 6 and 18**~~ | ✅ **Assigned live by the user 2026-09-13** (6 → IoT Device, 18 → Private Server, both clients now hold their fixed IPs); code mirrors live. **Port 12** set live via the API the same day: Private Server + fixed `192.168.5.20` — all three now match code |
 | RADIUS users `vl.penchev`, `v.todorova` (§6.3) | ✅ **Created live 2026-09-13, verified identical to code.** Vault `unifi/radius/users` entries confirmed. Only the `tofu import` of the four live accounts remains (see §6.3) |
 | ~~Port forwards (§8)~~ | ✅ resolved 2026-09-13 — code mirrors the single live rule; fmicodes SSH/Postgres forwards and the two `count = 0` placeholders dropped |
-| Fixed-IP clients (§9) onwards | Deferred |
-| Static device IPs actually taking effect | 🚫 blocked on upstream #463 — declared but inert, see §14.2 |
+| ~~Fixed-IP clients (§9)~~ | ✅ resolved 2026-09-13 — `clients.tf` mirrors the 8 live reservations exactly; see §14.5 for why it must stay exact |
+| VPN (§10), site settings (§11), imports | Deferred |
+| Static device IPs | ✅ live already has them; code mirrors live, so the plan is a no-op. *Changing* them in code is 🚫 blocked on #463 (§14.2) |
 
 ---
 
@@ -184,7 +185,7 @@ Still true: **nothing on any switch references the per-VLAN profiles yet.** Aggr
 | `9c:05:d6:d9:ad:79` | Living Room U7-Pro | **static 192.168.1.4** | Living Room U7-Pro | code declares no `config_network` |
 | `9c:05:d6:d9:af:65` | Bedroom U7-Pro | **static 192.168.1.5** | Bedroom U7-Pro | code declares no `config_network` |
 
-> **⚠️ The `config_network` column is a trap — see §14.2.** At v0.55.0 `config_network` is dropped from the device update `PUT`, so the static IPs **cannot be codified**. And the existing `config_network = { type = "dhcp" }` on `usw_pro_max_24_poe` is a latent guaranteed apply failure against the live static `.2`. Delete it; don't extend the pattern.
+> **`config_network` — corrected 2026-09-13.** All four devices declare the static addresses live reports, field for field (verified). Because the values match, the update `PUT` dropping the field is harmless: the read-back equals the plan and nothing is flagged. What §14.2 warns about is *changing* the address in code — that write never reaches the controller and fails post-apply. The 2026-09-08 `type = "dhcp"` block that *would* have failed is long gone.
 
 Also:
 
@@ -355,7 +356,7 @@ Re-read the same day: still exactly one live rule, unchanged. The user chose to 
 | `hackjamhub-intercom` | `bc:24:11:8a:b7:98` | 192.168.5.215 |
 | *(unnamed)* | `38:05:25:30:79:97` | 192.168.5.10 — this is Servacho-Gosho, last seen on USW Aggregation port 1, Private Servers |
 
-> **⚠️ Don't rewrite this file yet — see §14.5.** At v0.55.0 *every* in-place `unifi_client` update fails with `inconsistent result after apply: .last_ip` (#428, fixed on `main`, unreleased). Deleting `system/clients.tf` and re-adding it after v0.56.0 is cleaner than porting it to the live four.
+> **Rewritten 2026-09-13.** `system/clients.tf` now declares exactly the eight live reservations (`.5.10`, `.5.20`, `.5.23`, `.5.200`, `.5.201`, `.5.215`, `.6.10`, `.6.11`) with only the attributes the controller has — `name` on the two TVs, `network_id` on the port-12 JetKVM, nothing else. Because every in-place `unifi_client` update fails at v0.55.0 (#428, §14.5), the file must stay attribute-exact: name or bind a client in the UI first, then mirror. Six of the eight are unnamed on the controller.
 
 ### Differences
 
@@ -459,7 +460,7 @@ Fields we care about that are **silently dropped on update at v0.55.0**:
 | `disabled` | Related to the `ignore_changes = [disabled]` FIXME on the Living Room AP |
 | `stp_version`, `stp_priority` | Open issue [#476](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/476), still missing on `main` |
 
-> **⚠️ Correction to §3.1.** My earlier suggestion to add `config_network` blocks with the static IPs (.2/.3/.4/.5) **will not work** on the pinned provider — it'll fail with an inconsistent-result error on every apply. Worse, `devices/usw_pro_max_24_poe.tf` **already declares `config_network = { type = "dhcp" }`** while the switch is live on a static `192.168.1.2`. That is a latent guaranteed apply failure sitting in the tree right now. Delete that block (or accept the drift and document it) rather than extending the pattern. Fix is in open PR [#463](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/463), which adds `config_network`, `lcm_brightness` and `outlet_enabled` to the builder — but *not* the STP fields.
+> **Corrected twice.** 2026-09-08: adding `config_network` with values that *differ* from live fails post-apply, and the then-present `type = "dhcp"` block against a live static `.2` was a guaranteed failure. 2026-09-13: with the code now declaring exactly what live reports, the dropped field is harmless — the read-back matches the plan. The constraint is only that `config_network` is effectively read-only from code until PR [#463](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/463) ships (it adds `config_network`, `lcm_brightness` and `outlet_enabled` to the builder — but *not* the STP fields).
 
 ### 14.3 Our three `ignore_changes = [port_override]` blocks
 
@@ -499,7 +500,7 @@ So the ignore blocks are still justified, but the comment should say *why* — i
 
 [#428](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/428) — **merged as #447 on `main`, unreleased.** `last_ip` and `hostname` used `UseStateForUnknown`, which pins the planned value to prior state; the controller legitimately reports a different value between plan and apply (lease renewal, re-association), so **every in-place `unifi_client` update fails** with `Provider produced inconsistent result after apply: .last_ip`.
 
-Combined with §9 (all ten client resources are stale, four live fixed IPs unmanaged), this argues strongly for **deleting `system/clients.tf` entirely for now** rather than rewriting it against the live four. Re-add it after v0.56.0. Also unreleased: clearing `fixed_ip` ([#400](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/400)).
+Resolution chosen 2026-09-13: **mirror live exactly** rather than delete. Creates work and a no-diff plan is a no-op, so an attribute-exact `clients.tf` is safe; only a *diff* triggers the failing update path. Also unreleased: clearing `fixed_ip` ([#400](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/400)).
 
 ### 14.6 `system/vpn.tf` — the OpenVPN `CustomizeDiff` FIXME
 

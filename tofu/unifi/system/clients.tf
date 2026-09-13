@@ -1,81 +1,65 @@
-resource "unifi_client" "michelangelo" {
-  mac            = "34:5a:60:7a:62:05"
-  name           = "MICHELANGELO"
-  fixed_ip       = "192.168.2.178"
-  network_id     = var.network_main_id
+# Fixed-IP reservations. Mirrors the live controller exactly as of 2026-09-13: eight
+# entries, most of them unnamed on the controller (name/note left unset here so no
+# in-place update is ever planned). Only the port-12 JetKVM has a network binding.
+#
+# FIXME(unifi): at v0.55.0 EVERY in-place unifi_client update fails with
+# "inconsistent result after apply: .last_ip" (upstream #428, fixed on main as #447,
+# unreleased). Creates and no-op plans are fine. So: keep these blocks identical to
+# live, import them before the first plan, and do not add attributes (name, note,
+# network_id) here before v0.56.0 -- set them in the UI first, then mirror.
+# https://github.com/ubiquiti-community/terraform-provider-unifi/issues/428
+
+# Proxmox host, uplinked on USW Aggregation port 1 (Private Server profile).
+resource "unifi_client" "servacho_gosho" {
+  mac            = "38:05:25:30:79:97"
+  fixed_ip       = "192.168.5.10"
   allow_existing = true
 }
 
-resource "unifi_client" "jetkvm" {
-  mac            = "30:52:53:08:45:16"
-  name           = "jetkvm-9e62320c932c192c"
-  fixed_ip       = "192.168.5.21"
-  network_id     = var.network_private_servers_id
-  allow_existing = true
-}
-
-resource "unifi_client" "sami_dev_machine" {
-  mac            = "bc:24:11:b0:83:56"
-  name           = "SAMI-DEV-MACHINE"
-  fixed_ip       = "192.168.4.32"
-  network_id     = var.network_public_servers_id
-  allow_existing = true
-}
-
-resource "unifi_client" "rpi_petacho" {
-  mac            = "2c:cf:67:33:a5:49"
-  name           = "rpi-petacho"
-  fixed_ip       = "192.168.4.20"
-  network_id     = var.network_public_servers_id
-  allow_existing = true
-}
-
-resource "unifi_client" "networkboot_server" {
-  mac            = "bc:24:11:9f:f8:56"
-  name           = "networkboot-server"
-  fixed_ip       = "192.168.5.31"
-  network_id     = var.network_private_servers_id
-  allow_existing = true
-}
-
-resource "unifi_client" "tsb_mint" {
-  mac            = "00:00:c4:54:44:f9"
-  name           = "tsb-mint"
-  fixed_ip       = "192.168.4.15"
-  network_id     = var.network_public_servers_id
-  allow_existing = true
-}
-
-resource "unifi_client" "djam_11" {
-  mac            = "00:e0:5c:36:1b:41"
-  name           = "DJAM-11"
-  fixed_ip       = "192.168.4.10"
-  network_id     = var.network_public_servers_id
-  allow_existing = true
-}
-
-resource "unifi_client" "nixos" {
-  mac            = "bc:24:11:75:a0:71"
-  name           = "nixos"
-  fixed_ip       = "192.168.4.228"
-  network_id     = var.network_public_servers_id
-  allow_existing = true
-}
-
-resource "unifi_client" "minecraft_fabric_server" {
-  mac            = "bc:24:11:90:56:95"
-  name           = "minecraft-fabric-server"
-  fixed_ip       = "192.168.4.25"
-  network_id     = var.network_public_servers_id
-  allow_existing = true
-}
-
-# Port 12 of the USW Pro Max 24 PoE. MAC corrected 2026-09-13 (was 38:52:…, a typo);
-# fixed IP set live the same day. The client object on the controller has no name.
-resource "unifi_client" "servacho_gosho_jetkvm" {
+# JetKVM on USW Pro Max port 12 (hostname jetkvm-4562a8bf464c58c8).
+resource "unifi_client" "jetkvm_port12" {
   mac            = "30:52:53:0a:09:87"
-  name           = "jetkvm-4562a8bf464c58c8"
   fixed_ip       = "192.168.5.20"
   network_id     = var.network_private_servers_id
+  allow_existing = true
+}
+
+# JetKVM on USW Pro Max port 18 (hostname jetkvm-ce4ac3437e0d935d).
+resource "unifi_client" "jetkvm_port18" {
+  mac            = "30:52:53:0d:1a:68"
+  fixed_ip       = "192.168.5.23"
+  allow_existing = true
+}
+
+resource "unifi_client" "fmicodes_master_node" {
+  mac            = "bc:24:11:c3:e5:f4"
+  fixed_ip       = "192.168.5.200"
+  allow_existing = true
+}
+
+resource "unifi_client" "fmicodes_worker_node_1" {
+  mac            = "bc:24:11:23:76:b5"
+  fixed_ip       = "192.168.5.201"
+  allow_existing = true
+}
+
+resource "unifi_client" "hackjamhub_intercom" {
+  mac            = "bc:24:11:8a:b7:98"
+  fixed_ip       = "192.168.5.215"
+  allow_existing = true
+}
+
+# USW Pro Max port 6 (IoT Device profile).
+resource "unifi_client" "living_room_tv" {
+  mac            = "b0:b3:69:41:2c:9b"
+  name           = "Living Room TV"
+  fixed_ip       = "192.168.6.10"
+  allow_existing = true
+}
+
+resource "unifi_client" "bedroom_tv" {
+  mac            = "f4:4e:b4:73:bf:19"
+  name           = "Bedroom TV"
+  fixed_ip       = "192.168.6.11"
   allow_existing = true
 }
