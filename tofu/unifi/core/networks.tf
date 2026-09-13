@@ -1,10 +1,10 @@
 # The untagged/native LAN. Carries UniFi device management only; every host-facing
 # port lives behind the "Host Device" profile, so nothing untrusted lands here.
 #
-# TODO(vlan1): decide whether to move device management off the native VLAN. See
-# docs/unifi-manual-vs-tofu.md §2 for the recommendation (defer until v0.56.0 —
-# mgmt_network_id requires the target VLAN to be tagged on the uplink first, and
-# device updates are unreliable on the pinned provider).
+# DECIDED 2026-09-13: device management moves to a new tagged network, UniFi Devices
+# VLAN 99 (192.168.99.0/24); this untagged network becomes an empty "Default". Done
+# phase by phase in the UI and mirrored here after each -- see
+# docs/unifi-mgmt-vlan-99-runbook.md. Status: not started.
 resource "unifi_network" "default" {
   name    = "UniFi Devices"
   purpose = "corporate"
