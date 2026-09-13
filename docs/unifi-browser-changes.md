@@ -8,17 +8,25 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ## Session 2026-09-13
 
-Four topics. RADIUS, the port profiles and the Pro Max port overrides were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy was **changed** (authorised by the user for this task).
+Four topics. RADIUS and the port profiles were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy and Pro Max port 12 (+ one client fixed IP) were **changed** (each authorised by the user).
 
-### USW Pro Max ports 6, 12, 18 — read back, mirrored in code (read-only)
+### USW Pro Max ports 6, 12, 18 — 6 and 18 read back; **port 12 set via the API**
 
 | Port | Live override | Client | Code now |
 |---|---|---|---|
 | 6 | `IoT Device`, poe auto, pref manual | Living Room TV `b0:b3:69:41:2c:9b`, fixed `192.168.6.10` | mirrors live |
-| 12 | **none** | `jetkvm-4562a8bf464c58c8` `30:52:53:0a:09:87`, `192.168.1.127` on UniFi Devices, no fixed IP | intent: `Private Server` + `192.168.5.20` (user decision) — **live pending** |
+| 12 | was **none** → now `Private Server`, poe auto, pref manual | `jetkvm-4562a8bf464c58c8` `30:52:53:0a:09:87`, was `192.168.1.127` on UniFi Devices → fixed `192.168.5.20` on Private Servers | mirrors live |
 | 18 | `Private Server`, poe auto, pref manual | `jetkvm-ce4ac3437e0d935d` `30:52:53:0d:1a:68`, fixed `192.168.5.23` | mirrors live |
 
-The switch has 24 overrides live (every port except 12 and 25). Fixed IPs live are now seven: `.5.10`, `.5.200`, `.5.201`, `.5.215`, `.5.23`, `.6.10` Living Room TV, `.6.11` Bedroom TV.
+Port 12 write, authorised by the user:
+
+| | |
+|---|---|
+| **Endpoint 1** | `PUT /api/s/default/rest/device/<pro-max-id>` with the full `port_overrides` array: the existing 24 entries plus `{port_idx 12, name "Port 12", poe_mode auto, setting_preference manual, portconf_id <Private Server>}` (same shape as port 18) — `200` |
+| **Endpoint 2** | `PUT /api/s/default/rest/user/<client-id>` for `30:52:53:0a:09:87` with `use_fixedip true, fixed_ip 192.168.5.20, network_id <Private Servers>` — `200` |
+| **Read-back** | port 12 override exactly as sent; 25 overrides total; every other override's profile, name, PoE and preference unchanged (two key sets only, both pre-existing — ports 23/24/26 have no `poe_mode`); port 12 `portconf` = Private Server, `dot1x force_auth authorized`. Client: `use_fixedip true`, `192.168.5.20`, Private Servers. |
+
+Because a full-array `PUT` is exactly how upstream #430 flattens switches, every other override was diffed after the write — nothing was stripped. The switch now has 25 overrides live (every port except 25). Fixed IPs live are now seven: `.5.10`, `.5.200`, `.5.201`, `.5.215`, `.5.23`, `.6.10` Living Room TV, `.6.11` Bedroom TV.
 
 ### Per-VLAN port profiles — created by the user, replicated in code (read-only)
 

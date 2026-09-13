@@ -70,7 +70,8 @@ resource "unifi_client" "minecraft_fabric_server" {
   allow_existing = true
 }
 
-# Port 12 of the USW Pro Max 24 PoE. MAC corrected 2026-09-13 (was 38:52:…, a typo).
+# Port 12 of the USW Pro Max 24 PoE. MAC corrected 2026-09-13 (was 38:52:…, a typo);
+# fixed IP set live the same day. The client object on the controller has no name.
 resource "unifi_client" "servacho_gosho_jetkvm" {
   mac            = "30:52:53:0a:09:87"
   name           = "jetkvm-4562a8bf464c58c8"

@@ -140,9 +140,8 @@ resource "unifi_device" "usw_pro_max_24_poe" {
   }
 
   # jetkvm-4562a8bf464c58c8 (30:52:53:0a:09:87, fixed 192.168.5.20 in
-  # ../system/clients.tf). Intended state decided 2026-09-13; live still has NO
-  # override here (the JetKVM sits on UniFi Devices at 192.168.1.127) until the
-  # profile is assigned in the UI.
+  # ../system/clients.tf). Mirrors live 2026-09-13 (set via the API, see
+  # docs/unifi-browser-changes.md).
   port_override {
     index              = 12
     name               = "Port 12"
