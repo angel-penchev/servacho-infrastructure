@@ -8,7 +8,7 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ## Session 2026-09-13
 
-Fifteen topics (the UDM overrides were added on request after the USW pass; port forwards were a read-only diff; BPDU Guard and then Phase 0 of the VLAN 99 migration closed the day). RADIUS and the port profiles were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy, Pro Max port 12 (+ one client fixed IP) and the **USW port override alignment** were **changed** (each authorised by the user).
+Sixteen topics (the UDM overrides were added on request after the USW pass; port forwards were a read-only diff; BPDU Guard and then Phase 0 of the VLAN 99 migration closed the day). RADIUS and the port profiles were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy, Pro Max port 12 (+ one client fixed IP) and the **USW port override alignment** were **changed** (each authorised by the user).
 
 ### Management VLAN migration — Phase 0 (runbook `unifi-mgmt-vlan-99-runbook.md`)
 
@@ -58,6 +58,10 @@ Both switches re-homed on their own within ~30 s of the DHCP write; no restarts 
 | **Endpoint** | `POST /api/s/default/rest/networkconf` — `name StKr WireGuard Server`, `purpose remote-user-vpn`, `vpn_type wireguard-server`, `ip_subnet 192.168.9.1/24`, `local_port 51820`, `wireguard_interface wan`, `wireguard_local_wan_ip any`, `x_wireguard_private_key` (from OpenBao), `wireguard_public_key` (derived), `setting_preference manual` |
 | **Read-back** | 200, all fields as sent, `wireguard_id 1`, in the `Vpn` zone; public key `mmWQkf3m…EKSw=` equals the one derived from the OpenBao key. `/rest/wireguardpeer` still returns `InvalidObject` on a bare GET (peers are listed per network); none exist yet. |
 | **Codifiable?** | Yes — `unifi_vpn_server.wireguard` already matched; comment updated. Peers → `unifi_wireguard_peer`. |
+
+### Alarm Manager audit (read-only) — 2026-09-14
+
+Read `Network → Alarm Manager` plus the UniFi OS endpoints the page calls (`/api/v2/alarms/network`, `/api/v2/alarms/profiles`, `/api/v2/alarms/network/manifest`; the Network-app `/v2/api/alarm-manager/scope/*` calls only list scope candidates). No writes. 17 rules, all defaults created 2026-09-05 at first boot, Notify → every admin, Always, admin preference push only; zero profiles. Provider has no alarm resource, so the rule set is documented as `FIXME(unifi)` in `system/alarms.tf`.
 
 ### Console page audit (read-only) and admin list
 
