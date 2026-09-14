@@ -4,8 +4,8 @@
 #
 # Two attributes appear on every network because the first real plan (CI run
 # 34837315409, 2026-09-14, after import) showed them as drift otherwise:
-# - setting_preference = "manual": what the controller stores for every network here;
-#   the provider defaults to "auto" and would have flipped all nine.
+# - setting_preference = "manual": what the controller stores for every network except
+#   Main; the provider defaults to "auto" and would have flipped the other eight.
 # - dhcp_guarding: the UI enables DHCP Guarding with the gateway as the only allowed
 #   server on every VLAN it creates; without the block the plan would have switched
 #   guarding OFF on seven networks.
@@ -52,13 +52,14 @@ resource "unifi_network" "unifi_devices" {
   }
 }
 
+# The one network the controller stores with setting_preference "auto" (it was created
+# in the setup wizard, the others in the Networks page), so the attribute is left unset.
 resource "unifi_network" "main" {
-  name               = "Main"
-  purpose            = "corporate"
-  vlan               = 2
-  subnet             = "192.168.2.1/24"
-  multicast_dns      = true
-  setting_preference = "manual"
+  name          = "Main"
+  purpose       = "corporate"
+  vlan          = 2
+  subnet        = "192.168.2.1/24"
+  multicast_dns = true
 
   dhcp_server = {
     enabled = true
