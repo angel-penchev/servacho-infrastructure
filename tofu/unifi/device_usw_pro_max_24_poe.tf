@@ -1,9 +1,12 @@
 resource "unifi_device" "usw_pro_max_24_poe" {
   mac  = "9c:05:d6:e2:6b:1d"
   name = "USW Pro Max 24 PoE"
-  # forget_on_destroy is left at the provider default (true, as imported). Declaring
-  # false planned an update PUT on every device for a flag that only matters on a
-  # `tofu destroy`, which is never run against adopted hardware here.
+  # FIXME(unifi): forget_on_destroy is a provider-only flag, yet it is Optional+Computed
+  #   and import sets it to true, so declaring the intended `false` plans an update PUT
+  #   (with the #463 field-dropping hazard) just to change a value the controller never
+  #   sees. Left at the imported default; it only matters on `tofu destroy`, which is
+  #   never run against adopted hardware here. Upstream: make it a plain Optional with
+  #   a default, or exclude it from the update diff.
   disabled = false
   # Management on UniFi Devices (VLAN 99) since 2026-09-13. A switch keeps "Network
   # Override" ON even though the trunks are native 99 since Phase 4 (2026-09-14): its

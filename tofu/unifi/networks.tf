@@ -24,8 +24,11 @@ resource "unifi_network" "default" {
   multicast_dns      = false
   setting_preference = "manual"
 
-  # DHCP is off (Phase 4). The provider reads a disabled DHCP server as *no* dhcp_server
-  # block, so declaring one with enabled = false planned a perpetual update. Absent = off.
+  # DHCP is off (Phase 4, live dhcpd_enabled false).
+  # FIXME(unifi): the provider reads a disabled DHCP server as a *null* dhcp_server
+  #   block, so "off" cannot be declared -- `dhcp_server = { enabled = false, ... }`
+  #   planned a perpetual update. Absent means off here; the range .1.6-.1.254 is
+  #   still stored on the controller and would come back if DHCP were re-enabled.
 }
 
 # Management network for the UDM, switches and APs (runbook Phase 0, 2026-09-13).

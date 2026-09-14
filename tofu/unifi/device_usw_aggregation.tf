@@ -1,9 +1,12 @@
 resource "unifi_device" "usw_aggregation" {
   mac  = "1c:6a:1b:98:38:ee"
   name = "USW Aggregation"
-  # forget_on_destroy is left at the provider default (true, as imported). Declaring
-  # false planned an update PUT on every device for a flag that only matters on a
-  # `tofu destroy`, which is never run against adopted hardware here.
+  # FIXME(unifi): forget_on_destroy is a provider-only flag, yet it is Optional+Computed
+  #   and import sets it to true, so declaring the intended `false` plans an update PUT
+  #   (with the #463 field-dropping hazard) just to change a value the controller never
+  #   sees. Left at the imported default; it only matters on `tofu destroy`, which is
+  #   never run against adopted hardware here. Upstream: make it a plain Optional with
+  #   a default, or exclude it from the update diff.
   disabled = false
 
   # Management on UniFi Devices (VLAN 99) since 2026-09-13. A switch keeps "Network

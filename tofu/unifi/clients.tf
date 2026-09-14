@@ -19,8 +19,10 @@ resource "unifi_client" "jetkvm_servacho_gosho" {
   mac      = "30:52:53:0a:09:87"
   name     = "JetKVM-Servacho-Gosho"
   fixed_ip = "192.168.5.20"
-  # No network_id: the controller dropped it once the device took its lease (first
-  # plan, 2026-09-14); declaring it planned an in-place update, which #428 cannot do.
+  # FIXME(unifi): no network_id declared although live HAS one (Private Servers, verified
+  #   2026-09-14). The provider's unifi_client Read does not populate network_id, so
+  #   declaring it plans an in-place update on every run -- which #428 cannot perform.
+  #   Re-add `network_id = unifi_network.private_servers.id` once Read maps it.
   allow_existing = true
 }
 

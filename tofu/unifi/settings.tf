@@ -6,6 +6,11 @@ locals {
 
 # Site settings the provider can express. Every block mirrors `/get/setting`
 # (read back 2026-09-13).
+# FIXME(unifi): `unifi_setting` ImportState stores only the id -- the first plan after
+#   import (2026-09-14) showed every block below as an add and `usg` as unknown, although
+#   all values were already live. The first apply therefore re-POSTs these settings
+#   (harmless while they match live: the RADIUS secret and passphrases come from OpenBao
+#   and must equal the controller's). Upstream: read the site settings on import.
 resource "unifi_setting" "default" {
   site = "default"
 

@@ -1,9 +1,12 @@
 resource "unifi_device" "udm_pro_max" {
   mac  = "28:70:4e:5c:b4:b2"
   name = "UDM StKr"
-  # forget_on_destroy is left at the provider default (true, as imported). Declaring
-  # false planned an update PUT on every device for a flag that only matters on a
-  # `tofu destroy`, which is never run against adopted hardware here.
+  # FIXME(unifi): forget_on_destroy is a provider-only flag, yet it is Optional+Computed
+  #   and import sets it to true, so declaring the intended `false` plans an update PUT
+  #   (with the #463 field-dropping hazard) just to change a value the controller never
+  #   sees. Left at the imported default; it only matters on `tofu destroy`, which is
+  #   never run against adopted hardware here. Upstream: make it a plain Optional with
+  #   a default, or exclude it from the update diff.
   disabled = false
 
   # FIXME(unifi): port_override is ignored until upstream #470 (crash on the empty MAC

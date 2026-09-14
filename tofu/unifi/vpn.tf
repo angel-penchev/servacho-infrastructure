@@ -34,9 +34,18 @@ resource "unifi_vpn_server" "openvpn" {
   openvpn = {
     mode = "server"
     port = 1194 # UDP
-    # The provider defaults to AES_256_GCM, which the controller rejects
-    # (api.err.InvalidValue, 2026-09-13); AES_256_CBC is what it accepts and runs.
-    encryption_cipher = "AES_256_CBC"
+  }
+
+  # FIXME(unifi): the controller stores neither `openvpn_mode` nor an encryption cipher
+  #   (verified live 2026-09-14: the object has openvpn_interface, openvpn_local_wan_ip,
+  #   openvpn_id, openvpn_compression_disabled and nothing else openvpn_*). The provider
+  #   never reads `openvpn.mode` back and defaults `openvpn.encryption_cipher` to
+  #   AES_256_GCM, which the controller rejects on write (api.err.InvalidValue,
+  #   2026-09-13). Both are therefore ignored: without this every plan wants to "add"
+  #   them and the apply would fail. Upstream fix needed: read mode from vpn_type, drop
+  #   the cipher default (or read the controller's).
+  lifecycle {
+    ignore_changes = [openvpn.mode, openvpn.encryption_cipher]
   }
 }
 
