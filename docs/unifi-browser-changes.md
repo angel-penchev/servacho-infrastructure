@@ -61,6 +61,15 @@ Both switches re-homed on their own within ~30 s of the DHCP write; no restarts 
 | **Read-back** | 200, all fields as sent, `wireguard_id 1`, in the `Vpn` zone; public key `mmWQkf3m…EKSw=` equals the one derived from the OpenBao key. `/rest/wireguardpeer` still returns `InvalidObject` on a bare GET (peers are listed per network); none exist yet. |
 | **Codifiable?** | Yes — `unifi_vpn_server.wireguard` already matched; comment updated. Peers → `unifi_wireguard_peer`. |
 
+### UDM port 10 renamed after its peer — 2026-09-14
+
+| | |
+|---|---|
+| **Endpoint** | `PUT /api/s/default/rest/device/<udm-id>` with the full `port_overrides` array (read-modify-write), only `name` of `port_idx 10` changed |
+| **Before → After** | `SFP+ 1` → **`USW-Pro-Max-24-PoE`** (the device name with dashes, same convention as port 11 `USW-Aggregation`) |
+| **Read-back** | `{port_idx 10, name USW-Pro-Max-24-PoE, portconf_id <UniFi Device>, setting_preference auto}`; 9 overrides as before |
+| **Codifiable?** | Yes — `name` updated in `tofu/unifi/device_udm_pro_max.tf`. Done from the browser session: OpenBao was not running, so the shell path was unavailable. |
+
 ### Alarm Manager audit (read-only) — 2026-09-14
 
 Read `Network → Alarm Manager` plus the UniFi OS endpoints the page calls (`/api/v2/alarms/network`, `/api/v2/alarms/profiles`, `/api/v2/alarms/network/manifest`; the Network-app `/v2/api/alarm-manager/scope/*` calls only list scope candidates). No writes. 17 rules, all defaults created 2026-09-05 at first boot, Notify → every admin, Always, admin preference push only; zero profiles. Provider has no alarm resource, so the rule set is documented as `FIXME(unifi)` in `system/alarms.tf`.

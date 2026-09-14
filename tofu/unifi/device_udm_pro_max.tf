@@ -137,7 +137,7 @@ resource "unifi_device" "udm_pro_max" {
   # SFP+ 1: 10 GbE uplink to the USW Pro Max 24 PoE.
   port_override {
     index              = 10
-    name               = "SFP+ 1"
+    name               = "USW-Pro-Max-24-PoE"
     setting_preference = "auto"
     port_profile_id    = unifi_port_profile.unifi_devices.id
   }

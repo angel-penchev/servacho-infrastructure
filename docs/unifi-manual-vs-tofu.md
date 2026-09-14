@@ -208,7 +208,7 @@ Also:
 |---|---|---|
 | 1, 9 | *no override* | WAN2 / WAN1. Binding a WAN to a physical port is UniFi OS Internet configuration, not a `port_override` — the pre-reset code's `native_networkconf_id = var.wan_*` blocks never corresponded to anything stored. Removed, along with the `wan_primary_id`/`wan_secondary_id` plumbing into the `devices` module. `FIXME(unifi-ui-only)` in the file. |
 | 2–8 | `Port N`, **disabled** | Port 2 disabled through the UI to learn the gateway's shape, 3–8 written as identical copies. The gateway stores a **smaller** disabled object than the switches: `forward "disabled"`, `port_security_enabled true` + `[]`, `tagged_vlan_mgmt "block_all"`, no native/voice network, `setting_preference "auto"`, `autoneg true`, `isolation/egress_rate_limit/port_keepalive false`, `sd_wan_underlay_port false` — no dot1x, STP or PoE keys at all. |
-| 10 | `SFP+ 1`, UniFi Device profile | Uplink to the Pro Max. The pre-reset code had the **Private Servers** profile here — wrong for an inter-switch trunk. |
+| 10 | `USW-Pro-Max-24-PoE`, UniFi Device profile | Uplink to the Pro Max; renamed from `SFP+ 1` on 2026-09-14 to match port 11's convention. The pre-reset code had the **Private Servers** profile here — wrong for an inter-switch trunk. |
 | 11 | `USW-Aggregation`, UniFi Device profile | Renamed from `SFP+ 2`. |
 
 Written via one `PUT /rest/device/<id>` (9 entries); read back, ports 10/11 unchanged except the rename, all four uplink/WAN ports still `up`, all four downstream devices still `state 1`.
