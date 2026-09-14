@@ -72,6 +72,110 @@ Superseded by **§0.6** below (2026-09-14). Everything in the old table is eithe
 
 ---
 
+## 0.5b Remediation pass — 2026-09-09 *(merged from the remote branch state on 2026-09-14)*
+
+Guest access to the two TVs, plus the last two deferred ports. Intent: Guest (VLAN 3) may reach exactly two IoT devices (the living-room EON box and the bedroom BRAVIA), and IoT may not initiate anything towards Internal.
+
+**The finding that shaped it:** the "Main can reach IoT but not vice-versa" posture was never in force. IoT and Main both sat in the **Internal** zone, whose `Internal → Internal` pair carries the predefined `ALLOW Allow All Traffic` — so IoT → Main was wide open and `allow_main_to_iot` (§7, difference 3) was a no-op with 2,996 hits it never needed to match.
+
+**Corrected mid-implementation.** An earlier draft of this section argued that because `global_network.default_security_posture` is `ALLOW_ALL`, a new zone pair would default to *allow*, so the asymmetry needed an explicit `NEW`-only BLOCK policy. **That was wrong**, and creating the zone proved it: the Create Zone dialog states that *"newly created zones are blocked from accessing all other zones except External and Gateway by default"*, and the live table immediately showed predefined `BLOCK Block All Traffic` on `IoT → Internal` / `Hotspot` / `Vpn` / `Dmz` at index 2147483647, with `IoT → External` and `IoT → Gateway` (plus `Allow mDNS`) left allowed. `ALLOW_ALL` governs the built-in zones' predefined policies, not user-created ones. So the asymmetry comes from the zone boundary itself, **no BLOCK policy was created**, and the three ALLOWs at index ~10000 sit far ahead of the catch-all block — ordering is not in question.
+
+### Changed in code (needs `tofu apply` from the management plane)
+
+| File | Change |
+|---|---|
+| `core/port_profiles.tf` | three per-VLAN profiles renamed to the live singular convention — **Public Server**, **Private Server**, **IoT Device**; `TODO(port-profiles)` banner resolved, replaced with the intended port assignments; `TODO(port-security)` added for the eventual MAC allowlist (blocked on #470 — an empty allowlist errors every apply, so only declare it with real MACs) |
+| `core/networks.tf` | `multicast_dns = true` on all eight networks to match live; the six `TODO(mdns)` markers closed |
+| `security/firewall.tf` | added **`unifi_firewall_zone.iot`** ← IoT; added **`unifi_firewall_group.tv_media_endpoints`** (`192.168.6.10`, `.11`); added **`allow_private_servers_to_iot`** and **`allow_guest_to_tvs`** (destination via `ip_group_id`); retargeted `allow_main_to_iot`'s destination to the IoT zone. **No BLOCK policy** — the predefined zone default covers it, with the reasoning recorded in-file so it is not "simplified" back |
+| `security/variables.tf`, `main.tf` | `security` module accepts `network_private_servers_id` |
+| `devices/usw_pro_max_24_poe.tf` | **port 18**: inline native VLAN Public Servers → `port_profile_id = var.port_profile_private_servers_id`, with a note that `ignore_changes` means it records intent only |
+| `devices/variables.tf`, `main.tf` | `network_public_servers_id` dropped from the `devices` module — port 18 was its only consumer |
+| `system/mdns.tf` | the fictional `unifi_setting_mdns` block deleted; replaced with a `FIXME(unifi)` recording live state and the two-repo upstream PR required |
+
+`tofu fmt` clean, `tofu validate` passes against the pinned v0.55.0 schema — which also confirms `ip_group_id` exists at our pin. Live confirmed the provider's derivation too: the Guest→TVs destination reads back as `matching_target = IP` with `matching_target_type = OBJECT`, exactly what #365 fixed.
+
+### Changed on the live controller
+
+**All applied 2026-09-09** through the admin panel — full log in [`unifi-browser-changes.md`](unifi-browser-changes.md). Three port profiles created (`Public Server` / `Private Server` / `IoT Device`, all Force Authorized, all set to Port Mode **Edge**), applied to ports 6 and 18; three fixed IPs reserved; the `IoT` zone created (`6aa12f7b40324b4491452cf5`); the `TV Media Endpoints` address group created (`6aa1316d40324b4491452f98`); `Allow Main to IoT` retargeted and un-paused; `Allow Private Servers to IoT` and `Allow Guest to TVs` created. The Gateway mDNS Proxy was deliberately left untouched. **The address group and `Allow Guest to TVs` were both deleted again on 2026-09-11 — see the warning below.**
+
+Because these were created by hand, the matching resources need importing before any apply — notably the IoT zone by **ID**, since a custom zone cannot be imported by name the way the built-in Hotspot/Internal zones can:
+
+```
+tofu import unifi_firewall_zone.iot 6aa12f7b40324b4491452cf5
+```
+
+Two items needed a physical action on the device and could not be done from the controller. **Both are now resolved.** The **EON box** was power-cycled by the user on 2026-09-09 and came up on `192.168.6.10` (neither port 6 nor 18 draws PoE, so no controller-side power cycle was possible). The **BRAVIA's randomized MAC** was turned off on 2026-09-10; that swapped it to the hardware `f4:4e:b4:73:bf:19` and orphaned the reservation, which was re-pointed the same day — the TV now holds `192.168.6.11`. Both TVs are on their reserved addresses.
+
+> **⚠️ Guest access to the TVs was abandoned on 2026-09-11** and both the `Allow Guest to TVs` policy and the `TV Media Endpoints` group were deleted from the controller and from the code. The zone firewall is **not** the enforcement point for a guest network: UniFi's access points drop guest traffic to other VLANs locally, ahead of any policy, so a correct ALLOW sat there and matched exactly zero packets. Everything else from this work — the IoT zone, the two remaining ALLOW policies, the port profiles, ports 6 and 18, the reservations — stands. Full write-up in [`unifi-browser-changes.md`](unifi-browser-changes.md).
+
+### Decisions recorded
+
+| Question | Decision |
+|---|---|
+| Move Home Assistant (`192.168.5.226`) to IoT? | **No — stays on Private Servers (VLAN 5).** The zone firewall only sees inter-VLAN traffic, so co-locating HA with the devices it holds credentials for would put its admin UI and tokens in front of every bulb and TV with nothing able to filter it. If an integration needs to be on-link, give HA a second VLAN-6-tagged interface for discovery instead of relocating it. mDNS-based discovery (ESPHome, Chromecast, HomeKit) already crosses VLANs via the proxy; SSDP/UPnP does not, so those integrations need static IPs |
+| Tighten the Gateway mDNS Proxy? | **No — stays `mode: all` / `enabled_for: all`.** Discovery from Guest already works; narrowing it is optional hardening, and it is not codifiable anyway (§11) |
+| Reserve the TV and JetKVM IPs in code? | **No — controller-only** until v0.56.0, per §14.5. The firewall matches an address group, so no client resource is needed |
+| Match the TVs by MAC? | **No — by IP**, and 2026-09-10 vindicated it. The BRAVIA presented a randomized locally-administered MAC (`52:4b:e7:…`); turning randomization off swapped it for the hardware `f4:4e:b4:73:bf:19`, which orphaned the DHCP reservation but left the firewall policy untouched — exactly the failure mode matching by IP was chosen to avoid |
+| Flip `default_security_posture` to deny? | **No.** Site-wide, it would re-gate every existing zone pair; the `NEW`-only BLOCK gets the asymmetry without that blast radius |
+
+### Still open
+
+| Item | Why |
+|---|---|
+| Everything controller-side | Pending manual steps — see the checklist in the browser change log |
+| MAC filtering on the server port profiles | `TODO(port-security)`; blocked on #470 |
+| `stp_edge_state` (Port Mode Edge/Infrastructure) | Not exposed by the provider though go-unifi has it — **provider-only PR**. Set by hand on all three new profiles; an apply that recreates them would revert it |
+| `Public Server` profile has no port | Ports 20 and USW Aggregation 1 are remaining §3.4 work; port 12 already matches the code |
+| ~~Whether Guest discovery of the TVs actually works~~ | **Answered 2026-09-11 — it does, and it did not help.** Discovery worked once `l2_isolation` was off; the unicast stream was still dropped at the AP. See §0.7 |
+
+---
+
+## 0.5c Remediation pass — 2026-09-11 *(merged from the remote branch state on 2026-09-14)*
+
+Guest→TV access abandoned and rolled back, then a code-vs-live audit of everything this branch had accumulated. The controller-side rollback is logged in [`unifi-browser-changes.md`](unifi-browser-changes.md); what follows is the code and process side.
+
+**The finding that ended the feature:** for a guest network the zone firewall is not the enforcement point. Clients of a Hotspot-zone network are flagged `is_guest` and the access points enforce isolation locally, ahead of any zone policy. All three Hotspot → IoT policies read **exactly zero hits** after real cast attempts, while `Allow Main to IoT` carried 13,373 at the same moment — so the packets never reached the gateway at all. A correct, enabled, correctly-ordered ALLOW sat in the policy table and matched nothing, while reading to any observer as though Guest could reach the TVs. **mDNS was never involved**; the reflector was measurably working throughout (337,966 hits).
+
+### Changed in code
+
+| File | Change |
+|---|---|
+| `security/firewall.tf` | `unifi_firewall_group.tv_media_endpoints` and `unifi_firewall_policy.allow_guest_to_tvs` **removed**, matching the controller. Replaced with a short do-not-reinstate note recording why the design cannot work |
+| `wireless/wlans.tf` | **`l2_isolation = true` declared on `stkr_guest`** — see the hazard below. `is_guest = true` kept with a note that live is `false` |
+| `system/mdns.tf` | corrected: the earlier text claimed the missing piece was a unicast permission. It records the measured hit counts and that mDNS was never the cause |
+| `devices/u7_pro_living_room.tf` | PR #22 merged in; the stale "AP is offline" FIXME rewritten to the real reason the `ignore_changes` stays |
+| everywhere | comment volume cut by ~200 lines — session narrative and change logs removed in favour of the docs, FIXMEs and hazard warnings kept |
+
+**The hazard worth recording.** `l2_isolation` was not declared on *any* WLAN. The provider schema makes it `Optional + Computed` with `booldefault.StaticBool(false)` (`unifi/wlan_resource.go:469`), so the next apply would have silently switched Client Device Isolation **off** on the guest SSID — undoing, without a diff anyone would notice, the isolation the rollback had just restored. This is the general shape of the risk in this repo: a Computed attribute left undeclared does not mean "leave it alone", it means "set it to the schema default".
+
+### Process
+
+| What | Detail |
+|---|---|
+| Commit hook adopted | `qoax-community/qoax-githooks` as a submodule pinned to `13c0c65`, plus `.githooks/commit-msg`, `scripts/setup-hooks.sh`, dependabot and a CI workflow. **Run `sh scripts/setup-hooks.sh` once after cloning.** Two deviations from the upstream README, both because this repo is outside the qoax-community org: the submodule URL is absolute, and CI calls the public composite action directly rather than the private `qoax-reusables` workflow |
+| PRs consolidated | #22 and #30 **merged into #29**, which is now the single open PR for all UniFi work — 30 commits, targeting `main` |
+| Commit messages fixed | All 13 non-conforming messages rewritten (5 over-long bodies rewrapped, 8 AI attribution trailers dropped, 2 over-long subjects shortened). Content, author/committer dates and identities verified unchanged; backup at tag `backup/pre-msg-rewrite-a20428a` |
+
+### ⚠️ New finding: CI can reach the controller, and its credential is broken
+
+The `plan` workflow has failed on every run since **2026-09-07**, on both branches, at provider setup:
+
+```
+AUTHENTICATION_FAILED_INVALID_CREDENTIALS: Invalid username or password
+(403 Forbidden) for POST https://192.168.1.1/api/auth/login
+payload: {"username":"servacho-managment-plane"}
+```
+
+Almost certainly the factory reset: the local admin the management plane authenticates as was wiped with everything else, so the Vault credential names a user the rebuilt controller does not have.
+
+**The important part is that it is a 403 and not a timeout.** The runner reached the controller and was refused *by it*. CI therefore has a network path to `192.168.1.1` that the workstation does not — which makes it the place a real `tofu plan` can finally be produced. Every "we could not run plan" caveat in this document is a consequence of that path not being usable, and this is the single highest-value thing to fix. The provider's own error message recommends `UNIFI_API_KEY` over username/password, which also sidesteps UniFi's login rate limiting.
+
+---
+
+> The remote branch's §0.8 to-do list (2026-09-11) is superseded by §0.6 below. Of its items, these were still open when merged and are now in §0.6: the **`l2_isolation` hazard and `is_guest` restore on `StKr_Guest`** (B6/A8), the stale local lock file (A9). The IoT zone import is one of the 46 import blocks; the controller credential was recreated 2026-09-13; JetKVM port 12, port forwards, VPN, site settings and the RADIUS users are done.
+
+---
+
 ## 0.6 What's left — 2026-09-14
 
 Ordered by what unblocks what. Anything not on this list is done and mirrored.
@@ -87,6 +191,8 @@ Ordered by what unblocks what. Anything not on this list is done and mirrored.
 | A5 | ~~UDM **port 2 "Console"**~~ | `device_udm_pro_max.tf` | ✅ Re-disabled 2026-09-14 once the laptop was unplugged; code mirrors live. Re-enable it in the UI (Main access) before the next trunk change. |
 | A6 | ~~Redundant per-device `flowctrl_enabled` / `jumboframe_enabled` on the Pro Max~~ | `device_usw_pro_max_24_poe.tf` | ✅ Removed 2026-09-14 — both are site-global under `global_switch` (flow control off, jumbo frames off live) and the per-device copies added nothing. |
 | A7 | Stale §1 "Differences" 1–3 | this document | Written 2026-09-08; the code has long since had `Default (Untagged)`, no VLAN 11 and the `/23` Qoax network. Struck through below. |
+| A8 | **`is_guest` on `StKr_Guest`** | `wlans.tf`, Settings → WiFi | Code says `true`, the remote-branch audit of 2026-09-11 found live `false` (Application was switched away from Hotspot during the guest-TV rollback). Re-check live; if still `false`, the first apply is the safe fix — the UI needs the guest passphrase re-entered, the provider sends the whole object (§0.5c). |
+| A9 | Stale local lock file | `tofu/unifi/.terraform.tfstate.lock.info` (200 B, 2026-09-04) next to a 0-byte `terraform.tfstate` | Untracked leftovers of an interrupted apply on the workstation. CI checks out fresh so they do not affect the plan workflow; delete them locally to avoid confusion. Real state is on the management plane. |
 
 ### B. Blocked on the provider (v0.55.0 is still the latest release, see §14)
 
@@ -97,6 +203,7 @@ Ordered by what unblocks what. Anything not on this list is done and mirrored.
 | B3 | `unifi_client` in-place updates always fail | #428 | Keep `clients.tf` attribute-exact until then; adding or removing a reservation is fine, editing one is not. |
 | B4 | `wlans.tf` `ignore_changes = [passphrase, wlan_bands, wlan_band]` ×4 | §14.4 | Drop the `wlan_bands`/`wlan_band` part first, keep `passphrase` ignored on purpose (it lives in OpenBao). |
 | B5 | `device_u7_pro_living_room.tf` `ignore_changes = [disabled]` | precautionary, §14.2 (`disabled` is also dropped from the PUT) | Remove and `plan`. |
+| B6 | **`l2_isolation` must stay declared on `StKr_Guest`** | provider schema: Optional+Computed with a `false` default (`wlan_resource.go:469`) | Not a bug to wait for — a standing rule. An undeclared `l2_isolation` would switch Client Device Isolation **off** on the guest SSID on the first apply with no diff shown. Declared `true` in `wlans.tf` since the 2026-09-14 merge (ported from the remote branch's 2026-09-11 fix). |
 
 ### C. Not expressible — manual runbook items, each carries a `FIXME(unifi)` / `FIXME(unifi-ui-only)` in code
 

@@ -1,0 +1,42 @@
+# Conventional Commits validation, using qoax-community/qoax-githooks.
+#
+# This calls the composite action directly rather than the `qoax-reusables` reusable
+# workflow the upstream template points at: that workflow is in a private repository in
+# another organization and a caller outside it cannot resolve it.
+#
+# Keep the pin below in step with the `.githooks/shared` submodule, so local and CI run
+# the same code. Dependabot bumps the submodule; this `uses:` pin is updated by hand in
+# the same pull request.
+name: Check commit conventions
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# A pull request may cancel its own earlier run: the next one re-checks the whole range.
+# A push may not -- it is checked over the range it pushed, so cancelling would leave
+# those commits unchecked by anything.
+concurrency:
+  group: >-
+    commit-conventions-${{ github.event.pull_request.number
+      || format('{0}@{1}', github.ref, github.sha) }}
+  cancel-in-progress: true
+
+jobs:
+  commit-conventions:
+    name: Conventional Commits
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          # The action enumerates a commit range; a shallow clone has none.
+          fetch-depth: 0
+
+      - name: Validate commit messages and pull request title
+        uses: qoax-community/qoax-githooks@13c0c65665cc036a517e541149d664a2da7ce863
