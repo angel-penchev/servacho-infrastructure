@@ -9,6 +9,12 @@
 # - dhcp_guarding: the UI enables DHCP Guarding with the gateway as the only allowed
 #   server on every VLAN it creates; without the block the plan would have switched
 #   guarding OFF on seven networks.
+#   FIXME(unifi): declared to MIRROR live only. The controller stores the trusted
+#   servers as dhcpd_ip_1..3 (verified live 2026-09-14) and the provider reads them into
+#   `servers` correctly, but its update PUT sends dhcpguard_enabled WITHOUT dhcpd_ip_*,
+#   so the controller answers api.err.MissingIPAddress (400) and ANY update to a
+#   guarded network fails (apply run 34843335300, unifi_network.unifi_devices). Until
+#   that is fixed upstream, change guarded networks in the UI/API first and mirror here.
 
 # The built-in VLAN 1 network. Cannot be deleted or tagged, so it stays declared, but
 # nothing uses it any more: management moved to VLAN 99 and the trunks' native network
@@ -34,7 +40,9 @@ resource "unifi_network" "default" {
 # Management network for the UDM, switches and APs (runbook Phase 0, 2026-09-13).
 # Created through the API, so it lacked three fields the UI sets on every network
 # (auto_scale, lte_lan, gateway_type = "default") and had DHCP Guarding off. The first
-# apply brings it in line with the other eight -- intentional, see the drift report.
+# apply tried to bring it in line with the other eight and hit the dhcp_guarding write
+# bug above; the same change was then made through the API (2026-09-14) and this block
+# mirrors it.
 resource "unifi_network" "unifi_devices" {
   name               = "UniFi Devices"
   purpose            = "corporate"

@@ -8,6 +8,22 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ---
 
+## Session 2026-09-14 (c) — first `tofu apply` from CI
+
+Not a browser change but the first time code wrote to the controller, so it belongs in the same ledger. Workflow `tofu-apply.yaml`, run 34843335300, dispatched on `feat/unifi-port-config` at `5410007` after the state cleanup and a clean plan (46 to import, 4 to change).
+
+| Resource | Result | Read back |
+|---|---|---|
+| 46 imports | ✅ all in state | — |
+| `unifi_wlan.stkr_guest` | ✅ `is_guest` false → **true** | `is_guest true`, `security wpapsk`, passphrase intact |
+| `unifi_vpn_server.openvpn` | ✅ wrote `openvpn_mode: server` and `openvpn_encryption_cipher: AES_256_CBC` — two keys the UI never sets; the controller accepted both | both present live |
+| `unifi_setting.default` | ⚠️ POST accepted, **state not saved**: "Provider produced inconsistent result after apply: `.igmp_snooping.network_ids` was null, now `[]`". Fixed in code by declaring `network_ids = []`; the next apply re-POSTs the same values | settings unchanged (they already matched) |
+| `unifi_network.unifi_devices` | ❌ **`api.err.MissingIPAddress (400)`** — the provider sent `dhcpguard_enabled: true` without `dhcpd_ip_1`. Nothing changed live | `auto_scale`, `lte_lan`, `gateway_type` still absent, guarding still off |
+
+**Still to do by hand** (the API write from this session was refused by the tool's permission layer): Settings → Networks → **UniFi Devices** → enable **DHCP Guarding** with `192.168.99.1` as the trusted server and Save. Saving from the UI also fills `auto_scale_enabled`, `lte_lan_enabled` and `gateway_type: default` the way every other network has them. The code already declares exactly that, so the plan goes clean once it is done.
+
+---
+
 ## Session 2026-09-14 (b) — management VLAN migration, Phase 4
 
 Full narrative, tests and the AP-vs-switch rule in `unifi-mgmt-vlan-99-runbook.md` (Phase 4). Writes, in order, all `PUT /api/s/default/rest/device/<id>` unless noted:

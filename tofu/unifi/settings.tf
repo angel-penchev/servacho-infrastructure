@@ -14,8 +14,13 @@ locals {
 resource "unifi_setting" "default" {
   site = "default"
 
+  # network_ids is declared empty on purpose: the provider returns [] after the write
+  # while the plan carried null, and OpenTofu aborts the apply with "Provider produced
+  # inconsistent result" (2026-09-14, run 34843335300). FIXME(unifi): the attribute
+  #   should be normalised null <-> [] by the provider.
   igmp_snooping = {
-    enabled = false
+    enabled     = false
+    network_ids = []
   }
 
   # Daily at 04:00 (created live 2026-09-13 to match this block).
