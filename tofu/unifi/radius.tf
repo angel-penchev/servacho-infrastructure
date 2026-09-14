@@ -1,11 +1,8 @@
-# All four users exist on the controller and match these attributes exactly
-# (verified 2026-09-13 against /rest/account: tunnel_type 13, tunnel_medium_type 6,
-# vlan 2, group_policy GLOBAL). vl.penchev and v.todorova were created by hand in the
-# UI, so the controller is the source of truth for their passwords.
-# All four also have entries in the Vault `unifi/radius/users` secret (2026-09-13).
-# TODO(import): unifi_radius_user has no allow_existing -- like every other resource on
-# the rebuilt controller, these must be `tofu import`ed before an apply, or the create
-# will 400 on the duplicate account name.
+# The four accounts match live attribute for attribute (2026-09-13) and all have
+# passwords in OpenBao secret/unifi/radius/users. VLAN 2 = Main, the network an
+# authenticated 802.1X client is placed on.
+# TODO(import): unifi_radius_user has no allow_existing -- import before the first
+#   apply or the create 400s on the duplicate name.
 locals {
   radius_users = {
     "a.penchev"  = { tunnel_type = 13, tunnel_medium_type = 6, vlan = 2 }

@@ -4,42 +4,23 @@ resource "unifi_device" "udm_pro_max" {
   forget_on_destroy = false
   disabled          = false
 
-  # FIXME(unifi): The ubiquiti-community/unifi provider crashes on apply when attempting 
-  # to disable ports due to a bug parsing the empty MAC allowlist required for the new
-  # UniFi OS Port State toggles.
-  # Tracking PR: https://github.com/ubiquiti-community/terraform-provider-unifi/pull/470
-  # Until it is merged, we must ignore port_override changes so they can be disabled via the UI.
+  # FIXME(unifi): port_override is ignored until upstream #470 (crash on the empty MAC
+  #   allowlist of a disabled port) and #430/#438 (whole-array replacement strips
+  #   undeclared ports) land. The blocks below document live; apply does not reconcile them.
   lifecycle {
     ignore_changes = [port_override]
   }
 
-  # Port overrides mirror the live controller as of 2026-09-13: 2-8 disabled, the two
-  # SFP+ uplinks on the UniFi Device profile. Ports 1 (WAN2) and 9 (WAN1) carry NO
-  # override: WAN-to-port binding is UniFi OS Internet configuration, not a switch-port
-  # override with a WAN native network -- the pre-reset code modelled it that way and
-  # it never corresponded to anything the controller stores. Not reconciled by apply
-  # while ignore_changes is on (upstream #430/#438, see docs/unifi-manual-vs-tofu.md 14.3).
-  # Ports 2-8: Port State Disabled, exactly as the gateway stores it when set in the
-  # UI (verified 2026-09-13 on port 2): forward "disabled" + port security on with an
-  # empty allowlist + Block All tagged VLANs, no native network. Unlike the switches
-  # the gateway keeps setting_preference "auto" and carries no dot1x/STP fields. Live
-  # also has UI-only keys the provider lacks: sd_wan_underlay_port false, plus
-  # isolation/egress_rate_limit/port_keepalive false (computed here).
+  # Port overrides read back 2026-09-13. Profiled ports store exactly {name, poe_mode?,
+  # setting_preference, portconf_id}; everything else comes from the profile
+  # (port_profiles.tf).
+  #
+  # FIXME(unifi-ui-only): ports 1 (WAN2) and 9 (WAN1) have no override. WAN-to-port
+  #   binding is UniFi OS Internet configuration, outside port_overrides; the provider
+  #   has no attribute for it. The WANs themselves are in wans.tf.
 
-
-  # Profiled ports: the controller stores exactly {name, poe_mode?, setting_preference,
-  # portconf_id} -- all four are declared, nothing UI-only is involved. Everything else
-  # comes from the profile (see port_profiles.tf for that layer's FIXMEs).
-
-  # FIXME(unifi-ui-only): ports 1 (WAN2) and 9 (WAN1) have no override. Which physical
-  #   port carries which WAN is UniFi OS Internet configuration, stored outside the
-  #   Network application's port_overrides; the provider has no attribute for it. The
-  #   WANs themselves are wans.tf.
-
-  # Ports 2-8: Port State Disabled, exactly as the gateway stores it when set in the
-  # UI (verified 2026-09-13 on port 2). Unlike the switches the gateway keeps
-  # setting_preference "auto" and carries no dot1x/STP/PoE keys. Every attribute the
-  # provider exposes is set explicitly below. UI-only key without a provider attribute:
+  # Ports 2-8: Port State Disabled, in the gateway's shape (smaller than the switches':
+  # setting_preference "auto", no dot1x/STP/PoE keys). Every exposed attribute is set.
   # FIXME(unifi-ui-only): sd_wan_underlay_port = false     (SD-WAN Underlay Port off)
   port_override {
     index                          = 2
@@ -153,8 +134,7 @@ resource "unifi_device" "udm_pro_max" {
     port_keepalive_enabled         = false
   }
 
-  # SFP+ 1: 10 GbE uplink to the USW Pro Max 24 PoE. The pre-reset code had the
-  # Private Servers profile here, which was wrong for an inter-switch link.
+  # SFP+ 1: 10 GbE uplink to the USW Pro Max 24 PoE.
   port_override {
     index              = 10
     name               = "SFP+ 1"

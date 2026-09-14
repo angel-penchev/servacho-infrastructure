@@ -1,3 +1,7 @@
+# FIXME(unifi): every WLAN ignores passphrase, wlan_bands and wlan_band -- the
+#   provider reads them back in a different shape (redacted passphrase, reordered
+#   bands) and would otherwise fail with "inconsistent result after apply".
+
 data "unifi_ap_group" "default" {
   name = "All APs"
 }
@@ -6,6 +10,7 @@ data "unifi_client_qos_rate" "default" {
   name = "Default"
 }
 
+# 802.1X against the site RADIUS server; users in radius.tf.
 resource "unifi_wlan" "stkr" {
   name       = "StKr"
   security   = "wpaeap"
@@ -24,9 +29,6 @@ resource "unifi_wlan" "stkr" {
 
   is_guest = false
 
-  # FIXME(unifi): The provider often returns different structures for passphrase 
-  # (redacted vs unredacted) and wlan_bands than what is defined in state.
-  # We must ignore these to prevent "inconsistent result after apply" crashes.
   lifecycle {
     ignore_changes = [passphrase, wlan_bands, wlan_band]
   }
@@ -49,9 +51,6 @@ resource "unifi_wlan" "stkr_guest" {
 
   is_guest = true
 
-  # FIXME(unifi): The provider often returns different structures for passphrase 
-  # (redacted vs unredacted) and wlan_bands than what is defined in state.
-  # We must ignore these to prevent "inconsistent result after apply" crashes.
   lifecycle {
     ignore_changes = [passphrase, wlan_bands, wlan_band]
   }
@@ -75,14 +74,12 @@ resource "unifi_wlan" "stkr_iot" {
   is_guest  = false
   hide_ssid = true
 
-  # FIXME(unifi): The provider often returns different structures for passphrase 
-  # (redacted vs unredacted) and wlan_bands than what is defined in state.
-  # We must ignore these to prevent "inconsistent result after apply" crashes.
   lifecycle {
     ignore_changes = [passphrase, wlan_bands, wlan_band]
   }
 }
 
+# 2.4 GHz-only, WPA2, no PMF: for IoT devices that cannot do WPA3 or 5 GHz.
 resource "unifi_wlan" "stkr_iot_2_4ghz" {
   name       = "StKr_IoT_2.4GHz"
   security   = "wpapsk"
@@ -105,5 +102,3 @@ resource "unifi_wlan" "stkr_iot_2_4ghz" {
     ignore_changes = [passphrase, wlan_bands, wlan_band]
   }
 }
-
-

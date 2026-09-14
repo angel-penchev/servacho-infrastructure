@@ -1,18 +1,9 @@
-# ----------------------------------------------------------------------------
-# Port profiles
+# All five profiles match live (audited field by field against /rest/portconf on
+# 2026-09-13). stp_port_mode is the Services -> STP toggle, not the Port Mode radio.
+# Attributes left unset are optional+computed or absent on the controller.
 #
-# Five profiles exist on the controller after the 2026-09 rebuild and all five are
-# declared here. The three per-VLAN profiles were recreated by hand on 2026-09-13
-# and this file was aligned to them (names, setting_preference, stp_port_mode).
-#
-# Audit 2026-09-13: every field of the UI profile editor was mapped against
-# /rest/portconf and the v0.55.0 unifi_port_profile schema. Everything the provider
-# can express matches live. Attributes left unset here are optional+computed (the
-# provider adopts the controller value) or absent on the controller.
-#
-# UI fields with NO provider attribute -- live value on all five profiles unless
-# noted; managed in the UI only, so a from-scratch create lands on controller
-# defaults, not on these:
+# UI fields with no provider attribute (live value on all five unless noted; a
+# from-scratch create lands on controller defaults):
 # FIXME(unifi-ui-only): stp_edge_state -- Port Mode. UniFi Device: "disabled"
 #   (Infrastructure); Host Device, Public Server, Private Server, IoT Device: "enabled" (Edge)
 # FIXME(unifi-ui-only): flow_control_enabled = true        (Flow Control)
@@ -20,21 +11,15 @@
 # FIXME(unifi-ui-only): qos_profile = {mode custom, no policies}  (QoS Mode: Off)
 # FIXME(unifi-ui-only): stp_uplink = false                 (Services -> STP Uplink)
 # FIXME(unifi-ui-only): stp_bpdu_guard_enabled -- Services -> BPDU Guard. Host Device,
-#   Private Server, IoT Device: true (set 2026-09-13, end-host ports); UniFi Device: false
-#   (must stay off, it carries BPDUs between switches and APs); Public Server: false
+#   Private Server, IoT Device: true (end-host ports); UniFi Device: false (must stay
+#   off, it carries BPDUs between switches and APs); Public Server: false
 # FIXME(unifi-ui-only): link_debounce_auto = true, 300 ms  (Link Debounce)
 # FIXME(unifi-ui-only): eee_enabled = false                (Energy Efficient Ethernet)
 # FIXME(unifi-ui-only): multicast_router_mode = "NONE"     (Multicast Router Port)
-#
-# NOTE stp_port_mode is the Services -> STP toggle (true on all five, including
-# UniFi Device), NOT the Port Mode: Edge radio. Earlier comments here and in the
-# docs had that backwards.
-# ----------------------------------------------------------------------------
 
-# Uplinks between UniFi devices themselves (UDM <-> switches, switches <-> APs).
-# Trunks every VLAN and never runs 802.1X, otherwise the infrastructure could not
-# come up before RADIUS is reachable. Native stays the untagged Default until Phase 4
-# of docs/unifi-mgmt-vlan-99-runbook.md; VLAN 99 is already carried tagged ("all").
+# Trunks between UniFi devices (UDM <-> switches, switches <-> APs): every VLAN, no
+# 802.1X, otherwise the infrastructure could not come up before RADIUS is reachable.
+# Native stays the untagged Default until runbook Phase 4; VLAN 99 rides tagged.
 resource "unifi_port_profile" "unifi_devices" {
   name                  = "UniFi Device"
   forward               = "all"
@@ -46,27 +31,17 @@ resource "unifi_port_profile" "unifi_devices" {
   stp_port_mode         = true
 }
 
-# Host-facing access ports on the USW Pro Max 24 PoE.
+# Host-facing access ports. 802.1X success -> RADIUS assigns VLAN 2 (Main); failure or
+# no supplicant -> Guest. The second half is not on the profile: an unauthorized port
+# with dot1x_ctrl = "auto" drops everything including DHCP, and the "Guest instead"
+# behaviour is the site-wide 802.1X Fallback VLAN in Global Switch Settings.
+# Native is Main because that is what an *authorized* client gets when RADIUS returns
+# no VLAN.
 #
-# Intended behaviour:
-#   - client passes 802.1X  -> RADIUS returns Tunnel-Private-Group-ID 2 -> Main (VLAN 2)
-#   - client fails / has no supplicant -> Guest (VLAN 3)
-#
-# The second half is NOT expressible here. A port with dot1x_ctrl = "auto" stays
-# unauthorized until 802.1X succeeds, and an unauthorized port drops everything --
-# including DHCP -- so non-supplicants get no address at all. The "drop them on
-# Guest instead" behaviour is the site-wide 802.1X Fallback VLAN, which lives in
-# Global Switch Settings (`global_switch.dot1x_fallback_networkconf_id`), not on the
-# port profile: there is no per-profile guest/fallback attribute in the schema.
-#
-# FIXME(unifi): `unifi_setting` exposes no switch/dot1x block at v0.55.0, so the
-# fallback VLAN cannot be managed here. Set manually to Guest -- see
-# docs/unifi-browser-changes.md (2026-09-08) and the commented
-# `unifi_setting_switch` block in settings.tf.
-#
-# native_networkconf_id is Main, not Guest: with the fallback VLAN doing the
-# unauthenticated case, the native VLAN is what an *authorized* client gets when
-# RADIUS returns no VLAN assignment, and that should be Main.
+# FIXME(unifi): the fallback VLAN (`global_switch.dot1x_fallback_networkconf_id` =
+#   Guest) has no provider attribute at v0.55.0 and is set by hand -- see the
+#   `unifi_setting_switch` block in settings.tf. Without it this profile blocks
+#   every non-802.1X client.
 resource "unifi_port_profile" "host_device" {
   name                  = "Host Device"
   forward               = "customize"
@@ -76,17 +51,11 @@ resource "unifi_port_profile" "host_device" {
   dot1x_ctrl            = "auto"
   tagged_vlan_mgmt      = "auto"
   setting_preference    = "manual"
-  stp_port_mode         = true # Services -> STP (not Port Mode, see header)
+  stp_port_mode         = true
 }
 
-# ----------------------------------------------------------------------------
-# Per-VLAN access profiles for wired servers and IoT gear. Recreated on the
-# controller by hand on 2026-09-13 (verified via /rest/portconf). Untagged on
-# the named VLAN, no 802.1X (force_authorized), Port Mode: Edge like Host Device
-# (stp_edge_state, UI-only -- see header). Assigning ports to them is the
-# TODO(port-overrides) work in device_*.tf.
-# ----------------------------------------------------------------------------
-
+# Per-VLAN access profiles for wired servers and IoT gear: untagged on the named
+# network, no 802.1X, Port Mode Edge (UI-only, see header).
 resource "unifi_port_profile" "public_servers" {
   name                  = "Public Server"
   forward               = "customize"
@@ -96,7 +65,7 @@ resource "unifi_port_profile" "public_servers" {
   dot1x_ctrl            = "force_authorized"
   tagged_vlan_mgmt      = "auto"
   setting_preference    = "manual"
-  stp_port_mode         = true # Services -> STP (not Port Mode, see header)
+  stp_port_mode         = true
 }
 
 resource "unifi_port_profile" "private_servers" {
@@ -108,7 +77,7 @@ resource "unifi_port_profile" "private_servers" {
   dot1x_ctrl            = "force_authorized"
   tagged_vlan_mgmt      = "auto"
   setting_preference    = "manual"
-  stp_port_mode         = true # Services -> STP (not Port Mode, see header)
+  stp_port_mode         = true
 }
 
 resource "unifi_port_profile" "iot" {
@@ -120,5 +89,5 @@ resource "unifi_port_profile" "iot" {
   dot1x_ctrl            = "force_authorized"
   tagged_vlan_mgmt      = "auto"
   setting_preference    = "manual"
-  stp_port_mode         = true # Services -> STP (not Port Mode, see header)
+  stp_port_mode         = true
 }

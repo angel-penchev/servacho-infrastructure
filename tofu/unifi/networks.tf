@@ -1,20 +1,15 @@
-# The untagged/native LAN (VLAN 1). Cannot be deleted (attr_no_delete). Until the
-# VLAN 99 migration completes it still carries UniFi device management; afterwards it
-# is an empty parking lot whose DHCP stays on only so a factory-reset device can be
-# adopted (Phase 4 of the runbook may turn it off).
-#
-# Migration status (docs/unifi-mgmt-vlan-99-runbook.md): Phases 0-3 done 2026-09-13 --
-# all four devices manage on unifi_devices (VLAN 99). Only the trunks' native network
-# (Phase 4, optional) still points here.
+# VLAN ID = third octet for every network with clients; management sits on 99.
+# Per-network multicast_dns is derived by the controller from the site-wide Gateway
+# mDNS Proxy scope (Main + IoT, see mdns.tf; upstream #282) -- not an independent knob.
+
+# The untagged LAN (VLAN 1). Cannot be deleted. Devices manage on VLAN 99 since
+# 2026-09-13 (docs/unifi-mgmt-vlan-99-runbook.md); this stays native on the trunks
+# until Phase 4 and keeps DHCP so a factory-reset device can still be adopted.
 resource "unifi_network" "default" {
   name    = "Default (Untagged)"
   purpose = "corporate"
   subnet  = "192.168.1.1/24"
 
-  # multicast_dns mirrors the site-wide Gateway mDNS Proxy scope (Main + IoT only,
-  # set 2026-09-13 -- see mdns.tf). On UniFi OS gateways this per-network
-  # flag is derived from that site-wide setting (upstream #282), so these values are
-  # what the controller reports, not an independent knob.
   multicast_dns = false
 
   dhcp_server = {
@@ -24,9 +19,7 @@ resource "unifi_network" "default" {
   }
 }
 
-# Tagged management network for the UDM, switches and APs. Created 2026-09-13
-# (runbook Phase 0). Same Internal zone as Main, so devices can reach the controller
-# at 192.168.1.1 while they are re-homed one by one.
+# Management network for the UDM, switches and APs (runbook Phase 0, 2026-09-13).
 resource "unifi_network" "unifi_devices" {
   name          = "UniFi Devices"
   purpose       = "corporate"
@@ -55,6 +48,7 @@ resource "unifi_network" "main" {
   }
 }
 
+# purpose = "guest" only sticks while the network is in the Hotspot zone (firewall.tf).
 resource "unifi_network" "guest" {
   name          = "Guest"
   purpose       = "guest"
@@ -111,9 +105,7 @@ resource "unifi_network" "iot" {
   }
 }
 
-# Widened to a /23 during the 2026-09 rebuild: this single network now spans
-# 192.168.10.0-192.168.11.255 and absorbs what used to be the separate
-# "Qoax Community Broadcast VPS" network on VLAN 11. VLAN 11 no longer exists.
+# A /23 (192.168.10.0-192.168.11.255); VLAN 11 no longer exists.
 resource "unifi_network" "qoax_community_vps" {
   name          = "Qoax VPS"
   purpose       = "corporate"

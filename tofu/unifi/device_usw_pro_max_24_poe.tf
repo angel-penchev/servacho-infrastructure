@@ -5,17 +5,12 @@ resource "unifi_device" "usw_pro_max_24_poe" {
   disabled           = false
   flowctrl_enabled   = false
   jumboframe_enabled = false
-  # Management moved to UniFi Devices (VLAN 99) on 2026-09-13, runbook Phase 2. This
-  # attribute IS in the v0.55.0 minimal update PUT, unlike config_network below.
+  # Management on UniFi Devices (VLAN 99) since 2026-09-13.
   mgmt_network_id = unifi_network.unifi_devices.id
 
-  # Matches live exactly (verified 2026-09-13 after the VLAN 99 move). NOTE: at v0.55.0 the provider drops
-  # config_network from the update PUT (buildMinimalUpdateDevice, upstream PR #463),
-  # so this block is read-only in practice: because live already has these values the
-  # plan is a no-op, but CHANGING the address here would not reach the controller and
-  # the apply would fail with "inconsistent result after apply". Change the management
-  # IP in the UI first, then mirror it here, until #463 ships.
-  # https://github.com/ubiquiti-community/terraform-provider-unifi/pull/463
+  # FIXME(unifi): read-only in practice -- v0.55.0 drops config_network from the update
+  #   PUT (upstream #463). Live matches, so the plan is a no-op; changing the address
+  #   here would fail post-apply. Change it in the UI first, then mirror.
   config_network = {
     type    = "static"
     ip      = "192.168.99.2"
@@ -24,40 +19,16 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     dns1    = "192.168.99.1"
   }
 
-  # ----------------------------------------------------------------------------
-  # Note: As of v0.55.0, the ubiquiti-community/unifi provider does not yet have 
-  # support for the ether_lighting block on devices or site settings. 
-  #
-  # PR in progress: https://github.com/ubiquiti-community/terraform-provider-unifi/pull/463
-  # ----------------------------------------------------------------------------
-  /*
-  # Once merged, the following can be added to the resource below:
-  #  ether_lighting {
-  # mode       = "speed"
-  # brightness = 100
-  # behavior   = "steady"
-  # led_mode   = "etherlighting"
-  #  }
-  */
-
-  # FIXME(unifi): The ubiquiti-community/unifi provider crashes on apply when attempting 
-  # to disable ports due to a bug parsing the empty MAC allowlist required for the new
-  # UniFi OS Port State toggles.
-  # Tracking PR: https://github.com/ubiquiti-community/terraform-provider-unifi/pull/470
-  # Until it is merged, we must ignore port_override changes so they can be disabled via the UI.
+  # FIXME(unifi): port_override is ignored until upstream #470 (crash on the empty MAC
+  #   allowlist of a disabled port) and #430/#438 (whole-array replacement strips
+  #   undeclared ports) land. The blocks below document live; apply does not reconcile them.
   lifecycle {
     ignore_changes = [port_override]
   }
 
-  # Port overrides mirror the live controller as of 2026-09-13: every port renamed
-  # to the room labels below, 9-11 disabled, 6/12/18 on their per-VLAN profiles,
-  # port 25 (SFP+ 1, UDM uplink) deliberately has no override. Not reconciled by
-  # apply while ignore_changes is on (upstream #430/#438, see
-  # docs/unifi-manual-vs-tofu.md 14.3).
-
-  # Profiled ports: the controller stores exactly {name, poe_mode?, setting_preference,
-  # portconf_id} -- all four are declared, nothing UI-only is involved. Everything else
-  # comes from the profile (see port_profiles.tf for that layer's FIXMEs).
+  # Port overrides read back 2026-09-13. Profiled ports store exactly {name, poe_mode?,
+  # setting_preference, portconf_id}; everything else comes from the profile
+  # (port_profiles.tf).
 
   port_override {
     index              = 1
@@ -124,11 +95,8 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id    = unifi_port_profile.host_device.id
   }
 
-  # Ports 9-11: Port State Disabled, exactly as the controller stores it when set in
-  # the UI (verified 2026-09-13 on port 9). Every attribute the provider exposes is set
-  # explicitly below to the live value. The live override also carries these UI-only
-  # keys, which unifi_device.port_override has no attribute for -- a from-scratch
-  # apply would leave them at controller defaults:
+  # Ports 9-11: Port State Disabled, in the switch's shape (read back 2026-09-13).
+  # Every exposed attribute is set; the live override also carries these UI-only keys:
   # FIXME(unifi-ui-only): stp_edge_state = "enabled"       (Port Mode: Edge)
   # FIXME(unifi-ui-only): stp_bpdu_guard_enabled = true    (Services -> BPDU Guard)
   # FIXME(unifi-ui-only): stp_uplink = false               (Services -> STP Uplink)
@@ -198,7 +166,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_keepalive_enabled         = false
   }
 
-  # jetkvm-4562a8bf464c58c8 (30:52:53:0a:09:87, fixed 192.168.5.20 in clients.tf).
+  # JetKVM-Servacho-Gosho (30:52:53:0a:09:87, fixed 192.168.5.20).
   port_override {
     index              = 12
     name               = "Port 12"
@@ -247,7 +215,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id    = unifi_port_profile.host_device.id
   }
 
-  # jetkvm-ce4ac3437e0d935d (30:52:53:0d:1a:68, fixed 192.168.5.23).
+  # JetKVM-Michelangelo (30:52:53:0d:1a:68, fixed 192.168.5.23).
   port_override {
     index              = 18
     name               = "Port 18"
@@ -264,7 +232,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id    = unifi_port_profile.host_device.id
   }
 
-  # Host Device by decision (2026-09-13); the pre-reset code had Public Servers here.
+  # Host Device by decision (2026-09-13).
   port_override {
     index              = 20
     name               = "BR-04"
@@ -305,12 +273,10 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id    = unifi_port_profile.unifi_devices.id
   }
 
-  # SFP+ 2 (no link as of 2026-09-13). Port 25 (SFP+ 1) is the live uplink to the UDM
-  # and has no override: it runs on the switch defaults (built-in profile "All", native
-  # Default (Untagged)), so nothing is stored and there is nothing to declare. Runbook
-  # Phase 4 flips the UniFi Device profile's native network to VLAN 99, which port 25
-  # would NOT follow -- put it on the UniFi Device profile (or move the cable to 26)
-  # before that step.
+  # SFP+ 2, no link. The live UDM uplink is port 25 (SFP+ 1), which has no override and
+  # runs on the built-in "All" profile (native Default). Before runbook Phase 4 changes
+  # the UniFi Device profile's native network, put port 25 on that profile or move the
+  # cable to 26.
   port_override {
     index              = 26
     name               = "UDM-Pro-Max"

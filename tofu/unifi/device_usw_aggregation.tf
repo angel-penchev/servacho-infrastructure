@@ -4,17 +4,12 @@ resource "unifi_device" "usw_aggregation" {
   forget_on_destroy = false
   disabled          = false
 
-  # Management moved to UniFi Devices (VLAN 99) on 2026-09-13, runbook Phase 3. This
-  # attribute IS in the v0.55.0 minimal update PUT, unlike config_network below.
+  # Management on UniFi Devices (VLAN 99) since 2026-09-13.
   mgmt_network_id = unifi_network.unifi_devices.id
 
-  # Matches live exactly (verified 2026-09-13 after the VLAN 99 move). NOTE: at v0.55.0 the provider drops
-  # config_network from the update PUT (buildMinimalUpdateDevice, upstream PR #463),
-  # so this block is read-only in practice: because live already has these values the
-  # plan is a no-op, but CHANGING the address here would not reach the controller and
-  # the apply would fail with "inconsistent result after apply". Change the management
-  # IP in the UI first, then mirror it here, until #463 ships.
-  # https://github.com/ubiquiti-community/terraform-provider-unifi/pull/463
+  # FIXME(unifi): read-only in practice -- v0.55.0 drops config_network from the update
+  #   PUT (upstream #463). Live matches, so the plan is a no-op; changing the address
+  #   here would fail post-apply. Change it in the UI first, then mirror.
   config_network = {
     type    = "static"
     ip      = "192.168.99.3"
@@ -23,27 +18,20 @@ resource "unifi_device" "usw_aggregation" {
     dns1    = "192.168.99.1"
   }
 
-  # FIXME(unifi): The ubiquiti-community/unifi provider crashes on apply when attempting 
-  # to disable ports due to a bug parsing the empty MAC allowlist required for the new
-  # UniFi OS Port State toggles.
-  # Tracking PR: https://github.com/ubiquiti-community/terraform-provider-unifi/pull/470
-  # Until it is merged, we must ignore port_override changes so they can be disabled via the UI.
+  # FIXME(unifi): port_override is ignored until upstream #470 (crash on the empty MAC
+  #   allowlist of a disabled port) and #430/#438 (whole-array replacement strips
+  #   undeclared ports) land. The blocks below document live; apply does not reconcile them.
   lifecycle {
     ignore_changes = [port_override]
   }
 
-  # Port overrides mirror the live controller as of 2026-09-13: port 1 on the
-  # Private Server profile, 2-7 disabled, 8 renamed. Not reconciled by apply while
-  # ignore_changes is on (upstream #430/#438, see docs/unifi-manual-vs-tofu.md 14.3).
+  # Port overrides read back 2026-09-13. Profiled ports store exactly {name, poe_mode?,
+  # setting_preference, portconf_id}; everything else comes from the profile
+  # (port_profiles.tf).
 
-  # Profiled ports: the controller stores exactly {name, poe_mode?, setting_preference,
-  # portconf_id} -- all four are declared, nothing UI-only is involved. Everything else
-  # comes from the profile (see port_profiles.tf for that layer's FIXMEs).
-
-  # Servacho-Gosho (38:05:25:30:79:97, fixed 192.168.5.10). Moved from an inline
-  # native-VLAN override to the Private Server profile on 2026-09-13.
-  # FIXME(unifi-ui-only): BPDU Guard comes from the profile now (Private Server, on
-  #   since 2026-09-13) and the provider cannot set it on either layer.
+  # Servacho-Gosho (38:05:25:30:79:97, fixed 192.168.5.10).
+  # FIXME(unifi-ui-only): BPDU Guard is on via the Private Server profile; the provider
+  #   cannot set it on either layer.
   port_override {
     index              = 1
     name               = "Servacho-Gosho"
@@ -51,11 +39,8 @@ resource "unifi_device" "usw_aggregation" {
     port_profile_id    = unifi_port_profile.private_servers.id
   }
 
-  # Ports 2-7: Port State Disabled, exactly as the controller stores it when set in
-  # the UI (verified 2026-09-13 on Pro Max port 9, copied here). Every attribute the provider exposes is set
-  # explicitly below to the live value. The live override also carries these UI-only
-  # keys, which unifi_device.port_override has no attribute for -- a from-scratch
-  # apply would leave them at controller defaults:
+  # Ports 2-7: Port State Disabled, in the switch's shape (read back 2026-09-13).
+  # Every exposed attribute is set; the live override also carries these UI-only keys:
   # FIXME(unifi-ui-only): stp_edge_state = "enabled"       (Port Mode: Edge)
   # FIXME(unifi-ui-only): stp_bpdu_guard_enabled = true    (Services -> BPDU Guard)
   # FIXME(unifi-ui-only): stp_uplink = false               (Services -> STP Uplink)

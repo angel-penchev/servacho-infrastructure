@@ -1,16 +1,12 @@
-# Fixed-IP reservations. Mirrors the live controller exactly as of 2026-09-13: eight
-# entries, all named on the controller (the six Private Servers ones were named via
-# the API on 2026-09-13 and mirrored here the same minute). Only the port-12 JetKVM
-# has a network binding.
+# Fixed-IP reservations, attribute-exact against live (2026-09-13). Only the port-12
+# JetKVM carries a network binding, because live does.
 #
-# FIXME(unifi): at v0.55.0 EVERY in-place unifi_client update fails with
-# "inconsistent result after apply: .last_ip" (upstream #428, fixed on main as #447,
-# unreleased). Creates and no-op plans are fine. So: keep these blocks identical to
-# live, import them before the first plan, and do not add attributes (name, note,
-# network_id) here before v0.56.0 -- set them in the UI first, then mirror.
-# https://github.com/ubiquiti-community/terraform-provider-unifi/issues/428
+# FIXME(unifi): at v0.55.0 every in-place unifi_client update fails with "inconsistent
+#   result after apply: .last_ip" (upstream #428, fixed on main as #447, unreleased).
+#   Creates and no-op plans are fine, so: import before the first plan, and change
+#   attributes in the UI first, then mirror.
 
-# Proxmox host, uplinked on USW Aggregation port 1 (Private Server profile).
+# Proxmox host, USW Aggregation port 1.
 resource "unifi_client" "servacho_gosho" {
   mac            = "38:05:25:30:79:97"
   name           = "Servacho-Gosho"
@@ -18,7 +14,7 @@ resource "unifi_client" "servacho_gosho" {
   allow_existing = true
 }
 
-# JetKVM on USW Pro Max port 12 (hostname jetkvm-4562a8bf464c58c8).
+# USW Pro Max port 12.
 resource "unifi_client" "jetkvm_servacho_gosho" {
   mac            = "30:52:53:0a:09:87"
   name           = "JetKVM-Servacho-Gosho"
@@ -27,7 +23,7 @@ resource "unifi_client" "jetkvm_servacho_gosho" {
   allow_existing = true
 }
 
-# JetKVM on USW Pro Max port 18 (hostname jetkvm-ce4ac3437e0d935d).
+# USW Pro Max port 18.
 resource "unifi_client" "jetkvm_michelangelo" {
   mac            = "30:52:53:0d:1a:68"
   name           = "JetKVM-Michelangelo"
@@ -56,7 +52,7 @@ resource "unifi_client" "hackjamhub_intercom" {
   allow_existing = true
 }
 
-# USW Pro Max port 6 (IoT Device profile).
+# USW Pro Max port 6.
 resource "unifi_client" "living_room_tv" {
   mac            = "b0:b3:69:41:2c:9b"
   name           = "Living Room TV"

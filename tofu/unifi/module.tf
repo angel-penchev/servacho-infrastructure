@@ -1,18 +1,10 @@
-# ----------------------------------------------------------------------------
 # UniFi module -- one controller (UDM StKr, https://192.168.1.1), one site (default).
 #
-# This is a single flat module: every *.tf in this directory covers one topic and the
-# file name says which (README.md has the map). There are no submodules -- nothing
-# here is instantiated twice, so resources reference each other directly
-# (`unifi_network.main.id`, `unifi_port_profile.host_device.id`) instead of through
-# output -> variable plumbing. The only inputs are the secrets below; the root module
-# (../providers.tf, ../unifi_module.tf) reads them from OpenBao and configures the
-# provider itself.
-#
-# The controller is the source of truth. Changes are made in the UI or its API, read
-# back, and mirrored here; `tofu apply` is not part of the workflow until every
-# resource has been `tofu import`ed (docs/unifi-manual-vs-tofu.md).
-# ----------------------------------------------------------------------------
+# Flat module: one topic per file (README.md has the map), no submodules, resources
+# reference each other directly. The only inputs are the secrets below; the root
+# module (../providers.tf, ../unifi_module.tf) reads them from OpenBao and configures
+# the provider. The controller is the source of truth: change in the UI or API, read
+# back, mirror here. No apply until every resource is imported (docs/unifi-manual-vs-tofu.md).
 
 terraform {
   required_providers {
@@ -22,10 +14,6 @@ terraform {
     }
   }
 }
-
-# ----------------------------------------------------------------------------
-# Inputs -- secrets only, all from OpenBao via ../unifi_module.tf
-# ----------------------------------------------------------------------------
 
 variable "radius_profile_secret" {
   type        = string
@@ -57,13 +45,8 @@ variable "wireguard_private_key" {
   sensitive   = true
 }
 
-# ----------------------------------------------------------------------------
-# Controller-managed objects shared by more than one file (data sources)
-# ----------------------------------------------------------------------------
-
-# The built-in RADIUS profile ("Default", use_usg_auth_server = true). Referenced by
-# the StKr WLAN (wlans.tf) and the OpenVPN server (vpn.tf). The users it authenticates
-# are in radius.tf, the server itself is the `radius` block in settings.tf.
+# The built-in RADIUS profile, used by the StKr WLAN (wlans.tf) and the OpenVPN server
+# (vpn.tf). Its users are in radius.tf, the server settings in settings.tf.
 data "unifi_radius_profile" "default" {
   name = "Default"
 }

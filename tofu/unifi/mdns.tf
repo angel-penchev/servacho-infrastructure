@@ -1,77 +1,44 @@
-# ----------------------------------------------------------------------------
-# Gateway mDNS Proxy (Settings -> Networks -> Global -> Gateway mDNS Proxy)
-# ----------------------------------------------------------------------------
-# MANUAL RUNBOOK ITEM. As of v0.55.0 the ubiquiti-community/unifi provider has no
-# `unifi_setting_mdns` resource and nothing upstream addresses it (checked 2026-09-08).
-# The block below is the intended configuration, kept as HCL so it can be applied
-# the day the provider grows the resource. Until then it is applied by hand via
-# `POST /api/s/default/set/setting/mdns`, and the live value is the source of truth.
+# Gateway mDNS Proxy (Settings -> Networks -> Global). Live matches the block below
+# since 2026-09-13; the live value is the source of truth.
 #
-# Wire format (learned the hard way on 2026-09-13 -- guesses get api.err.InvalidPayload):
-#   mode                    "all" (UI: Auto) | "off" | "custom"
-#   enabled_for             "all" (UI: Service Scope = All) | "some" (UI: Specific)
-#   enabled_for_network_ids [<networkconf _id>, ...]        -- the VLAN scope
-#   predefined_services     [{"code": "<identifier>"}, ...]  -- objects, not strings
-#   custom_services         []
-# Read-modify-write the full object returned by GET /get/setting (key "mdns").
+# FIXME(unifi): no `unifi_setting_mdns` resource at v0.55.0 and nothing upstream. The
+#   block is kept as HCL for the day the provider grows one; until then apply by hand
+#   with `POST /api/s/default/set/setting/mdns`, read-modify-write of the full object
+#   from `GET /get/setting` (key "mdns"). Wire format:
+#     mode                    "all" (UI: Auto) | "off" | "custom"
+#     enabled_for             "all" (Service Scope: All) | "some" (Specific)
+#     enabled_for_network_ids [<networkconf _id>, ...]
+#     predefined_services     [{"code": "<identifier>"}, ...]  -- objects, not strings
+#     custom_services         []
+#   Per-network multicast_dns flags (networks.tf) are derived from this setting
+#   (upstream #282).
 #
-# Per-network `multicast_dns` flags in networks.tf are cosmetic on UniFi OS
-# gateways (upstream #282); this site-wide setting is what is actually in force.
-#
-# Service identifiers below were read from the controller UI on 2026-09-13 (the
-# checkbox ids are the API values -- note the mixed camelCase, e.g. apple_airPlay,
-# homeKit). Full catalogue the controller offers, 25 entries:
-#
-#   amazon_devices              Amazon Devices
-#   android_tv_remote           Android TV Remote
-#   apple_airDrop               Apple AirDrop
-#   apple_airPlay               Apple AirPlay
-#   apple_file_sharing          Apple File Sharing
-#   apple_iChat                 Apple iChat
-#   apple_iTunes                Apple iTunes
-#   aqara                       Aqara
-#   bose                        Bose
-#   dns_service_discovery       DNS Service Discovery
-#   ftp_servers                 FTP Servers
-#   google_chromecast           Google Chromecast
-#   homeKit                     HomeKit
-#   matter_network              Matter Network
-#   philips_hue                 Philips Hue
-#   printers                    Printers
-#   roku                        Roku
-#   scanners                    Scanners
-#   shelly                      Shelly
-#   sonos                       Sonos
-#   spotify_connect             Spotify Connect
-#   ssh_servers                 SSH Servers
-#   time_capsule                Time Capsule
-#   web_servers                 Web Servers
-#   windows_file_sharing_samba  Windows File Sharing / Samba
-# ----------------------------------------------------------------------------
+# Service identifiers = the UI checkbox ids (mixed case is real). Full catalogue, 25:
+#   amazon_devices  android_tv_remote  apple_airDrop  apple_airPlay  apple_file_sharing
+#   apple_iChat  apple_iTunes  aqara  bose  dns_service_discovery  ftp_servers
+#   google_chromecast  homeKit  matter_network  philips_hue  printers  roku  scanners
+#   shelly  sonos  spotify_connect  ssh_servers  time_capsule  web_servers
+#   windows_file_sharing_samba
 
 /*
 resource "unifi_setting_mdns" "gateway_proxy" {
   site = "default"
 
-  # mode:"custom" on the wire.
   mode = "custom"
 
-  # Main and IoT only (decided 2026-09-13): phones on Main discover the TVs,
-  # speakers and smart-home gear on IoT. Guest is deliberately out -- guests do
-  # not get to discover anything -- and service discovery never crosses into
-  # UniFi Devices, Public/Private Servers or the tenant VPS networks.
+  # Main + IoT only: phones on Main discover TVs, speakers and smart-home gear on IoT.
+  # Guest discovers nothing; servers and tenant VPS networks are out.
   vlan_scope = [
     unifi_network.main.id,
     unifi_network.iot.id,
   ]
 
-  # enabled_for:"some" on the wire.
   service_scope = "specific"
 
-  # Casting, media, smart-home discovery, plus Apple File Sharing and iTunes
-  # for sharing between Macs across Main/IoT (decided 2026-09-13). Deliberately
-  # excluded: apple_iChat, ftp_servers, ssh_servers, time_capsule, web_servers,
-  # windows_file_sharing_samba -- remote-access services are not for discovery.
+  # Casting, media and smart-home discovery plus Apple File Sharing / iTunes between
+  # Macs. Excluded on purpose: apple_iChat, ftp_servers, ssh_servers, time_capsule,
+  # web_servers, windows_file_sharing_samba -- remote-access services are not for
+  # discovery.
   services = [
     "amazon_devices",
     "android_tv_remote",

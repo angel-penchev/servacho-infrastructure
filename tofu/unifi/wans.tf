@@ -16,29 +16,21 @@ resource "unifi_wan" "vivacom_primary" {
   }
 }
 
+# Failover-only: the controller stores no weight and no provider_capabilities for it.
 resource "unifi_wan" "vivacom_secondary" {
   name         = "Vivacom Secondary"
   networkgroup = "WAN2"
   type         = "dhcp"
   type_v6      = "disabled"
 
-  # No weight: the controller stores none for a failover-only uplink.
   load_balance = {
     failover_priority = 2
     type              = "failover-only"
   }
-
-  # No provider_capabilities: none are configured on the controller for WAN2.
 }
 
-
-# ----------------------------------------------------------------------------
-# WAN SLA monitoring (Settings -> Internet -> WAN SLA) -- aspirational.
-# FIXME(unifi): no `unifi_wan_sla` resource at provider v0.55.0 and nothing upstream.
-# The block is the intended configuration; live has no SLA configured (not checked
-# since 2026-09-08).
-# ----------------------------------------------------------------------------
-
+# FIXME(unifi): no `unifi_wan_sla` resource at v0.55.0 and nothing upstream. Intended
+#   WAN SLA monitor (Settings -> Internet); live has none (last checked 2026-09-08).
 /*
 resource "unifi_wan_sla" "ping_dns_probe" {
   name                = "Ping and DNS probe"

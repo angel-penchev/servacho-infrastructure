@@ -1,14 +1,9 @@
-# ----------------------------------------------------------------------------
-# Firewall Zones
-# ----------------------------------------------------------------------------
-
 data "unifi_firewall_zone" "internal" {
   name = "Internal"
 }
 
-# The DMZ zone is a default zone built into the UniFi controller. 
-# We manage it here to explicitly attach the Public Servers network.
-# Name is "Dmz", not "DMZ" -- that is the exact casing the controller reports.
+# Built-in zone; managed only to pin the Public Servers network to it. The
+# controller spells it "Dmz".
 resource "unifi_firewall_zone" "dmz" {
   name = "Dmz"
 
@@ -17,13 +12,9 @@ resource "unifi_firewall_zone" "dmz" {
   ]
 }
 
-# The Hotspot zone holds the Guest network.
-#
-# This is not just completeness: on zone-based-firewall controllers a network only
-# keeps `purpose = "guest"` while it belongs to the guest/Hotspot zone -- placed
-# anywhere else the controller silently rewrites it back to "corporate" (upstream
-# #276, provider v0.54.0). unifi_network.guest declares purpose = "guest", so this
-# zone assignment is what makes that stick.
+# Guest must live here: a network keeps purpose = "guest" only while it is in the
+# Hotspot zone, otherwise the controller silently rewrites it to "corporate"
+# (upstream #276).
 resource "unifi_firewall_zone" "hotspot" {
   name = "Hotspot"
 
@@ -32,14 +23,9 @@ resource "unifi_firewall_zone" "hotspot" {
   ]
 }
 
-# ----------------------------------------------------------------------------
-# Firewall Policies
-# ----------------------------------------------------------------------------
-
-# NOTE: policy ordering cannot be managed through the provider. `index` is a
-# per-zone-pair, controller-assigned ordinal; the integration API rejects it as input
-# and the v2 endpoint ignores it and appends (upstream #348, read-only since v0.54.0).
-# This policy lands wherever the controller puts it in the Internal->Internal pair.
+# FIXME(unifi): policy ordering is read-only -- `index` is controller-assigned and the
+#   API ignores it on write (upstream #348). This lands wherever the controller puts it
+#   in the Internal -> Internal pair.
 resource "unifi_firewall_policy" "allow_main_to_iot" {
   name                 = "Allow Main to IoT"
   action               = "ALLOW"
