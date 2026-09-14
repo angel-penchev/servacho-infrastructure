@@ -2,7 +2,7 @@
 
 > **Layout note (2026-09-14).** The module was flattened: the `core/`, `devices/`, `security/`, `system/` and `wireless/` submodules are gone and every file now sits directly in `tofu/unifi/` (`networks.tf`, `device_*.tf`, `firewall.tf`, `settings.tf`, …; inputs, provider pin and shared data sources in `module.tf`). See `tofu/unifi/README.md` for the map. Text dated before 2026-09-14 may still use the old paths: `core/X.tf` → `X.tf`, `devices/X.tf` → `device_X.tf`, `security/X.tf` / `system/X.tf` / `wireless/X.tf` → `X.tf`; `system/etherlighting.tf` → `settings.tf`, `system/slas.tf` → `wans.tf`; the per-module `variables.tf` / `versions.tf` / `data.tf` / `outputs.tf` no longer exist.
 
-**Date:** 2026-09-08 (drift analysis) · **Updated:** 2026-09-08 (first remediation pass) · 2026-09-13 (RADIUS users verified in sync; mDNS scoped to Main + IoT; per-VLAN port profiles recreated; all port overrides aligned live and in code, UI-only fields marked FIXME)
+**Date:** 2026-09-08 (drift analysis) · **Updated:** 2026-09-08 (first remediation pass) · 2026-09-13 (RADIUS users verified in sync; mDNS scoped to Main + IoT; per-VLAN port profiles recreated; all port overrides aligned live and in code, UI-only fields marked FIXME) · **2026-09-14** (module flattened; VPN servers, console settings, admins, client names, alarm audit; **management VLAN migration finished** — all four devices on VLAN 99, trunks native 99, Default DHCP off; open items consolidated in §0.6)
 **Branch:** `feat/unifi-port-config`
 **Companion:** [`unifi-browser-changes.md`](unifi-browser-changes.md) — everything changed on the live controller
 **Sources:** the manual rebuild checklist, the live controller (`https://192.168.1.1`, read via the Network app REST API), and `tofu/unifi/**/*.tf` as of the current working tree.
@@ -30,6 +30,7 @@ State lives on the management plane, so `tofu plan` was not run. Everything belo
 | VPN | ✅ Teleport (UI-only, FIXME) + OpenVPN + WireGuard live and mirrored 2026-09-13; WireGuard peers still to add (§10) |
 | Module layout | ✅ **Flattened 2026-09-14**: five submodules → one module, topic-named files, `module.tf` for inputs/provider/shared data, `README.md` map. No state existed, so no `moved` blocks were needed |
 | Site settings | ✅ `mgmt` + `lcm` blocks added from the Console page and auto speedtest set live 2026-09-13; UniFi OS-only items incl. admins and Alarm Manager carry `FIXME(unifi)` (§11) |
+| **Management VLAN** | ✅ **Finished 2026-09-14** — UDM, both switches and both APs manage on **UniFi Devices, VLAN 99** (static `.99.2–.99.5`), the UniFi Device profile is native 99, Default (Untagged) has DHCP off. Full story incl. the AP-vs-switch override rule in `unifi-mgmt-vlan-99-runbook.md` |
 | **Provider bugs** | **See §14 — the binding constraint. Several diffs above cannot be fixed on the pinned version, and two things already in the tree are guaranteed apply failures** |
 
 > **Read §14 before acting on any of this.** `ubiquiti-community/unifi` v0.55.0 (2026-07-10) is still the latest release, `main` is ~88 commits and 13 unreleased fixes ahead, and the device-update code path silently drops most configured fields. That determines which of the differences below are worth fixing today.
@@ -67,19 +68,45 @@ Six changes — see [`unifi-browser-changes.md`](unifi-browser-changes.md) for t
 
 ### Still open
 
-| Item | Why |
-|---|---|
-| ~~mDNS policy (§1, §11)~~ | ✅ **Resolved 2026-09-13.** Gateway mDNS Proxy set to Custom / Main + IoT / 19 services (manual runbook item, `mdns.tf`); `networks.tf` flags now mirror live |
-| ~~The other 3 port profiles (§2)~~ | ✅ **Recreated live 2026-09-13** as `Public Server`, `Private Server`, `IoT Device`; code aligned (names, `setting_preference = manual`, `stp_port_mode = true`). Assigning ports to them is the port-override work |
-| Port overrides (§3.2–§3.4) | ✅ all three devices mirrored 2026-09-13; still 🚫 inert under `ignore_changes` (§14.3) |
-| ~~**Pro Max ports 6 and 18**~~ | ✅ **Assigned live by the user 2026-09-13** (6 → IoT Device, 18 → Private Server, both clients now hold their fixed IPs); code mirrors live. **Port 12** set live via the API the same day: Private Server + fixed `192.168.5.20` — all three now match code |
-| RADIUS users `vl.penchev`, `v.todorova` (§6.3) | ✅ **Created live 2026-09-13, verified identical to code.** Vault `unifi/radius/users` entries confirmed. Only the `tofu import` of the four live accounts remains (see §6.3) |
-| ~~Port forwards (§8)~~ | ✅ resolved 2026-09-13 — code mirrors the single live rule; fmicodes SSH/Postgres forwards and the two `count = 0` placeholders dropped |
-| ~~Fixed-IP clients (§9)~~ | ✅ resolved 2026-09-13 — `clients.tf` mirrors the 8 live reservations exactly; see §14.5 for why it must stay exact |
-| VPN (§10) | ✅ all three servers done 2026-09-13 — peers pending (§10) |
-| Site settings (§11) | ✅ Console page audited and auto speedtest set live 2026-09-13; everything provider-expressible matches |
-| Imports | Deferred — next up now that the service account works |
-| Static device IPs | ✅ live already has them; code mirrors live, so the plan is a no-op. *Changing* them in code is 🚫 blocked on #463 (§14.2) |
+Superseded by **§0.6** below (2026-09-14). Everything in the old table is either ✅ done — mDNS, port profiles, port overrides, Pro Max 6/12/18, RADIUS users, port forwards, fixed-IP clients, VPN servers, site settings, static device IPs, the VLAN 99 migration — or carried over there.
+
+---
+
+## 0.6 What's left — 2026-09-14
+
+Ordered by what unblocks what. Anything not on this list is done and mirrored.
+
+### A. Can be done now
+
+| # | Item | Where | Notes |
+|---|---|---|---|
+| A1 | **`tofu import` of every live resource, then a first `tofu plan`** | management plane `192.168.5.11`, all of `tofu/unifi` | The tree has never been applied since the factory reset and state still holds pre-reset ids. Import is the only way in for `unifi_radius_user` (no `allow_existing`, `TODO(import)` in `radius.tf`) and the safe way in for everything else — a create `POST` for a duplicate network, profile, WLAN or firewall zone is rejected or, worse, succeeds twice. The service account was recreated 2026-09-13 and works. Expect the plan to be a no-op except for the items under B; anything else it shows is a doc bug here. |
+| A2 | **WireGuard peers** | `vpn.tf` → `unifi_wireguard_peer` blocks | Server exists live (`192.168.9.1/24`, UDP 51820, key in OpenBao). Decide the peer list (phones, laptop), generate each key pair off-box, put private keys in OpenBao, declare peers with `interface_ip` from `.9.2` up. Public keys are not secret. Create live → read back → mirror, as with the servers. |
+| A3 | **Firewall policy `allow_main_to_iot`** | `firewall.tf`, Settings → Security → Policies | Declared in code, **never created live** — zero custom policies exist. Decide whether Main → IoT should be open at all (IoT is its own zone, confirmed 2026-09-13; the default Internal → IoT rule already governs it). Either create it live and keep the resource, or delete the resource. Policy *ordering* stays manual (§14, #348/#473). |
+| A4 | Pro Max **port 25** | Port Manager | Unused since the uplink moved to 26. It has no override, i.e. the built-in "All" profile with native Default — the only port left whose native is VLAN 1. Give it the UniFi Device profile (or disable it) so a device plugged in by accident lands on 99, then mirror in `device_usw_pro_max_24_poe.tf`. |
+| A5 | ~~UDM **port 2 "Console"**~~ | `device_udm_pro_max.tf` | ✅ Re-disabled 2026-09-14 once the laptop was unplugged; code mirrors live. Re-enable it in the UI (Main access) before the next trunk change. |
+| A6 | Redundant per-device `flowctrl_enabled` / `jumboframe_enabled` on the Pro Max | `device_usw_pro_max_24_poe.tf` | Site-global under `global_switch` and already matching. Harmless; delete when touching the file. |
+| A7 | Stale §1 "Differences" 1–3 | this document | Written 2026-09-08; the code has long since had `Default (Untagged)`, no VLAN 11 and the `/23` Qoax network. Struck through below. |
+
+### B. Blocked on the provider (v0.55.0 is still the latest release, see §14)
+
+| # | Item | Blocked by | What to do when it lands |
+|---|---|---|---|
+| B1 | Three `lifecycle { ignore_changes = [port_override] }` blocks (UDM, both switches) — every port block is documentation until then | #470 (empty MAC allowlist crash) **and** unreleased #430/#438 (array stripping) | Remove the ignores one device at a time, `plan`, expect no-op because the blocks already mirror live. |
+| B2 | `config_network` (static mgmt IPs) is read-only in practice | #463 (dropped from the update PUT) | Nothing to change — values already match. Just stop treating the attribute as read-only. |
+| B3 | `unifi_client` in-place updates always fail | #428 | Keep `clients.tf` attribute-exact until then; adding or removing a reservation is fine, editing one is not. |
+| B4 | `wlans.tf` `ignore_changes = [passphrase, wlan_bands, wlan_band]` ×4 | §14.4 | Drop the `wlan_bands`/`wlan_band` part first, keep `passphrase` ignored on purpose (it lives in OpenBao). |
+| B5 | `device_u7_pro_living_room.tf` `ignore_changes = [disabled]` | precautionary, §14.2 (`disabled` is also dropped from the PUT) | Remove and `plan`. |
+
+### C. Not expressible — manual runbook items, each carries a `FIXME(unifi)` / `FIXME(unifi-ui-only)` in code
+
+Global 802.1X fallback VLAN (Guest); per-profile UI fields (Port Mode Edge, BPDU Guard, Flow Control, PTP, Link Debounce, EEE, …); per-port `sd_wan_underlay_port`; WAN-to-port binding; Teleport VPN; OpenVPN protocol/cipher extras; firewall policy ordering; UniFi OS items (admins, Alarm Manager rules, update schedule, InnerSpace); WAN SLA; the APs' *Default (Untagged)* label in the device list (an AP with Network Override off is stored as the Default LAN id, the controller rejects an empty value — cosmetic, no fix).
+
+### D. Decisions still open
+
+- **A3** — is Main → IoT supposed to be open?
+- **A2** — which WireGuard peers, and whether OpenVPN stays now that WireGuard exists (it is live and mirrored; keeping it costs nothing).
+- ~~**A5** — keep the Console port.~~ Decided: disabled again, enable on demand.
 
 ---
 
@@ -103,9 +130,9 @@ Six changes — see [`unifi-browser-changes.md`](unifi-browser-changes.md) for t
 
 ### Differences vs. `tofu/unifi/networks.tf`
 
-1. **`unifi_network.default` name.** Code says `"Default"`; live is `"UniFi Devices"`. Applying as-is renames the untagged LAN.
-2. **VLAN 11 no longer exists.** Code declares `unifi_network.qoax_community_broadcast_vps` (VLAN 11, `192.168.11.1/24`). Live has no VLAN 11 — the Qoax network was widened to a **/23** that spans 192.168.10.0–192.168.11.255 instead. `core/outputs.tf (removed 2026-09-14: the flat layout has no outputs)` still exports `network_qoax_community_broadcast_vps_id`.
-3. **Qoax network renamed and resized.** Code: `"Qoax Community VPS"`, `192.168.10.1/24`, DHCP `.6`–`.254`. Live: `"Qoax VPS"`, `192.168.10.1/23`, DHCP `192.168.10.11`–`192.168.11.254`.
+1. ~~**`unifi_network.default` name.** Code says `"Default"`; live is `"UniFi Devices"`.~~ **Stale.** Both are `Default (Untagged)` since 2026-09-13 (runbook Phase 0); management moved to the new `UniFi Devices` VLAN 99 network, which code declares as `unifi_network.unifi_devices`.
+2. ~~**VLAN 11 no longer exists.**~~ **Resolved in code** (the network and its output are gone). Original note: Code declared `unifi_network.qoax_community_broadcast_vps` (VLAN 11, `192.168.11.1/24`). Live has no VLAN 11 — the Qoax network was widened to a **/23** that spans 192.168.10.0–192.168.11.255 instead. `core/outputs.tf (removed 2026-09-14: the flat layout has no outputs)` still exports `network_qoax_community_broadcast_vps_id`.
+3. ~~**Qoax network renamed and resized.**~~ **Resolved in code** — `networks.tf` now declares `Qoax VPS`, `192.168.10.1/23`. Original note: Code: `"Qoax Community VPS"`, `192.168.10.1/24`, DHCP `.6`–`.254`. Live: `"Qoax VPS"`, `192.168.10.1/23`, DHCP `192.168.10.11`–`192.168.11.254`.
 4. ~~**mDNS is on everywhere.**~~ **Resolved 2026-09-13.** The site-wide Gateway mDNS Proxy was still at the factory `mode: "all"`; it is now `custom`, scoped to **Main + IoT** with 19 services (§11, `mdns.tf`). After that change the controller reports `mdns_enabled = true` on exactly Main and IoT and `false` on the other six — i.e. the per-network flag is *derived from* the site-wide scope (upstream #282). Code now matches: only `unifi_network.guest` changed (`true → false`), and the `TODO(mdns)` markers are gone.
 5. Main / Guest / Public Servers / Private Servers / IoT / FMI{Codes} VPS otherwise match exactly (VLAN id, subnet, DHCP range, purpose).
 
@@ -198,7 +225,7 @@ Still true: **nothing on any switch references the per-VLAN profiles yet.** Aggr
 Also:
 
 - The controller itself is named **UDM StKr** (`super_identity.name`), hostname `UDM-StKr`. The checklist step is done; nothing in code manages it.
-- **LED override:** both APs report `led_override = "on"` — i.e. LED forced **on**, not disabled. The checklist says "Disable LED on the Living Room and Bedroom APs". Either that step didn't take or it was reverted. Worth re-checking in the UI. The code has no `led_override` attribute at all either way. **This one is fixable today** — upstream #337 landed in v0.54.0, so `led_override = "off"` works on both APs (§14.8).
+- ~~**LED override:** both APs report `led_override = "on"`~~ **Resolved 2026-09-08** — set to off live (browser log, change 5) and `led_override = "off"` is in both AP files. Original note: both APs reported LED forced **on**, not disabled. The checklist says "Disable LED on the Living Room and Bedroom APs". Either that step didn't take or it was reverted. Worth re-checking in the UI. The code has no `led_override` attribute at all either way. **This one is fixable today** — upstream #337 landed in v0.54.0, so `led_override = "off"` works on both APs (§14.8).
 - `device_u7_pro_living_room.tf` still carries `lifecycle { ignore_changes = [disabled] }` with a FIXME about the AP being offline/unadopted. It is adopted and online (`state = 1`) now, so that block can go.
 - All three `lifecycle { ignore_changes = [port_override] }` blocks (UDM, USW Aggregation, USW Pro Max) are still in place for the provider port-disable crash. As long as they stay, **none of the port drift in §3.2–§3.4 will ever be reconciled by an apply** — the code is documentation only. **Keep them** until v0.56.0: upstream #430 (merged, unreleased) shows a single declared `port_override` silently strips settings from *every* port on the device, which is very likely what flattened these switches in the first place (§14.3).
 
@@ -207,8 +234,7 @@ Also:
 | Port | Live (= code) | Note |
 |---|---|---|
 | 1, 9 | *no override* | WAN2 / WAN1. Binding a WAN to a physical port is UniFi OS Internet configuration, not a `port_override` — the pre-reset code's `native_networkconf_id = var.wan_*` blocks never corresponded to anything stored. Removed, along with the `wan_primary_id`/`wan_secondary_id` plumbing into the `devices` module. `FIXME(unifi-ui-only)` in the file. |
-| 2 | `Console`, **Main access** *(2026-09-14)* | `forward native`, native Main, tagged `block_all`, pref manual, port security off — the safety-net laptop port for trunk changes. |
-| 3–8 | `Port N (Disabled)`, **disabled** | Port 2 was originally disabled through the UI to learn the gateway's shape, 3–8 written as identical copies. The gateway stores a **smaller** disabled object than the switches: `forward "disabled"`, `port_security_enabled true` + `[]`, `tagged_vlan_mgmt "block_all"`, no native/voice network, `setting_preference "auto"`, `autoneg true`, `isolation/egress_rate_limit/port_keepalive false`, `sd_wan_underlay_port false` — no dot1x, STP or PoE keys at all. |
+| 2–8 | `Port N (Disabled)`, **disabled** | Port 2 was `Console` (Main access for the safety-net laptop) for the duration of runbook Phase 4 on 2026-09-14 and re-disabled the same day. It was originally disabled through the UI to learn the gateway's shape, 3–8 written as identical copies. The gateway stores a **smaller** disabled object than the switches: `forward "disabled"`, `port_security_enabled true` + `[]`, `tagged_vlan_mgmt "block_all"`, no native/voice network, `setting_preference "auto"`, `autoneg true`, `isolation/egress_rate_limit/port_keepalive false`, `sd_wan_underlay_port false` — no dot1x, STP or PoE keys at all. |
 | 10 | `USW-Pro-Max-24-PoE`, UniFi Device profile | Uplink to the Pro Max (its port **26** since 2026-09-14); renamed from `SFP+ 1` on 2026-09-14 to match port 11's convention. The pre-reset code had the **Private Servers** profile here — wrong for an inter-switch trunk. |
 | 11 | `USW-Aggregation`, UniFi Device profile | Renamed from `SFP+ 2`. |
 
@@ -581,7 +607,7 @@ All four are honest. Worth adding the check date to each so they can be re-audit
 
 Given the above, the ordering that avoids wasted work:
 
-1. **Now, safe:** delete `clients.tf`; delete the `config_network = { type = "dhcp" }` block on the Pro Max (latent failure); fix the port profile names/attributes (§2 — `unifi_port_profile` is unaffected by the device-update bug); drop the VLAN 11 network + its output; fix the port-forward name/IP; add `led_override = "off"` to the APs; add the Hotspot zone; delete the dead `radius_profile_secret` and `network_default_id` plumbing.
+1. ~~**Now, safe:** …~~ **All done by 2026-09-14** (see §0.6 for what remains). Original list: delete `clients.tf`; delete the `config_network = { type = "dhcp" }` block on the Pro Max (latent failure); fix the port profile names/attributes (§2 — `unifi_port_profile` is unaffected by the device-update bug); drop the VLAN 11 network + its output; fix the port-forward name/IP; add `led_override = "off"` to the APs; add the Hotspot zone; delete the dead `radius_profile_secret` and `network_default_id` plumbing.
 2. **Now, but as documentation only:** correct the port_override blocks in `device_*.tf` to match live. They won't apply while `ignore_changes` is on, but they stop the files actively lying.
 3. **Blocked on v0.56.0:** removing any `ignore_changes = [port_override]`; static mgmt IPs via `config_network`; re-adding `unifi_client` resources; `wlan_bands` without the ignore.
 4. **Blocked indefinitely / manual runbook:** UniFi OS updates schedule, InnerSpace, mDNS granular filtering, WAN SLA, global switch settings, firewall policy ordering, per-device STP.

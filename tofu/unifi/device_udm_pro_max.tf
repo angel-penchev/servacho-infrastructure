@@ -19,29 +19,26 @@ resource "unifi_device" "udm_pro_max" {
   #   binding is UniFi OS Internet configuration, outside port_overrides; the provider
   #   has no attribute for it. The WANs themselves are in wans.tf.
 
-  # Port 2: "Console", an access port on Main for a laptop plugged straight into the
-  # gateway -- the safety net for trunk changes (runbook Phase 4, enabled 2026-09-14).
-  # Reaches the controller no matter what the switches do. Stored shape read back.
+  # Ports 2-8: Port State Disabled, in the gateway's shape (smaller than the switches':
+  # setting_preference "auto", no dot1x/STP/PoE keys). Every exposed attribute is set.
   # FIXME(unifi-ui-only): sd_wan_underlay_port = false     (SD-WAN Underlay Port off)
+  # Port 2 was briefly "Console" (Main access for the safety-net laptop) during runbook
+  # Phase 4 on 2026-09-14 and disabled again the same day once the laptop was unplugged.
   port_override {
     index                          = 2
-    name                           = "Console"
-    forward                        = "native"
-    native_networkconf_id          = unifi_network.main.id
-    voice_networkconf_id           = null
-    tagged_vlan_mgmt               = "block_all"
-    setting_preference             = "manual"
-    port_security_enabled          = false
+    name                           = "Port 2 (Disabled)"
+    forward                        = "disabled"
+    port_security_enabled          = true
     port_security_mac_address      = []
+    tagged_vlan_mgmt               = "block_all"
+    native_networkconf_id          = null
+    voice_networkconf_id           = null
+    setting_preference             = "auto"
     autoneg                        = true
     isolation                      = false
     egress_rate_limit_kbps_enabled = false
     port_keepalive_enabled         = false
   }
-
-  # Ports 3-8: Port State Disabled, in the gateway's shape (smaller than the switches':
-  # setting_preference "auto", no dot1x/STP/PoE keys). Every exposed attribute is set.
-  # FIXME(unifi-ui-only): sd_wan_underlay_port = false     (SD-WAN Underlay Port off)
 
   port_override {
     index                          = 3

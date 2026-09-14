@@ -19,7 +19,7 @@ Between every step: read back via the API (`/stat/device`: `mgmt_network_id`, `i
 
 ## Safety net — have this before Phase 2
 
-- A laptop you can plug into a **UniFi Device** port (Pro Max 23/24 are the AP uplinks; the UDM's LAN ports 2–8 are *disabled* — re-enable one in the UI if you want a console port on the gateway itself). It will land on the Default LAN and reach the controller at `192.168.1.1`.
+- A laptop you can plug into a **UniFi Device** port (Pro Max 23/24 are the AP uplinks; the UDM's LAN ports 2–8 are *disabled* — during Phase 4 port 2 was temporarily enabled as `Console`, an access port on Main, and disabled again afterwards; re-enable it the same way when needed). Note the Default LAN has had no DHCP since Phase 4, so use a Main access port, not a UniFi Device port, for the laptop.
 - The UDM's local console (UniFi OS at `https://192.168.1.1`) is reachable from Main regardless of what the switches do, because routing between Main and the Default LAN is gateway-internal.
 - Know where the physical reset pinholes are on both switches. Worst case is a re-adoption, not data loss.
 - Do it when a few minutes without Wi-Fi is acceptable.
@@ -100,7 +100,7 @@ Mirror in code. **Commit.**
 
 ## Phase 4 — retire the Default LAN — ✅ done 2026-09-14
 
-**End state (read back):** `UniFi Device` profile native = **UniFi Devices (99)** (the controller stored `forward: customize`, tagged `auto`); every trunk (Pro Max 23/24/26, Aggregation 8, UDM 10/11) native 99 on both ends; **Default (Untagged) DHCP off**; all four devices `state 1` on their static `.99.x`. Pro Max uplink is **port 26** (cable moved from 25 by the user). UDM **port 2 = "Console"**, an access port on Main, enabled for the safety-net laptop and kept.
+**End state (read back):** `UniFi Device` profile native = **UniFi Devices (99)** (the controller stored `forward: customize`, tagged `auto`); every trunk (Pro Max 23/24/26, Aggregation 8, UDM 10/11) native 99 on both ends; **Default (Untagged) DHCP off**; all four devices `state 1` on their static `.99.x`. Pro Max uplink is **port 26** (cable moved from 25 by the user). UDM **port 2 = "Console"**, an access port on Main, enabled for the safety-net laptop and **disabled again the same day** once the laptop was unplugged.
 
 **What the runbook assumed was wrong, and what actually holds:**
 

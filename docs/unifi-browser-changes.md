@@ -85,6 +85,14 @@ Both switches re-homed on their own within ~30 s of the DHCP write; no restarts 
 | **Read-back** | 200, all fields as sent, `wireguard_id 1`, in the `Vpn` zone; public key `mmWQkf3m…EKSw=` equals the one derived from the OpenBao key. `/rest/wireguardpeer` still returns `InvalidObject` on a bare GET (peers are listed per network); none exist yet. |
 | **Codifiable?** | Yes — `unifi_vpn_server.wireguard` already matched; comment updated. Peers → `unifi_wireguard_peer`. |
 
+### UDM port 2 disabled again — 2026-09-14
+
+| | |
+|---|---|
+| **Endpoint** | `PUT /api/s/default/rest/device/<udm-id>` with the full `port_overrides` array (read-modify-write); the `Console` override replaced by a copy of port 3's disabled object with `port_idx 2`, `name "Port 2 (Disabled)"` |
+| **Read-back** | port 2 identical to port 3 except index and name (`forward disabled`, port security on + `[]`, tagged `block_all`, pref `auto`); 9 overrides as before |
+| **Codifiable?** | Yes — `device_udm_pro_max.tf` port 2 back to the disabled shape; drift report §3.2 / A5 and the runbook updated. The laptop that used the port has been unplugged. |
+
 ### UDM port 10 renamed after its peer — 2026-09-14
 
 | | |
