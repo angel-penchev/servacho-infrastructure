@@ -8,6 +8,20 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ---
 
+## Session 2026-09-14 (d) — port labels on the USW Pro Max
+
+`PUT /rest/device/6a9c94d33346f05e9f31829b` with the full `port_overrides` array (26 entries), three `name` values changed, everything else byte-identical; `200 ok`, read back, switch stayed online (state 1). Labels only — no profile, PoE or VLAN change.
+
+| Port | Was | Now | Why |
+|---|---|---|---|
+| 6 | `Port 6` | `LR-06` | Living Room TV, follows the `LR-0x` room scheme of ports 1–5 |
+| 12 | `Port 12` | `JetKVM-Servacho-Gosho` | the JetKVM on it (fixed `192.168.5.20`) |
+| 18 | `Port 18` | `JetKVM-Michelangelo` | the JetKVM on it (fixed `192.168.5.23`) |
+
+Mirrored in `tofu/unifi/device_usw_pro_max_24_poe.tf` the same day. Port blocks are under `ignore_changes`, so the plan is unaffected either way.
+
+---
+
 ## Session 2026-09-14 (c) — first `tofu apply` from CI
 
 Not a browser change but the first time code wrote to the controller, so it belongs in the same ledger. Workflow `tofu-apply.yaml`, run 34843335300, dispatched on `feat/unifi-port-config` at `2c29885` after the state cleanup and a clean plan (46 to import, 4 to change).

@@ -75,7 +75,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
   # Living Room TV (b0:b3:69:41:2c:9b, fixed 192.168.6.10).
   port_override {
     index              = 6
-    name               = "Port 6"
+    name               = "LR-06"
     poe_mode           = "auto"
     setting_preference = "manual"
     port_profile_id    = unifi_port_profile.iot.id
@@ -168,10 +168,10 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_keepalive_enabled         = false
   }
 
-  # JetKVM-Servacho-Gosho (30:52:53:0a:09:87, fixed 192.168.5.20).
+  # 30:52:53:0a:09:87, fixed 192.168.5.20.
   port_override {
     index              = 12
-    name               = "Port 12"
+    name               = "JetKVM-Servacho-Gosho"
     poe_mode           = "auto"
     setting_preference = "manual"
     port_profile_id    = unifi_port_profile.private_servers.id
@@ -217,10 +217,10 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id    = unifi_port_profile.host_device.id
   }
 
-  # JetKVM-Michelangelo (30:52:53:0d:1a:68, fixed 192.168.5.23).
+  # 30:52:53:0d:1a:68, fixed 192.168.5.23.
   port_override {
     index              = 18
-    name               = "Port 18"
+    name               = "JetKVM-Michelangelo"
     poe_mode           = "auto"
     setting_preference = "manual"
     port_profile_id    = unifi_port_profile.private_servers.id
