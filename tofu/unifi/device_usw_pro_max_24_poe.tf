@@ -1,19 +1,14 @@
 resource "unifi_device" "usw_pro_max_24_poe" {
   mac  = "9c:05:d6:e2:6b:1d"
   name = "USW Pro Max 24 PoE"
-  # FIXME(unifi): forget_on_destroy is a provider-only flag, yet it is Optional+Computed
-  #   and import sets it to true, so declaring the intended `false` plans an update PUT
-  #   (with the #463 field-dropping hazard) just to change a value the controller never
-  #   sees. Left at the imported default; it only matters on `tofu destroy`, which is
-  #   never run against adopted hardware here. Upstream: make it a plain Optional with
-  #   a default, or exclude it from the update diff.
+  # FIXME(unifi): forget_on_destroy is Optional+Computed and import sets it true; declaring
+  #   the intended `false` would plan an update PUT (#463 hazard) for a provider-only flag
+  #   that only matters on `tofu destroy`. Left at the imported default.
   disabled = false
-  # Management on UniFi Devices (VLAN 99) since 2026-09-13. A switch keeps "Network
-  # Override" ON even though the trunks are native 99 since Phase 4 (2026-09-14): its
-  # CPU sits in VLAN 99 and the uplink's PVID strips the tag, so the wire is untagged.
-  # Override OFF would put the CPU in VLAN 1 and send management *tagged 1* out a
-  # native-99 uplink -- the switch goes dark (happened live, fixed by a cable move).
-  # APs are the opposite, see device_u7_pro_*.tf.
+  # Management on UniFi Devices (VLAN 99). A switch keeps "Network Override" ON although
+  # the trunks are native 99: its CPU sits in VLAN 99 and the uplink's PVID strips the
+  # tag. Override OFF would put the CPU in VLAN 1 and send management *tagged 1* out a
+  # native-99 uplink -- the switch goes dark. APs are the opposite, see device_u7_pro_*.tf.
   mgmt_network_id = unifi_network.unifi_devices.id
 
   # FIXME(unifi): read-only in practice -- v0.55.0 drops config_network from the update
@@ -34,9 +29,8 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     ignore_changes = [port_override]
   }
 
-  # Port overrides read back 2026-09-13. Profiled ports store exactly {name, poe_mode?,
-  # setting_preference, portconf_id}; everything else comes from the profile
-  # (port_profiles.tf).
+  # Profiled ports store exactly {name, poe_mode?, setting_preference, portconf_id};
+  # everything else comes from the profile (port_profiles.tf).
 
   port_override {
     index              = 1
@@ -103,7 +97,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id    = unifi_port_profile.host_device.id
   }
 
-  # Ports 9-11: Port State Disabled, in the switch's shape (read back 2026-09-13).
+  # Ports 9-11: Port State Disabled, in the switch's shape.
   # Every exposed attribute is set; the live override also carries these UI-only keys:
   # FIXME(unifi-ui-only): stp_edge_state = "enabled"       (Port Mode: Edge)
   # FIXME(unifi-ui-only): stp_bpdu_guard_enabled = true    (Services -> BPDU Guard)
@@ -240,7 +234,6 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id    = unifi_port_profile.host_device.id
   }
 
-  # Host Device by decision (2026-09-13).
   port_override {
     index              = 20
     name               = "BR-04"
@@ -281,8 +274,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id    = unifi_port_profile.unifi_devices.id
   }
 
-  # SFP+ 1: unused since the uplink cable moved to port 26 on 2026-09-14, Port State
-  # Disabled the same day. Same shape and UI-only keys as ports 9-11 (see their FIXMEs).
+  # SFP+ 1: unused, Port State Disabled. Same shape and UI-only keys as ports 9-11.
   port_override {
     index                          = 25
     name                           = "SFP+ 1 (Disabled)"
@@ -303,7 +295,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_keepalive_enabled         = false
   }
 
-  # SFP+ 2: 10 GbE uplink to UDM port 10 (cable moved here from port 25 on 2026-09-14).
+  # SFP+ 2: 10 GbE uplink to UDM port 10.
   port_override {
     index              = 26
     name               = "UDM-Pro-Max"

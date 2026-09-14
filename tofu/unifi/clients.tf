@@ -1,10 +1,9 @@
-# Fixed-IP reservations, attribute-exact against live (2026-09-13). Only the port-12
+# Fixed-IP reservations, attribute-exact against live. Only the port-12
 # JetKVM carries a network binding, because live does.
 #
 # FIXME(unifi): at v0.55.0 every in-place unifi_client update fails with "inconsistent
 #   result after apply: .last_ip" (upstream #428, fixed on main as #447, unreleased).
-#   Creates and no-op plans are fine, so: import before the first plan, and change
-#   attributes in the UI first, then mirror.
+#   Creates and no-op plans are fine, so change attributes in the UI first, then mirror.
 
 # Proxmox host, USW Aggregation port 1.
 resource "unifi_client" "servacho_gosho" {
@@ -19,8 +18,8 @@ resource "unifi_client" "jetkvm_servacho_gosho" {
   mac      = "30:52:53:0a:09:87"
   name     = "JetKVM-Servacho-Gosho"
   fixed_ip = "192.168.5.20"
-  # FIXME(unifi): no network_id declared although live HAS one (Private Servers, verified
-  #   2026-09-14). The provider's unifi_client Read does not populate network_id, so
+  # FIXME(unifi): no network_id declared although live HAS one (Private Servers).
+  #   The provider's unifi_client Read does not populate network_id, so
   #   declaring it plans an in-place update on every run -- which #428 cannot perform.
   #   Re-add `network_id = unifi_network.private_servers.id` once Read maps it.
   allow_existing = true

@@ -1,5 +1,5 @@
-# All five profiles match live (audited field by field against /rest/portconf on
-# 2026-09-13). stp_port_mode is the Services -> STP toggle, not the Port Mode radio.
+# All five profiles mirror live (/rest/portconf). stp_port_mode is the Services -> STP
+# toggle, not the Port Mode radio.
 # Attributes left unset are optional+computed or absent on the controller.
 #
 # UI fields with no provider attribute (live value on all five unless noted; a
@@ -19,7 +19,7 @@
 
 # Trunks between UniFi devices (UDM <-> switches, switches <-> APs): every VLAN, no
 # 802.1X, otherwise the infrastructure could not come up before RADIUS is reachable.
-# Native is UniFi Devices (VLAN 99) since runbook Phase 4 (2026-09-14): management is
+# Native is UniFi Devices (VLAN 99): management is
 # untagged on every trunk and a factory-reset device plugged into any of these ports
 # lands on 99 with DHCP. The controller rewrites forward "all" to "customize" as soon as
 # the native network is not the Default LAN; with tagged_vlan_mgmt "auto" that still

@@ -1,23 +1,19 @@
 resource "unifi_device" "u7_pro_bedroom" {
   mac  = "9c:05:d6:d9:af:65"
   name = "Bedroom U7-Pro"
-  # FIXME(unifi): forget_on_destroy is a provider-only flag, yet it is Optional+Computed
-  #   and import sets it to true, so declaring the intended `false` plans an update PUT
-  #   (with the #463 field-dropping hazard) just to change a value the controller never
-  #   sees. Left at the imported default; it only matters on `tofu destroy`, which is
-  #   never run against adopted hardware here. Upstream: make it a plain Optional with
-  #   a default, or exclude it from the update diff.
+  # FIXME(unifi): forget_on_destroy is Optional+Computed and import sets it true; declaring
+  #   the intended `false` would plan an update PUT (#463 hazard) for a provider-only flag
+  #   that only matters on `tofu destroy`. Left at the imported default.
   disabled = false
 
   led_override = "off"
 
-  # Management on UniFi Devices (VLAN 99) since 2026-09-13, UNTAGGED since Phase 4
-  # (2026-09-14). For an AP "Network Override" must be OFF once its uplink port is
-  # native 99: with the override on it tags 99 and the switch answers untagged, so it
-  # goes deaf (verified live). Override-off is stored as mgmt_network_id = the Default
-  # LAN -- the controller rejects an empty value -- which is also why the UI lists the
-  # AP under "Default (Untagged)" although it lives on 192.168.99.x. Switches are the
-  # opposite: they keep the override ON (see device_usw_*.tf).
+  # Management on UniFi Devices (VLAN 99), untagged. An AP must have "Network Override"
+  # OFF when its uplink port is native 99: with it on, the AP tags 99, the switch answers
+  # untagged, and the AP goes deaf. Override-off is stored as mgmt_network_id = Default
+  # LAN (an empty value is rejected), which is also why the UI lists the AP under
+  # "Default (Untagged)" although it lives on 192.168.99.x. Switches are the opposite,
+  # see device_usw_*.tf.
   mgmt_network_id = unifi_network.default.id
 
   # FIXME(unifi): read-only in practice -- v0.55.0 drops config_network from the update

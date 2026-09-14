@@ -1,4 +1,4 @@
-# The single live rule (2026-09-13).
+# The single live rule.
 # FIXME(unifi-ui-only): enabled true, log false, src_limiting_enabled false,
 #   destination_ips [] -- all at controller defaults, no provider attribute.
 resource "unifi_port_forward" "nginx_proxy" {

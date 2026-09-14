@@ -1,8 +1,7 @@
-# The four accounts match live attribute for attribute (2026-09-13) and all have
-# passwords in OpenBao secret/unifi/radius/users. VLAN 2 = Main, the network an
+# Passwords in OpenBao secret/unifi/radius/users. VLAN 2 = Main, the network an
 # authenticated 802.1X client is placed on.
-# TODO(import): unifi_radius_user has no allow_existing -- import before the first
-#   apply or the create 400s on the duplicate name.
+# FIXME(unifi): unifi_radius_user has no allow_existing -- a user created by hand must be
+#   imported before it is declared, or the create 400s on the duplicate name.
 locals {
   radius_users = {
     "a.penchev"  = { tunnel_type = 13, tunnel_medium_type = 6, vlan = 2 }

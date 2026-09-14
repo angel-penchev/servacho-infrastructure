@@ -1,5 +1,5 @@
-# Gateway mDNS Proxy (Settings -> Networks -> Global). Live matches the block below
-# since 2026-09-13; the live value is the source of truth.
+# Gateway mDNS Proxy (Settings -> Networks -> Global). Live matches the block below,
+# and the live value is the source of truth.
 #
 # FIXME(unifi): no `unifi_setting_mdns` resource at v0.55.0 and nothing upstream. The
 #   block is kept as HCL for the day the provider grows one; until then apply by hand

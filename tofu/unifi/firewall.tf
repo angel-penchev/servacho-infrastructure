@@ -24,7 +24,7 @@ resource "unifi_firewall_zone" "hotspot" {
 }
 
 # Custom zone holding the IoT network so the default inter-zone "block" applies to
-# it from every other zone (created live 2026-09-13). Traffic into it is opened per
+# it from every other zone. Traffic into it is opened per
 # source network by the policies below.
 resource "unifi_firewall_zone" "iot" {
   name = "IoT"
@@ -37,7 +37,7 @@ resource "unifi_firewall_zone" "iot" {
 # FIXME(unifi): policy ordering is read-only -- `index` is controller-assigned and the
 #   API ignores it on write (upstream #348). Live: 10000 and 10001 in the Internal -> IoT
 #   pair, ahead of the predefined block.
-# Both policies mirror live (2026-09-14): whole IoT zone as destination, respond
+# Both policies mirror live: whole IoT zone as destination, respond
 # traffic allowed, all protocols, always on, no logging.
 resource "unifi_firewall_policy" "allow_main_to_iot" {
   name                 = "Allow Main to IoT"

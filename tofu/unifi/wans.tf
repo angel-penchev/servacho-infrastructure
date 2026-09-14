@@ -41,7 +41,7 @@ resource "unifi_wan" "vivacom_secondary" {
 }
 
 # FIXME(unifi): no `unifi_wan_sla` resource at v0.55.0 and nothing upstream. Intended
-#   WAN SLA monitor (Settings -> Internet); live has none (last checked 2026-09-08).
+#   WAN SLA monitor (Settings -> Internet); live has none.
 /*
 resource "unifi_wan_sla" "ping_dns_probe" {
   name                = "Ping and DNS probe"

@@ -2,8 +2,8 @@
 #
 # FIXME(unifi): alarms are UniFi OS alarm-service objects (`/api/v2/alarms/network`,
 #   `/api/v2/alarms/profiles`), outside the Network API, and the provider has no
-#   alarm/notification resource. Live, verified 2026-09-14: 17 rules, all controller
-#   defaults from first boot (2026-09-05), none custom, no profiles. Every rule: action
+#   alarm/notification resource. Live: 17 rules, all controller defaults from first
+#   boot, none custom, no profiles. Every rule: action
 #   Notify -> all admins, When to Send "Always", scope include-all; admin preference
 #   push on, email off. Because these are defaults, a factory reset reproduces them;
 #   any custom alarm added later must be listed here.

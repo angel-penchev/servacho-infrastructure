@@ -1,12 +1,9 @@
 resource "unifi_device" "udm_pro_max" {
   mac  = "28:70:4e:5c:b4:b2"
   name = "UDM StKr"
-  # FIXME(unifi): forget_on_destroy is a provider-only flag, yet it is Optional+Computed
-  #   and import sets it to true, so declaring the intended `false` plans an update PUT
-  #   (with the #463 field-dropping hazard) just to change a value the controller never
-  #   sees. Left at the imported default; it only matters on `tofu destroy`, which is
-  #   never run against adopted hardware here. Upstream: make it a plain Optional with
-  #   a default, or exclude it from the update diff.
+  # FIXME(unifi): forget_on_destroy is Optional+Computed and import sets it true; declaring
+  #   the intended `false` would plan an update PUT (#463 hazard) for a provider-only flag
+  #   that only matters on `tofu destroy`. Left at the imported default.
   disabled = false
 
   # FIXME(unifi): port_override is ignored until upstream #470 (crash on the empty MAC
@@ -16,9 +13,8 @@ resource "unifi_device" "udm_pro_max" {
     ignore_changes = [port_override]
   }
 
-  # Port overrides read back 2026-09-13. Profiled ports store exactly {name, poe_mode?,
-  # setting_preference, portconf_id}; everything else comes from the profile
-  # (port_profiles.tf).
+  # Profiled ports store exactly {name, poe_mode?, setting_preference, portconf_id};
+  # everything else comes from the profile (port_profiles.tf).
   #
   # FIXME(unifi-ui-only): ports 1 (WAN2) and 9 (WAN1) have no override. WAN-to-port
   #   binding is UniFi OS Internet configuration, outside port_overrides; the provider
@@ -27,8 +23,6 @@ resource "unifi_device" "udm_pro_max" {
   # Ports 2-8: Port State Disabled, in the gateway's shape (smaller than the switches':
   # setting_preference "auto", no dot1x/STP/PoE keys). Every exposed attribute is set.
   # FIXME(unifi-ui-only): sd_wan_underlay_port = false     (SD-WAN Underlay Port off)
-  # Port 2 was briefly "Console" (Main access for the safety-net laptop) during runbook
-  # Phase 4 on 2026-09-14 and disabled again the same day once the laptop was unplugged.
   port_override {
     index                          = 2
     name                           = "Port 2 (Disabled)"

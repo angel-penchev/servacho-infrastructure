@@ -4,26 +4,22 @@ locals {
   }
 }
 
-# Site settings the provider can express. Every block mirrors `/get/setting`
-# (read back 2026-09-13).
-# FIXME(unifi): `unifi_setting` ImportState stores only the id -- the first plan after
-#   import (2026-09-14) showed every block below as an add and `usg` as unknown, although
-#   all values were already live. The first apply therefore re-POSTs these settings
-#   (harmless while they match live: the RADIUS secret and passphrases come from OpenBao
-#   and must equal the controller's). Upstream: read the site settings on import.
+# Site settings the provider can express. Every block mirrors `/get/setting`.
+# FIXME(unifi): `unifi_setting` ImportState stores only the id, so the first plan after an
+#   import shows every block as an add and the apply re-POSTs values that are already live
+#   (harmless while they match: the RADIUS secret and passphrases come from OpenBao and
+#   must equal the controller's). Upstream: read the site settings on import.
 resource "unifi_setting" "default" {
   site = "default"
 
-  # network_ids is declared empty on purpose: the provider returns [] after the write
-  # while the plan carried null, and OpenTofu aborts the apply with "Provider produced
-  # inconsistent result" (2026-09-14, run 34843335300). FIXME(unifi): the attribute
-  #   should be normalised null <-> [] by the provider.
+  # FIXME(unifi): network_ids is declared empty on purpose -- the provider returns [] after
+  #   the write while a null plan value aborts the apply with "inconsistent result".
   igmp_snooping = {
     enabled     = false
     network_ids = []
   }
 
-  # Daily at 04:00 (created live 2026-09-13 to match this block).
+  # Daily at 04:00.
   auto_speedtest = {
     enabled   = true
     cron_expr = "0 4 * * *"
@@ -71,7 +67,7 @@ resource "unifi_setting" "default" {
   }
 }
 
-# Control Plane -> Console, the rest of the page (audited 2026-09-13): UniFi OS console
+# Control Plane -> Console, the rest of the page: UniFi OS console
 # settings or Network `super_*` settings, none with a `unifi_setting` block. Live values:
 # FIXME(unifi): Name "UDM StKr" -- the console name (the Network device name is in
 #   device_udm_pro_max.tf).

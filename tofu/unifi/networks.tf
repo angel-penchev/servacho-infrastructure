@@ -2,31 +2,23 @@
 # Per-network multicast_dns is derived by the controller from the site-wide Gateway
 # mDNS Proxy scope (Main + IoT, see mdns.tf; upstream #282) -- not an independent knob.
 #
-# Two attributes appear on every network because the first real plan (CI run
-# 34837315409, 2026-09-14, after import) showed them as drift otherwise:
-# - setting_preference = "manual": what the controller stores for every network except
-#   Main; the provider defaults to "auto" and would have flipped the other eight.
-# - dhcp_guarding: the UI enables DHCP Guarding with the gateway as the only allowed
-#   server on every VLAN it creates; without the block the plan would have switched
-#   guarding OFF on seven networks.
-#   FIXME(unifi): declared to MIRROR live only. The controller stores the trusted
-#   servers as dhcpd_ip_1..3 (verified live 2026-09-14) and the provider reads them into
-#   `servers` correctly, but its update PUT sends dhcpguard_enabled WITHOUT dhcpd_ip_*,
-#   so the controller answers api.err.MissingIPAddress (400) and ANY update to a
-#   guarded network fails (apply run 34843335300, unifi_network.unifi_devices). Until
-#   that is fixed upstream, change guarded networks in the UI/API first and mirror here.
-#   FIXME(unifi): Read is sticky as well (network_resource.go, networkToModel): outside an
-#   import it only fills `dhcp_guarding` when the previous state already had it. A network
-#   imported while guarding was OFF keeps a null block forever, so enabling guarding live
-#   afterwards still plans `+ dhcp_guarding` on every run (plan 34843770282). The only way
-#   out is `tofu state rm` + re-import of that one network.
+# setting_preference = "manual" is what the controller stores for every network created
+# on the Networks page (Main came from the setup wizard and is "auto"); the provider
+# defaults to "auto". dhcp_guarding mirrors the UI, which enables DHCP Guarding with the
+# gateway as the only trusted server on every VLAN it creates.
+# FIXME(unifi): dhcp_guarding is declared to MIRROR live only -- it is write-broken and
+#   read-sticky at v0.55.0. The update PUT sends dhcpguard_enabled without the trusted
+#   servers (dhcpd_ip_1..3), which the controller rejects with api.err.MissingIPAddress,
+#   so ANY update to a guarded network fails. Read fills the block only on import or when
+#   state already has it, so a network imported with guarding off needs `state rm` and a
+#   re-import once guarding is on (docs/unifi-import-plan.md). Change guarded networks in
+#   the UI/API first and mirror here.
 
 # The built-in VLAN 1 network. Cannot be deleted or tagged, so it stays declared, but
-# nothing uses it any more: management moved to VLAN 99 and the trunks' native network
-# followed on 2026-09-14 (docs/unifi-mgmt-vlan-99-runbook.md, Phase 4). DHCP is off so
-# anything that lands untagged on VLAN 1 gets no address. The two APs still *reference*
-# it via mgmt_network_id -- that is the controller's way of saying "no override /
-# untagged", see device_u7_pro_*.tf.
+# nothing uses it: management and the trunks' native network are VLAN 99
+# (docs/unifi-mgmt-vlan-99-runbook.md). DHCP is off so anything that lands untagged on
+# VLAN 1 gets no address. The two APs still *reference* it via mgmt_network_id -- that
+# is the controller's way of saying "no override / untagged", see device_u7_pro_*.tf.
 resource "unifi_network" "default" {
   name    = "Default (Untagged)"
   purpose = "corporate"
@@ -35,22 +27,13 @@ resource "unifi_network" "default" {
   multicast_dns      = false
   setting_preference = "manual"
 
-  # DHCP is off (Phase 4, live dhcpd_enabled false).
-  # FIXME(unifi): the provider reads a disabled DHCP server as a *null* dhcp_server
-  #   block, so "off" cannot be declared -- `dhcp_server = { enabled = false, ... }`
-  #   planned a perpetual update. Absent means off here; the range .1.6-.1.254 is
-  #   still stored on the controller and would come back if DHCP were re-enabled.
+  # DHCP is off. FIXME(unifi): the provider reads a disabled DHCP server as a *null*
+  #   dhcp_server block, so "off" cannot be declared -- `enabled = false` plans a
+  #   perpetual update. Absent means off here; the stored range .1.6-.1.254 would come
+  #   back if DHCP were re-enabled.
 }
 
-# Management network for the UDM, switches and APs (runbook Phase 0, 2026-09-13).
-# Created through the API, so it lacked three fields the UI sets on every network
-# (auto_scale, lte_lan, gateway_type = "default") and had DHCP Guarding off. The first
-# apply tried to bring it in line with the other eight and hit the dhcp_guarding write
-# bug above; the same change was then made through the API (2026-09-14, incl. the empty
-# dhcpd_ip_2/3 keys the UI stores) and this block mirrors it. Because the network was
-# imported while guarding was off, state carries a null dhcp_guarding and the sticky Read
-# (header FIXME) never fills it; re-imported once on 2026-09-14 (unifi-import-plan.md,
-# "Re-import one resource"), plan clean since.
+# Management network for the UDM, switches and APs (docs/unifi-mgmt-vlan-99-runbook.md).
 resource "unifi_network" "unifi_devices" {
   name               = "UniFi Devices"
   purpose            = "corporate"

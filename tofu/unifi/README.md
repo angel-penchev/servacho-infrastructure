@@ -2,9 +2,9 @@
 
 One controller, one site, mirrored resource by resource. **The controller is the source
 of truth**: change things in the UI (or its API), read them back, mirror them here, and
-log the change in `docs/unifi-browser-changes.md`. `tofu apply` is not part of the
-workflow yet — every resource still needs a `tofu import` first (status and provider
-caveats: `docs/unifi-manual-vs-tofu.md`).
+log the change in `docs/unifi-browser-changes.md`. Everything live is imported and the
+plan must stay clean; `tofu apply` runs from CI (status, history and provider caveats:
+`docs/unifi-manual-vs-tofu.md`).
 
 ## Layout
 
@@ -39,8 +39,8 @@ output → variable plumbing. One topic per file:
   carries the live values so a rebuild can reproduce them by hand.
 - **`FIXME(unifi-ui-only)`** — a field the UI sets that has no attribute on an otherwise
   managed resource. A from-scratch create would land on controller defaults.
-- **`TODO(import)`** — resources that exist live and must be imported before any apply.
-- Comments carry the date a value was read back from the controller.
+- Comments explain *why* a value is what it is; dates, CI runs and the change history
+  live in `docs/`, not in the code.
 - Device `port_override` blocks carry `ignore_changes` until the upstream array-handling
   bugs land (#430/#438/#470); they document live, they do not reconcile it.
 

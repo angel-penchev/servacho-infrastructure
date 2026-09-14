@@ -24,8 +24,8 @@ provider "vault" {
 }
 
 # TODO(vault): every `data "vault_kv_secret_v2"` below is deprecated by hashicorp/vault
-# v5.x in favour of the ephemeral `vault_kv_secret_v2` resource (12 warnings per plan,
-# first seen 2026-09-14). Ephemeral values need write-only provider arguments to be
+# v5.x in favour of the ephemeral `vault_kv_secret_v2` resource (12 warnings per plan).
+# Ephemeral values need write-only provider arguments to be
 # useful for the passphrases/secret handed to the unifi module; migrate once OpenTofu
 # and the unifi provider support them, and the warnings go away.
 data "vault_kv_secret_v2" "proxmox_credentials" {

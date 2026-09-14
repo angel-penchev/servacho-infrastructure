@@ -4,7 +4,7 @@
 # reference each other directly. The only inputs are the secrets below; the root
 # module (../providers.tf, ../unifi_module.tf) reads them from OpenBao and configures
 # the provider. The controller is the source of truth: change in the UI or API, read
-# back, mirror here. No apply until every resource is imported (docs/unifi-manual-vs-tofu.md).
+# back, mirror here; the plan must stay clean (docs/unifi-manual-vs-tofu.md).
 
 terraform {
   required_providers {

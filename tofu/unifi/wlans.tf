@@ -54,9 +54,8 @@ resource "unifi_wlan" "stkr_guest" {
   is_guest = true
 
   # Must stay declared. The attribute is Optional+Computed with a false default
-  # (provider wlan_resource.go:469), so leaving it out makes the first apply switch
-  # Client Device Isolation OFF on the guest SSID without showing a diff. Live is on.
-  # Ported from the remote branch's 2026-09-11 fix during the 2026-09-14 merge.
+  # (provider wlan_resource.go:469), so leaving it out makes an apply switch Client
+  # Device Isolation OFF on the guest SSID without showing a diff. Live is on.
   l2_isolation = true
 
   group_rekey = 0 # live: GTK rekey disabled on every SSID (provider default 3600)
