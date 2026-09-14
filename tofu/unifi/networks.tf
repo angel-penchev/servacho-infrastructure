@@ -156,7 +156,7 @@ resource "unifi_network" "iot" {
   }
 }
 
-# A /23 (192.168.10.0-192.168.11.255); VLAN 11 no longer exists.
+# A /23 (192.168.10.0-192.168.11.255).
 resource "unifi_network" "qoax_community_vps" {
   name               = "Qoax VPS"
   purpose            = "corporate"
