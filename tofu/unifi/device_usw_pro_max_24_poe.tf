@@ -5,7 +5,12 @@ resource "unifi_device" "usw_pro_max_24_poe" {
   disabled           = false
   flowctrl_enabled   = false
   jumboframe_enabled = false
-  # Management on UniFi Devices (VLAN 99) since 2026-09-13.
+  # Management on UniFi Devices (VLAN 99) since 2026-09-13. A switch keeps "Network
+  # Override" ON even though the trunks are native 99 since Phase 4 (2026-09-14): its
+  # CPU sits in VLAN 99 and the uplink's PVID strips the tag, so the wire is untagged.
+  # Override OFF would put the CPU in VLAN 1 and send management *tagged 1* out a
+  # native-99 uplink -- the switch goes dark (happened live, fixed by a cable move).
+  # APs are the opposite, see device_u7_pro_*.tf.
   mgmt_network_id = unifi_network.unifi_devices.id
 
   # FIXME(unifi): read-only in practice -- v0.55.0 drops config_network from the update
@@ -273,10 +278,10 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id    = unifi_port_profile.unifi_devices.id
   }
 
-  # SFP+ 2, no link. The live UDM uplink is port 25 (SFP+ 1), which has no override and
-  # runs on the built-in "All" profile (native Default). Before runbook Phase 4 changes
-  # the UniFi Device profile's native network, put port 25 on that profile or move the
-  # cable to 26.
+  # SFP+ 2: 10 GbE uplink to UDM port 10 (cable moved here from port 25 on 2026-09-14).
+  # Port 25 (SFP+ 1) is now unused and has no override, i.e. the built-in "All" profile
+  # with native Default -- do not plug a UniFi device into it without giving it this
+  # profile first.
   port_override {
     index              = 26
     name               = "UDM-Pro-Max"

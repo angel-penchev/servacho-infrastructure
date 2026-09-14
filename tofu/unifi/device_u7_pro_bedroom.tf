@@ -6,8 +6,14 @@ resource "unifi_device" "u7_pro_bedroom" {
 
   led_override = "off"
 
-  # Management on UniFi Devices (VLAN 99) since 2026-09-13.
-  mgmt_network_id = unifi_network.unifi_devices.id
+  # Management on UniFi Devices (VLAN 99) since 2026-09-13, UNTAGGED since Phase 4
+  # (2026-09-14). For an AP "Network Override" must be OFF once its uplink port is
+  # native 99: with the override on it tags 99 and the switch answers untagged, so it
+  # goes deaf (verified live). Override-off is stored as mgmt_network_id = the Default
+  # LAN -- the controller rejects an empty value -- which is also why the UI lists the
+  # AP under "Default (Untagged)" although it lives on 192.168.99.x. Switches are the
+  # opposite: they keep the override ON (see device_usw_*.tf).
+  mgmt_network_id = unifi_network.default.id
 
   # FIXME(unifi): read-only in practice -- v0.55.0 drops config_network from the update
   #   PUT (upstream #463). Live matches, so the plan is a no-op; changing the address

@@ -1,6 +1,6 @@
 # Runbook: move UniFi device management to VLAN 99
 
-**Decided:** 2026-09-13 · **Status:** Phases 0–3 done (2026-09-13); Phase 4 (optional) pending — see its prerequisites
+**Decided:** 2026-09-13 · **Status:** ✅ complete — Phases 0–3 on 2026-09-13, Phase 4 on 2026-09-14
 **Goal:** infrastructure management leaves the untagged Default LAN (VLAN 1, `192.168.1.0/24`) for a tagged network **UniFi Devices, VLAN 99, `192.168.99.0/24`**. VLAN 1 becomes an empty parking lot. Nothing else moves: Main/Guest/Public/Private/IoT/Qoax/FMI keep their IDs and subnets, so the VLAN-ID-equals-third-octet convention stays intact for every network that has clients.
 
 Every step is **UI first, then read back, then mirror in code** — the same discipline as the rest of `docs/unifi-browser-changes.md`. `tofu apply` is not part of this; the code follows live.
@@ -98,29 +98,41 @@ Same two steps, `.99.3`. Servacho-Gosho (port 1, Private Servers) is unaffected 
 
 Mirror in code. **Commit.**
 
-## Phase 4 — retire the Default LAN *(optional, recommended)* — not started
+## Phase 4 — retire the Default LAN — ✅ done 2026-09-14
 
-**Prerequisites found on 2026-09-13, do these first:**
+**End state (read back):** `UniFi Device` profile native = **UniFi Devices (99)** (the controller stored `forward: customize`, tagged `auto`); every trunk (Pro Max 23/24/26, Aggregation 8, UDM 10/11) native 99 on both ends; **Default (Untagged) DHCP off**; all four devices `state 1` on their static `.99.x`. Pro Max uplink is **port 26** (cable moved from 25 by the user). UDM **port 2 = "Console"**, an access port on Main, enabled for the safety-net laptop and kept.
 
-- **Pro Max port 25** is the live uplink to UDM port 10 but has *no* override — it runs on the built-in "All" profile whose native stays Default. Port 26 carries the `UDM-Pro-Max` name and the UniFi Device profile but has no link. Either move the cable to 26 or put port 25 on the UniFi Device profile; otherwise step 1 leaves the two ends of that trunk with different native networks.
-- The laptop from *Safety net*, physically plugged in. Step 1 changes every trunk at once and a device that ends up expecting tagged 99 on a link that now delivers it untagged (or vice versa) cannot receive the fix from the controller.
-- Not yet verified: that the controller re-provisions a device to *untagged* management when its `mgmt_network_id` equals the uplink's new native network. The runbook assumed so; if it does not, all four devices drop off together. Test on one AP first by giving **only Pro Max port 23** a manual override with native = UniFi Devices, and see whether the Living Room AP stays adopted.
+**What the runbook assumed was wrong, and what actually holds:**
 
-With all four devices on 99:
+| Device type | `mgmt_network_id` ("Network Override") | Wire | Result on a native-99 port |
+|---|---|---|---|
+| **AP** | UniFi Devices (on) | tags 99 | ❌ deaf — the switch answers untagged, `eth0.99` never hears it (Test 1, Living Room AP, ~90 s) |
+| **AP** | Default LAN (**off**) | untagged | ✅ (Test 2) — stored as the Default LAN's id; an empty value is `InvalidPayload`. The UI therefore lists the AP under *Default (Untagged)* while it sits on `.99.x`. Cosmetic. |
+| **Switch** | UniFi Devices (**on**) | CPU in VLAN 99, PVID strips the tag → untagged | ✅ (Aggregation first, then Pro Max) |
+| **Switch** | Default LAN (off) | CPU in VLAN 1 → **tagged 1** out a native-99 uplink | ❌ dark — happened to the Pro Max; recovered without a reset by moving its uplink cable to a native-Default port (25) so its untagged frames reached UDM port 10 (already native 99) |
 
-1. **UniFi Device port profile → Native VLAN/Network → `UniFi Devices` (99).** All trunks now carry management *untagged* on 99 instead of tagged; the devices' `mgmt_network_id` already equals the native, so the switches switch to untagged management in place. This is the one step where all four devices reconfigure at once — expect a blip on everything, and a re-adoption if it goes wrong. Do it last, on a quiet evening, with the laptop plugged in.
-   - Benefit: a factory-reset device plugged into any UniFi Device port lands on 99 with DHCP and adopts normally, so the Default LAN no longer needs to serve adoption.
-2. **Default network → DHCP off.** Anything that ever lands untagged on VLAN 1 now gets no address. Keep the network (it cannot be deleted: `attr_no_delete`).
-3. Read back; mirror (`unifi_port_profile.unifi_devices.native_networkconf_id`, `unifi_network.default.dhcp_server.enabled = false`). **Commit.**
+The controller does **not** re-derive tagging from the uplink's native network. Every link therefore has to change **both ends at once**, and the device end must receive its config first (it reboots or re-provisions on it) while the gateway end follows within seconds. The tool for "one port at a time" was a temporary profile **`UniFi Device 99`** (a clone of UniFi Device with native 99), later deleted once the shared profile was flipped and the six ports pointed back at it — a wire-level no-op.
 
-If Phase 4 is skipped, leave Default DHCP **on** — it is what a freshly reset device needs to be adopted.
+**Sequence that worked** (each step read back before the next):
+
+1. UDM port 2 → `Console` (Main access) for the laptop.
+2. Temp profile `UniFi Device 99` created via `POST /rest/portconf`.
+3. Living Room AP: Test 1 (port only) failed → reverted → Test 2 (override off, then port 23 → temp 8 s later) ✅. Bedroom AP the same way (port 24).
+4. Pro Max: override off + port 26 → temp + UDM 10 → temp went **dark** (see table). Recovery: cable to port 25, override back **on**, UDM 10 back to UniFi Device — i.e. the Phase 3 trunk.
+5. Aggregation: override stays on; port 8 → temp, UDM 11 → temp 6 s later ✅ (proved the switch rule).
+6. Pro Max: port 26 → temp, UDM 10 → temp, then the user moved the cable 25 → 26 and the link converged by itself.
+7. Shared profile native → 99; ports 23/24/26/8/10/11 → shared profile; temp profile deleted; Default DHCP off.
+
+Total disruption: Living Room Wi-Fi ~5 min across the two tests, both APs ~3 min during the Pro Max recovery, no client on a Host/Server/IoT port affected, nothing reset.
+
+**Left as is:** Pro Max port 25 has no override (built-in "All", native Default) — harmless while nothing is plugged into it. The APs' *Default (Untagged)* label in the device list.
 
 ## Rollback
 
 A device that lost the controller after step 1 of its phase is still reachable on its **old** static address (`.1.x`) via the Default LAN if — and only if — its management VLAN reverted. It usually will not have. Options, in order:
 
 1. Wait 5 minutes. Provisioning is slower than it looks.
-2. PoE-cycle (APs) or power-cycle (switches). A UniFi device that cannot reach its controller for a while retries its last-known-good config.
+2. PoE-cycle (APs) or power-cycle (switches). A UniFi device that cannot reach its controller for a while retries its last-known-good config. *(2026-09-14: no automatic revert was observed on the Pro Max in 4 min; what saved it was moving its uplink to a port whose native matched what it was sending.)*
 3. Plug the laptop into a UniFi Device port, open `https://192.168.1.1`, and check whether the device shows *Adopting* / *Disconnected*. If Disconnected: Settings → toggle Network Override off → Apply. The controller pushes it on the next inform.
 4. Factory reset the device (pinhole 10 s) and re-adopt. It comes back on the Default LAN via DHCP; its port overrides live on the controller and re-apply on adoption. The only thing lost is the ~2 minutes.
 

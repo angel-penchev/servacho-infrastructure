@@ -8,6 +8,30 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ---
 
+## Session 2026-09-14 (b) — management VLAN migration, Phase 4
+
+Full narrative, tests and the AP-vs-switch rule in `unifi-mgmt-vlan-99-runbook.md` (Phase 4). Writes, in order, all `PUT /api/s/default/rest/device/<id>` unless noted:
+
+| # | Write | Read-back |
+|---|---|---|
+| 1 | UDM `port_overrides[2]` → `{name Console, forward native, native Main, tagged block_all, pref manual, port_security off}` | stored as sent (+ `voice_networkconf_id ""`), link up 100 Mb/s |
+| 2 | `POST /rest/portconf` **`UniFi Device 99`** = UniFi Device with native UniFi Devices | controller stored `forward customize` (from `all`); fixed nothing else |
+| 3 | Pro Max `port_overrides[23]` → temp profile *(Test 1)* | Living Room AP stopped informing (90 s) → **reverted**, AP back in 30 s |
+| 4 | Living Room AP `mgmt_network_id` → Default LAN; 8 s later Pro Max `[23]` → temp *(Test 2)* | AP `state 1` on `.99.4` after ~80 s |
+| 5 | Bedroom AP same (`[24]`) | `state 1` on `.99.5` |
+| 6 | Pro Max `mgmt_network_id` → Default LAN; UDM `[10]` → temp; Pro Max `[26]` → temp | **Pro Max dark** (state 7, 4 min). User moved uplink cable 26 → 25 → switch back in 30 s |
+| 7 | Pro Max `mgmt_network_id` → UniFi Devices; 6 s later UDM `[10]` → UniFi Device | switch and both APs `state 1` (Phase 3 trunk restored) |
+| 8 | Aggregation `[8]` → temp; 6 s later UDM `[11]` → temp | Aggregation `state 1` throughout, Servacho-Gosho present |
+| 9 | Pro Max `[26]` → temp; UDM `[10]` → temp; user moved cable 25 → 26 | all four `state 1`, Pro Max uplink `port 26` |
+| 10 | `PUT /rest/portconf/<UniFi Device>` native → UniFi Devices; Pro Max `[23,24,26]`, Agg `[8]`, UDM `[10,11]` → UniFi Device | profile `forward customize`, all six on it, all devices `state 1` |
+| 11 | `DELETE /rest/portconf/<UniFi Device 99>` | five profiles left |
+| 12 | `PUT /rest/networkconf/<Default>` `dhcpd_enabled false` | read back `false` |
+| — | Living Room AP `mgmt_network_id: ""` *(cosmetic attempt)* | **rejected** `api.err.InvalidPayload`, nothing changed |
+
+Codifiable: all of it except the temp profile (gone) — `port_profiles.tf`, `networks.tf`, `device_*.tf`. Also seen: the JetKVM on Pro Max port 12 now holds its `192.168.5.20` reservation after the user's reboot.
+
+---
+
 ## Session 2026-09-13
 
 Sixteen topics (the UDM overrides were added on request after the USW pass; port forwards were a read-only diff; BPDU Guard and then Phase 0 of the VLAN 99 migration closed the day). RADIUS and the port profiles were read-only verifications of changes the user made in the UI; the Gateway mDNS Proxy, Pro Max port 12 (+ one client fixed IP) and the **USW port override alignment** were **changed** (each authorised by the user).

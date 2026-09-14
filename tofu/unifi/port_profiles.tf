@@ -19,11 +19,15 @@
 
 # Trunks between UniFi devices (UDM <-> switches, switches <-> APs): every VLAN, no
 # 802.1X, otherwise the infrastructure could not come up before RADIUS is reachable.
-# Native stays the untagged Default until runbook Phase 4; VLAN 99 rides tagged.
+# Native is UniFi Devices (VLAN 99) since runbook Phase 4 (2026-09-14): management is
+# untagged on every trunk and a factory-reset device plugged into any of these ports
+# lands on 99 with DHCP. The controller rewrites forward "all" to "customize" as soon as
+# the native network is not the Default LAN; with tagged_vlan_mgmt "auto" that still
+# passes every VLAN. Declared as stored so the plan is clean.
 resource "unifi_port_profile" "unifi_devices" {
   name                  = "UniFi Device"
-  forward               = "all"
-  native_networkconf_id = unifi_network.default.id
+  forward               = "customize"
+  native_networkconf_id = unifi_network.unifi_devices.id
   poe_mode              = "auto"
   autoneg               = true
   dot1x_ctrl            = "force_authorized"

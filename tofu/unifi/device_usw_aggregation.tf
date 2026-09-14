@@ -4,7 +4,12 @@ resource "unifi_device" "usw_aggregation" {
   forget_on_destroy = false
   disabled          = false
 
-  # Management on UniFi Devices (VLAN 99) since 2026-09-13.
+  # Management on UniFi Devices (VLAN 99) since 2026-09-13. A switch keeps "Network
+  # Override" ON even though the trunks are native 99 since Phase 4 (2026-09-14): its
+  # CPU sits in VLAN 99 and the uplink's PVID strips the tag, so the wire is untagged.
+  # Override OFF would put the CPU in VLAN 1 and send management *tagged 1* out a
+  # native-99 uplink -- the switch goes dark (happened live, fixed by a cable move).
+  # APs are the opposite, see device_u7_pro_*.tf.
   mgmt_network_id = unifi_network.unifi_devices.id
 
   # FIXME(unifi): read-only in practice -- v0.55.0 drops config_network from the update

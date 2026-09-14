@@ -91,7 +91,7 @@ Six changes — see [`unifi-browser-changes.md`](unifi-browser-changes.md) for t
 |---|---|---|---|---|---|
 | Vivacom Primary | wan (`WAN`) | – | – | – | – |
 | Vivacom Secondary | wan (`WAN2`) | – | – | – | – |
-| **Default (Untagged)** *(was UniFi Devices until 2026-09-13)* | corporate | untagged | 192.168.1.1/24 | .6–.254 | off |
+| **Default (Untagged)** *(was UniFi Devices until 2026-09-13; DHCP **off** since 2026-09-14)* | corporate | untagged | 192.168.1.1/24 | — | off |
 | **UniFi Devices** *(new 2026-09-13, runbook Phase 0)* | corporate | **99** | 192.168.99.1/24 | .6–.254 | off |
 | Main | corporate | 2 | 192.168.2.1/24 | .6–.254 | on |
 | Guest | guest | 3 | 192.168.3.1/24 | .6–.254 | on |
@@ -119,7 +119,7 @@ Six changes — see [`unifi-browser-changes.md`](unifi-browser-changes.md) for t
 
 | Name | forward | native | PoE | 802.1X | tagged | pref | STP (`stp_port_mode`) | Port Mode (`stp_edge_state`) |
 |---|---|---|---|---|---|---|---|---|
-| **UniFi Device** | all | UniFi Devices (untagged) | auto | `force_authorized` | auto | auto | true | Infrastructure |
+| **UniFi Device** | customize *(was `all`; the controller rewrites it once native ≠ Default)* | **UniFi Devices (VLAN 99)** *(since 2026-09-14, runbook Phase 4)* | auto | `force_authorized` | auto | auto | true | Infrastructure |
 | **Host Device** | customize | Main (VLAN 2) | auto | `auto` | auto | manual | true | Edge |
 | **Public Server** | customize | Public Servers (VLAN 4) | auto | `force_authorized` | auto | manual | true | Edge |
 | **Private Server** | customize | Private Servers (VLAN 5) | auto | `force_authorized` | auto | manual | true | Edge |
@@ -191,7 +191,7 @@ Still true: **nothing on any switch references the per-VLAN profiles yet.** Aggr
 | `9c:05:d6:d9:ad:79` | Living Room U7-Pro | **static 192.168.99.4** (VLAN 99) | Living Room U7-Pro | none since 2026-09-13 |
 | `9c:05:d6:d9:af:65` | Bedroom U7-Pro | **static 192.168.99.5** (VLAN 99) | Bedroom U7-Pro | none since 2026-09-13 |
 
-> **Management VLAN — 2026-09-13.** All four devices were re-homed from the untagged LAN to **UniFi Devices, VLAN 99** (runbook Phases 1–3) and code mirrors `mgmt_network_id` + the `.99.x` `config_network` on each. The old `.1.x` addresses in the tables above were replaced the same day.
+> **Management VLAN — 2026-09-13/14.** All four devices were re-homed from the untagged LAN to **UniFi Devices, VLAN 99** (runbook Phases 1–3) and on 2026-09-14 the trunks' native network followed (Phase 4): management is now untagged everywhere and Default DHCP is off. `mgmt_network_id` differs by device type on purpose — switches keep the override on, APs must have it off (stored as the Default LAN id) — see the runbook's Phase 4 table and the comments in `device_*.tf`.
 
 > **`config_network` — corrected 2026-09-13.** All four devices declare the static addresses live reports, field for field (verified). Because the values match, the update `PUT` dropping the field is harmless: the read-back equals the plan and nothing is flagged. What §14.2 warns about is *changing* the address in code — that write never reaches the controller and fails post-apply. The 2026-09-08 `type = "dhcp"` block that *would* have failed is long gone.
 
@@ -207,8 +207,9 @@ Also:
 | Port | Live (= code) | Note |
 |---|---|---|
 | 1, 9 | *no override* | WAN2 / WAN1. Binding a WAN to a physical port is UniFi OS Internet configuration, not a `port_override` — the pre-reset code's `native_networkconf_id = var.wan_*` blocks never corresponded to anything stored. Removed, along with the `wan_primary_id`/`wan_secondary_id` plumbing into the `devices` module. `FIXME(unifi-ui-only)` in the file. |
-| 2–8 | `Port N`, **disabled** | Port 2 disabled through the UI to learn the gateway's shape, 3–8 written as identical copies. The gateway stores a **smaller** disabled object than the switches: `forward "disabled"`, `port_security_enabled true` + `[]`, `tagged_vlan_mgmt "block_all"`, no native/voice network, `setting_preference "auto"`, `autoneg true`, `isolation/egress_rate_limit/port_keepalive false`, `sd_wan_underlay_port false` — no dot1x, STP or PoE keys at all. |
-| 10 | `USW-Pro-Max-24-PoE`, UniFi Device profile | Uplink to the Pro Max; renamed from `SFP+ 1` on 2026-09-14 to match port 11's convention. The pre-reset code had the **Private Servers** profile here — wrong for an inter-switch trunk. |
+| 2 | `Console`, **Main access** *(2026-09-14)* | `forward native`, native Main, tagged `block_all`, pref manual, port security off — the safety-net laptop port for trunk changes. |
+| 3–8 | `Port N (Disabled)`, **disabled** | Port 2 was originally disabled through the UI to learn the gateway's shape, 3–8 written as identical copies. The gateway stores a **smaller** disabled object than the switches: `forward "disabled"`, `port_security_enabled true` + `[]`, `tagged_vlan_mgmt "block_all"`, no native/voice network, `setting_preference "auto"`, `autoneg true`, `isolation/egress_rate_limit/port_keepalive false`, `sd_wan_underlay_port false` — no dot1x, STP or PoE keys at all. |
+| 10 | `USW-Pro-Max-24-PoE`, UniFi Device profile | Uplink to the Pro Max (its port **26** since 2026-09-14); renamed from `SFP+ 1` on 2026-09-14 to match port 11's convention. The pre-reset code had the **Private Servers** profile here — wrong for an inter-switch trunk. |
 | 11 | `USW-Aggregation`, UniFi Device profile | Renamed from `SFP+ 2`. |
 
 Written via one `PUT /rest/device/<id>` (9 entries); read back, ports 10/11 unchanged except the rename, all four uplink/WAN ports still `up`, all four downstream devices still `state 1`.

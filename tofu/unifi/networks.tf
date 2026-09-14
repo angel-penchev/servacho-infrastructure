@@ -2,9 +2,12 @@
 # Per-network multicast_dns is derived by the controller from the site-wide Gateway
 # mDNS Proxy scope (Main + IoT, see mdns.tf; upstream #282) -- not an independent knob.
 
-# The untagged LAN (VLAN 1). Cannot be deleted. Devices manage on VLAN 99 since
-# 2026-09-13 (docs/unifi-mgmt-vlan-99-runbook.md); this stays native on the trunks
-# until Phase 4 and keeps DHCP so a factory-reset device can still be adopted.
+# The built-in VLAN 1 network. Cannot be deleted or tagged, so it stays declared, but
+# nothing uses it any more: management moved to VLAN 99 and the trunks' native network
+# followed on 2026-09-14 (docs/unifi-mgmt-vlan-99-runbook.md, Phase 4). DHCP is off so
+# anything that lands untagged on VLAN 1 gets no address. The two APs still *reference*
+# it via mgmt_network_id -- that is the controller's way of saying "no override /
+# untagged", see device_u7_pro_*.tf.
 resource "unifi_network" "default" {
   name    = "Default (Untagged)"
   purpose = "corporate"
@@ -13,7 +16,7 @@ resource "unifi_network" "default" {
   multicast_dns = false
 
   dhcp_server = {
-    enabled = true
+    enabled = false
     start   = "192.168.1.6"
     stop    = "192.168.1.254"
   }
