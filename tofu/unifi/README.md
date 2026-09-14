@@ -55,3 +55,4 @@ themselves are consumed by the provider block in `../providers.tf`.
 - `docs/unifi-manual-vs-tofu.md` — live-vs-code drift report and provider bug surface.
 - `docs/unifi-browser-changes.md` — dated log of every change made outside code.
 - `docs/unifi-mgmt-vlan-99-runbook.md` — the management-VLAN migration.
+- `docs/unifi-import-plan.md` — importing the live controller into state (`../imports_unifi.tf`).
