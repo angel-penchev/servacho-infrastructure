@@ -7,7 +7,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
   jumboframe_enabled = false
   # Management moved to UniFi Devices (VLAN 99) on 2026-09-13, runbook Phase 2. This
   # attribute IS in the v0.55.0 minimal update PUT, unlike config_network below.
-  mgmt_network_id = var.network_unifi_devices_id
+  mgmt_network_id = unifi_network.unifi_devices.id
 
   # Matches live exactly (verified 2026-09-13 after the VLAN 99 move). NOTE: at v0.55.0 the provider drops
   # config_network from the update PUT (buildMinimalUpdateDevice, upstream PR #463),
@@ -57,14 +57,14 @@ resource "unifi_device" "usw_pro_max_24_poe" {
 
   # Profiled ports: the controller stores exactly {name, poe_mode?, setting_preference,
   # portconf_id} -- all four are declared, nothing UI-only is involved. Everything else
-  # comes from the profile (see ../core/port_profiles.tf for that layer's FIXMEs).
+  # comes from the profile (see port_profiles.tf for that layer's FIXMEs).
 
   port_override {
     index              = 1
     name               = "LR-01"
     poe_mode           = "auto"
     setting_preference = "auto"
-    port_profile_id    = var.port_profile_host_device_id
+    port_profile_id    = unifi_port_profile.host_device.id
   }
 
   port_override {
@@ -72,7 +72,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name               = "LR-02"
     poe_mode           = "auto"
     setting_preference = "auto"
-    port_profile_id    = var.port_profile_host_device_id
+    port_profile_id    = unifi_port_profile.host_device.id
   }
 
   port_override {
@@ -80,7 +80,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name               = "LR-03"
     poe_mode           = "auto"
     setting_preference = "auto"
-    port_profile_id    = var.port_profile_host_device_id
+    port_profile_id    = unifi_port_profile.host_device.id
   }
 
   port_override {
@@ -88,7 +88,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name               = "LR-04"
     poe_mode           = "auto"
     setting_preference = "auto"
-    port_profile_id    = var.port_profile_host_device_id
+    port_profile_id    = unifi_port_profile.host_device.id
   }
 
   port_override {
@@ -96,7 +96,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name               = "LR-05"
     poe_mode           = "auto"
     setting_preference = "auto"
-    port_profile_id    = var.port_profile_host_device_id
+    port_profile_id    = unifi_port_profile.host_device.id
   }
 
   # Living Room TV (b0:b3:69:41:2c:9b, fixed 192.168.6.10).
@@ -105,7 +105,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name               = "Port 6"
     poe_mode           = "auto"
     setting_preference = "manual"
-    port_profile_id    = var.port_profile_iot_id
+    port_profile_id    = unifi_port_profile.iot.id
   }
 
   port_override {
@@ -113,7 +113,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name               = "Balc-01"
     poe_mode           = "auto"
     setting_preference = "auto"
-    port_profile_id    = var.port_profile_host_device_id
+    port_profile_id    = unifi_port_profile.host_device.id
   }
 
   port_override {
@@ -121,7 +121,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name               = "Balc-02"
     poe_mode           = "auto"
     setting_preference = "auto"
-    port_profile_id    = var.port_profile_host_device_id
+    port_profile_id    = unifi_port_profile.host_device.id
   }
 
   # Ports 9-11: Port State Disabled, exactly as the controller stores it when set in
@@ -198,13 +198,13 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_keepalive_enabled         = false
   }
 
-  # jetkvm-4562a8bf464c58c8 (30:52:53:0a:09:87, fixed 192.168.5.20 in ../system/clients.tf).
+  # jetkvm-4562a8bf464c58c8 (30:52:53:0a:09:87, fixed 192.168.5.20 in clients.tf).
   port_override {
     index              = 12
     name               = "Port 12"
     poe_mode           = "auto"
     setting_preference = "manual"
-    port_profile_id    = var.port_profile_private_servers_id
+    port_profile_id    = unifi_port_profile.private_servers.id
   }
 
   port_override {
@@ -212,7 +212,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name               = "K-01"
     poe_mode           = "auto"
     setting_preference = "auto"
-    port_profile_id    = var.port_profile_host_device_id
+    port_profile_id    = unifi_port_profile.host_device.id
   }
 
   port_override {
@@ -220,7 +220,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name               = "K-02"
     poe_mode           = "auto"
     setting_preference = "auto"
-    port_profile_id    = var.port_profile_host_device_id
+    port_profile_id    = unifi_port_profile.host_device.id
   }
 
   port_override {
@@ -228,7 +228,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name               = "BR-07"
     poe_mode           = "auto"
     setting_preference = "auto"
-    port_profile_id    = var.port_profile_host_device_id
+    port_profile_id    = unifi_port_profile.host_device.id
   }
 
   port_override {
@@ -236,7 +236,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name               = "BR-08"
     poe_mode           = "auto"
     setting_preference = "auto"
-    port_profile_id    = var.port_profile_host_device_id
+    port_profile_id    = unifi_port_profile.host_device.id
   }
 
   port_override {
@@ -244,7 +244,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name               = "BR-01"
     poe_mode           = "auto"
     setting_preference = "auto"
-    port_profile_id    = var.port_profile_host_device_id
+    port_profile_id    = unifi_port_profile.host_device.id
   }
 
   # jetkvm-ce4ac3437e0d935d (30:52:53:0d:1a:68, fixed 192.168.5.23).
@@ -253,7 +253,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name               = "Port 18"
     poe_mode           = "auto"
     setting_preference = "manual"
-    port_profile_id    = var.port_profile_private_servers_id
+    port_profile_id    = unifi_port_profile.private_servers.id
   }
 
   port_override {
@@ -261,7 +261,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name               = "BR-03"
     poe_mode           = "auto"
     setting_preference = "auto"
-    port_profile_id    = var.port_profile_host_device_id
+    port_profile_id    = unifi_port_profile.host_device.id
   }
 
   # Host Device by decision (2026-09-13); the pre-reset code had Public Servers here.
@@ -270,7 +270,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name               = "BR-04"
     poe_mode           = "auto"
     setting_preference = "auto"
-    port_profile_id    = var.port_profile_host_device_id
+    port_profile_id    = unifi_port_profile.host_device.id
   }
 
   port_override {
@@ -278,7 +278,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name               = "BR-05"
     poe_mode           = "auto"
     setting_preference = "auto"
-    port_profile_id    = var.port_profile_host_device_id
+    port_profile_id    = unifi_port_profile.host_device.id
   }
 
   port_override {
@@ -286,7 +286,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     name               = "BR-06"
     poe_mode           = "auto"
     setting_preference = "auto"
-    port_profile_id    = var.port_profile_host_device_id
+    port_profile_id    = unifi_port_profile.host_device.id
   }
 
   # Living Room U7-Pro uplink.
@@ -294,7 +294,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index              = 23
     name               = "LR-WiFi"
     setting_preference = "auto"
-    port_profile_id    = var.port_profile_unifi_devices_id
+    port_profile_id    = unifi_port_profile.unifi_devices.id
   }
 
   # Bedroom U7-Pro uplink.
@@ -302,7 +302,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index              = 24
     name               = "BR-WiFi"
     setting_preference = "auto"
-    port_profile_id    = var.port_profile_unifi_devices_id
+    port_profile_id    = unifi_port_profile.unifi_devices.id
   }
 
   # SFP+ 2 (no link as of 2026-09-13). Port 25 (SFP+ 1) is the live uplink to the UDM
@@ -315,6 +315,6 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     index              = 26
     name               = "UDM-Pro-Max"
     setting_preference = "auto"
-    port_profile_id    = var.port_profile_unifi_devices_id
+    port_profile_id    = unifi_port_profile.unifi_devices.id
   }
 }

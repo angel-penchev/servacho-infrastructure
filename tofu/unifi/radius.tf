@@ -1,7 +1,3 @@
-data "unifi_radius_profile" "default" {
-  name = "Default"
-}
-
 # All four users exist on the controller and match these attributes exactly
 # (verified 2026-09-13 against /rest/account: tunnel_type 13, tunnel_medium_type 6,
 # vlan 2, group_policy GLOBAL). vl.penchev and v.todorova were created by hand in the

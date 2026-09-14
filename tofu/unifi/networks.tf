@@ -12,7 +12,7 @@ resource "unifi_network" "default" {
   subnet  = "192.168.1.1/24"
 
   # multicast_dns mirrors the site-wide Gateway mDNS Proxy scope (Main + IoT only,
-  # set 2026-09-13 -- see ../system/mdns.tf). On UniFi OS gateways this per-network
+  # set 2026-09-13 -- see mdns.tf). On UniFi OS gateways this per-network
   # flag is derived from that site-wide setting (upstream #282), so these values are
   # what the controller reports, not an independent knob.
   multicast_dns = false

@@ -62,7 +62,7 @@ resource "unifi_port_profile" "unifi_devices" {
 # FIXME(unifi): `unifi_setting` exposes no switch/dot1x block at v0.55.0, so the
 # fallback VLAN cannot be managed here. Set manually to Guest -- see
 # docs/unifi-browser-changes.md (2026-09-08) and the commented
-# `unifi_setting_switch` block in ../system/settings.tf.
+# `unifi_setting_switch` block in settings.tf.
 #
 # native_networkconf_id is Main, not Guest: with the fallback VLAN doing the
 # unauthenticated case, the native VLAN is what an *authorized* client gets when
@@ -84,7 +84,7 @@ resource "unifi_port_profile" "host_device" {
 # controller by hand on 2026-09-13 (verified via /rest/portconf). Untagged on
 # the named VLAN, no 802.1X (force_authorized), Port Mode: Edge like Host Device
 # (stp_edge_state, UI-only -- see header). Assigning ports to them is the
-# TODO(port-overrides) work in ../devices/*.tf.
+# TODO(port-overrides) work in device_*.tf.
 # ----------------------------------------------------------------------------
 
 resource "unifi_port_profile" "public_servers" {

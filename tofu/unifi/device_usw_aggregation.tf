@@ -6,7 +6,7 @@ resource "unifi_device" "usw_aggregation" {
 
   # Management moved to UniFi Devices (VLAN 99) on 2026-09-13, runbook Phase 3. This
   # attribute IS in the v0.55.0 minimal update PUT, unlike config_network below.
-  mgmt_network_id = var.network_unifi_devices_id
+  mgmt_network_id = unifi_network.unifi_devices.id
 
   # Matches live exactly (verified 2026-09-13 after the VLAN 99 move). NOTE: at v0.55.0 the provider drops
   # config_network from the update PUT (buildMinimalUpdateDevice, upstream PR #463),
@@ -38,7 +38,7 @@ resource "unifi_device" "usw_aggregation" {
 
   # Profiled ports: the controller stores exactly {name, poe_mode?, setting_preference,
   # portconf_id} -- all four are declared, nothing UI-only is involved. Everything else
-  # comes from the profile (see ../core/port_profiles.tf for that layer's FIXMEs).
+  # comes from the profile (see port_profiles.tf for that layer's FIXMEs).
 
   # Servacho-Gosho (38:05:25:30:79:97, fixed 192.168.5.10). Moved from an inline
   # native-VLAN override to the Private Server profile on 2026-09-13.
@@ -48,7 +48,7 @@ resource "unifi_device" "usw_aggregation" {
     index              = 1
     name               = "Servacho-Gosho"
     setting_preference = "auto"
-    port_profile_id    = var.port_profile_private_servers_id
+    port_profile_id    = unifi_port_profile.private_servers.id
   }
 
   # Ports 2-7: Port State Disabled, exactly as the controller stores it when set in
@@ -190,6 +190,6 @@ resource "unifi_device" "usw_aggregation" {
     index              = 8
     name               = "UDM-Pro-Max"
     setting_preference = "auto"
-    port_profile_id    = var.port_profile_unifi_devices_id
+    port_profile_id    = unifi_port_profile.unifi_devices.id
   }
 }

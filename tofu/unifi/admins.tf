@@ -15,7 +15,7 @@
 #                          (no UI account, no 2FA), is_owner false, is_super true, site
 #                          "default" role admin. Credentials: OpenBao
 #                          `secret/unifi` -> `username`, `password`, consumed by the
-#                          provider block in ../../providers.tf. Recreated by hand on
+#                          provider block in ../providers.tf. Recreated by hand on
 #                          2026-09-13 after the factory reset wiped it; login verified
 #                          from the shell the same day.
 #

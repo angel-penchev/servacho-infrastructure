@@ -41,7 +41,7 @@ Nothing else has an address on VLAN 1 today (the two JetKVMs were moved to Priva
 
 ## Phase 0 — create the network *(non-disruptive)* — ✅ done 2026-09-13
 
-Done via the API from the logged-in session; the untagged network was named **`Default (Untagged)`** (user's choice, to make its role obvious in every dropdown). Read back: VLAN 99 `UniFi Devices`, `192.168.99.1/24`, DHCP `.6–.254`, lease 86400, mDNS off, Internal zone (same `firewall_zone_id` as Main), `is_nat true`, `setting_preference manual`. Code mirrored in `core/networks.tf` (`unifi_network.default` renamed, `unifi_network.unifi_devices` added) and `core/outputs.tf`.
+Done via the API from the logged-in session; the untagged network was named **`Default (Untagged)`** (user's choice, to make its role obvious in every dropdown). Read back: VLAN 99 `UniFi Devices`, `192.168.99.1/24`, DHCP `.6–.254`, lease 86400, mDNS off, Internal zone (same `firewall_zone_id` as Main), `is_nat true`, `setting_preference manual`. Code mirrored in `networks.tf` (`unifi_network.default` renamed, `unifi_network.unifi_devices` added) and `core/outputs.tf (removed 2026-09-14: the flat layout has no outputs)`.
 
 UI: Settings → Networks → Create New.
 
@@ -76,7 +76,7 @@ Per AP, UI: Devices → *AP* → Settings → IP Settings.
 4. Read back: `mgmt_network_id` = UniFi Devices, `ip` = `.99.4`, `config_network.type static`.
 5. Repeat for Bedroom (`.99.5`, port 24).
 
-Mirror in code after both: `devices/u7_pro_*.tf` → `mgmt_network_id = var.network_unifi_devices_id`, `config_network.ip/gateway/dns1` → `.99.x` / `.99.1`. **Commit.**
+Mirror in code after both: `device_u7_pro_*.tf` → `mgmt_network_id = var.network_unifi_devices_id`, `config_network.ip/gateway/dns1` → `.99.x` / `.99.1`. **Commit.**
 
 ## Phase 2 — USW Pro Max 24 PoE — ✅ done 2026-09-13
 

@@ -29,12 +29,12 @@ resource "unifi_device" "udm_pro_max" {
 
   # Profiled ports: the controller stores exactly {name, poe_mode?, setting_preference,
   # portconf_id} -- all four are declared, nothing UI-only is involved. Everything else
-  # comes from the profile (see ../core/port_profiles.tf for that layer's FIXMEs).
+  # comes from the profile (see port_profiles.tf for that layer's FIXMEs).
 
   # FIXME(unifi-ui-only): ports 1 (WAN2) and 9 (WAN1) have no override. Which physical
   #   port carries which WAN is UniFi OS Internet configuration, stored outside the
   #   Network application's port_overrides; the provider has no attribute for it. The
-  #   WANs themselves are ../core/wans.tf.
+  #   WANs themselves are wans.tf.
 
   # Ports 2-8: Port State Disabled, exactly as the gateway stores it when set in the
   # UI (verified 2026-09-13 on port 2). Unlike the switches the gateway keeps
@@ -159,7 +159,7 @@ resource "unifi_device" "udm_pro_max" {
     index              = 10
     name               = "SFP+ 1"
     setting_preference = "auto"
-    port_profile_id    = var.port_profile_unifi_devices_id
+    port_profile_id    = unifi_port_profile.unifi_devices.id
   }
 
   # SFP+ 2: 10 GbE uplink to the USW Aggregation.
@@ -167,6 +167,6 @@ resource "unifi_device" "udm_pro_max" {
     index              = 11
     name               = "USW-Aggregation"
     setting_preference = "auto"
-    port_profile_id    = var.port_profile_unifi_devices_id
+    port_profile_id    = unifi_port_profile.unifi_devices.id
   }
 }

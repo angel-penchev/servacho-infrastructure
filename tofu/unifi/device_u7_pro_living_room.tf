@@ -1,6 +1,6 @@
-resource "unifi_device" "u7_pro_bedroom" {
-  mac               = "9c:05:d6:d9:af:65"
-  name              = "Bedroom U7-Pro"
+resource "unifi_device" "u7_pro_living_room" {
+  mac               = "9c:05:d6:d9:ad:79"
+  name              = "Living Room U7-Pro"
   forget_on_destroy = false
   disabled          = false
 
@@ -10,7 +10,7 @@ resource "unifi_device" "u7_pro_bedroom" {
 
   # Management moved to UniFi Devices (VLAN 99) on 2026-09-13, runbook Phase 1. This
   # attribute IS in the v0.55.0 minimal update PUT, unlike config_network below.
-  mgmt_network_id = var.network_unifi_devices_id
+  mgmt_network_id = unifi_network.unifi_devices.id
 
   # Matches live exactly (verified 2026-09-13 after the VLAN 99 move). NOTE: at v0.55.0 the provider drops
   # config_network from the update PUT (buildMinimalUpdateDevice, upstream PR #463),
@@ -21,9 +21,17 @@ resource "unifi_device" "u7_pro_bedroom" {
   # https://github.com/ubiquiti-community/terraform-provider-unifi/pull/463
   config_network = {
     type    = "static"
-    ip      = "192.168.99.5"
+    ip      = "192.168.99.4"
     netmask = "255.255.255.0"
     gateway = "192.168.99.1"
     dns1    = "192.168.99.1"
+  }
+
+  # Precautionary. The AP is adopted and online; `disabled` is another field the
+  # v0.55.0 update PUT drops, and the controller does not report it at all for APs,
+  # so a null-vs-false mismatch could surface as "inconsistent result after apply".
+  # Live matches code today; drop this ignore after v0.56.0 and see.
+  lifecycle {
+    ignore_changes = [disabled]
   }
 }

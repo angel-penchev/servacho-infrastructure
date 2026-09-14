@@ -1,5 +1,7 @@
 # UniFi controller — changes made through the browser
 
+> **Layout note (2026-09-14).** The module was flattened: the `core/`, `devices/`, `security/`, `system/` and `wireless/` submodules are gone and every file now sits directly in `tofu/unifi/` (`networks.tf`, `device_*.tf`, `firewall.tf`, `settings.tf`, …; inputs, provider pin and shared data sources in `module.tf`). See `tofu/unifi/README.md` for the map. Text dated before 2026-09-14 may still use the old paths: `core/X.tf` → `X.tf`, `devices/X.tf` → `device_X.tf`, `security/X.tf` / `system/X.tf` / `wireless/X.tf` → `X.tf`; `system/etherlighting.tf` → `settings.tf`, `system/slas.tf` → `wans.tf`; the per-module `variables.tf` / `versions.tf` / `data.tf` / `outputs.tf` no longer exist.
+
 Every change made to the live controller (`https://192.168.1.1`, site `default`) outside of OpenTofu is logged here, newest session first. Anything in this file is **drift by construction**: it exists on the controller and is either not expressible in the pinned provider, or is waiting for a `tofu apply` from the management plane.
 
 Changes were made through the user's authenticated Chrome session against the controller's own REST API (`/proxy/network/api/s/default/...` and `/proxy/network/v2/api/site/default/...`) — the same endpoints the UniFi web UI uses. Each write was a read-modify-write of the full object, followed by a read-back to verify.

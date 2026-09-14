@@ -13,7 +13,7 @@ resource "unifi_firewall_zone" "dmz" {
   name = "Dmz"
 
   network_ids = [
-    var.network_public_servers_id
+    unifi_network.public_servers.id
   ]
 }
 
@@ -28,7 +28,7 @@ resource "unifi_firewall_zone" "hotspot" {
   name = "Hotspot"
 
   network_ids = [
-    var.network_guest_id
+    unifi_network.guest.id
   ]
 }
 
@@ -52,7 +52,7 @@ resource "unifi_firewall_policy" "allow_main_to_iot" {
     zone_id         = data.unifi_firewall_zone.internal.id
     matching_target = "NETWORK"
     network_ids = [
-      var.network_main_id
+      unifi_network.main.id
     ]
   }
 
@@ -60,7 +60,7 @@ resource "unifi_firewall_policy" "allow_main_to_iot" {
     zone_id         = data.unifi_firewall_zone.internal.id
     matching_target = "NETWORK"
     network_ids = [
-      var.network_iot_id
+      unifi_network.iot.id
     ]
   }
 }

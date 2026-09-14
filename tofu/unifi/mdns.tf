@@ -15,7 +15,7 @@
 #   custom_services         []
 # Read-modify-write the full object returned by GET /get/setting (key "mdns").
 #
-# Per-network `multicast_dns` flags in ../core/networks.tf are cosmetic on UniFi OS
+# Per-network `multicast_dns` flags in networks.tf are cosmetic on UniFi OS
 # gateways (upstream #282); this site-wide setting is what is actually in force.
 #
 # Service identifiers below were read from the controller UI on 2026-09-13 (the
@@ -61,8 +61,8 @@ resource "unifi_setting_mdns" "gateway_proxy" {
   # not get to discover anything -- and service discovery never crosses into
   # UniFi Devices, Public/Private Servers or the tenant VPS networks.
   vlan_scope = [
-    var.network_main_id,
-    var.network_iot_id,
+    unifi_network.main.id,
+    unifi_network.iot.id,
   ]
 
   # enabled_for:"some" on the wire.

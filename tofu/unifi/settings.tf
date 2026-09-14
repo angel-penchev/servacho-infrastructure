@@ -73,7 +73,7 @@ resource "unifi_setting" "default" {
 # UniFi OS console setting (outside the Network application the provider talks to)
 # or a Network `super_*` setting with no `unifi_setting` block at v0.55.0. Live values:
 # FIXME(unifi): Name "UDM StKr"            -- the console name; the Network device name
-#   of the same box is managed in ../devices/udm_pro_max.tf, the console name is not.
+#   of the same box is managed in device_udm_pro_max.tf, the console name is not.
 # FIXME(unifi): Location / Time Zone       -- `locale.timezone = "Europe/Sofia"`, no block.
 #   Country = Bulgaria (100) IS managed above.
 # FIXME(unifi): Night Mode 10:00 PM - 8:00 AM -- not even in the Network `lcm` record;
@@ -104,7 +104,7 @@ resource "unifi_setting" "default" {
 #   - dot1x_fallback_networkconf_id = Guest -- REQUIRED for the "Host Device" port
 #     profile to work at all. Without it an unauthenticated client on a dot1x_ctrl
 #     = "auto" port is simply blocked and never gets a DHCP lease.
-#     See ../core/port_profiles.tf and docs/unifi-browser-changes.md.
+#     See port_profiles.tf and docs/unifi-browser-changes.md.
 #
 # Also note upstream #476: even per-device stp_version/stp_priority are dropped from
 # the update PUT, so STP is unmanageable from either direction right now.
@@ -123,7 +123,7 @@ resource "unifi_setting_switch" "global" {
   dot1x_control {
     enabled           = true
     credential_source = "local"
-    fallback_vlan_id  = var.network_guest_id # currently set by hand in the UI
+    fallback_vlan_id  = unifi_network.guest.id # currently set by hand in the UI
   }
 }
 
@@ -131,5 +131,40 @@ resource "unifi_setting_security" "posture" {
   site = "default"
 
   default_security_posture = "allow_all"
+}
+*/
+
+
+# ----------------------------------------------------------------------------
+# Etherlighting (Settings -> System -> Advanced) -- aspirational.
+# FIXME(unifi): no `unifi_setting_ether_lighting` resource at provider v0.55.0
+# (upstream PR #463 in progress). Live runs the controller default colours, which are
+# NOT the ones below (see docs/unifi-manual-vs-tofu.md 11); if the resource lands,
+# decide first whether to keep these colours or mirror the defaults.
+# ----------------------------------------------------------------------------
+
+/*
+resource "unifi_setting_ether_lighting" "site_colors" {
+  site = "default"
+
+  speed_override {
+    speed = "FE"
+    color = "#ff0509"
+  }
+
+  speed_override {
+    speed = "GbE"
+    color = "#FFCC00"
+  }
+
+  speed_override {
+    speed = "2.5GbE"
+    color = "#05ff19"
+  }
+
+  speed_override {
+    speed = "10GbE"
+    color = "#054aff"
+  }
 }
 */

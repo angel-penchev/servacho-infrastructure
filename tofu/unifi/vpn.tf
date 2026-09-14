@@ -8,7 +8,7 @@
 #
 # All three land in the controller's default `Vpn` firewall zone (Vpn -> Internal,
 # External, Gateway, Hotspot, Dmz allowed; Vpn -> IoT blocked). Nothing in
-# ../security/firewall.tf touches that zone, and by decision (2026-09-13) nothing
+# firewall.tf touches that zone, and by decision (2026-09-13) nothing
 # will: VPN clients do not get direct access to IoT.
 #
 # Discipline is the same as everywhere else in this module: the controller is
@@ -32,7 +32,7 @@
 # controller-generated keys and no tunnels -- the controller default, left alone.
 
 # 2. OpenVPN, authenticated against the built-in RADIUS profile (the four accounts in
-# ../security/radius.tf). Created in the UI on 2026-09-13; every attribute below is
+# radius.tf). Created in the UI on 2026-09-13; every attribute below is
 # the read-back value. Certificates, DH parameters and the TLS auth key are generated
 # by the controller and surface here only as computed `openvpn.*` attributes.
 #

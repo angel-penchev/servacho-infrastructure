@@ -23,7 +23,7 @@ resource "unifi_client" "jetkvm_servacho_gosho" {
   mac            = "30:52:53:0a:09:87"
   name           = "JetKVM-Servacho-Gosho"
   fixed_ip       = "192.168.5.20"
-  network_id     = var.network_private_servers_id
+  network_id     = unifi_network.private_servers.id
   allow_existing = true
 }
 
