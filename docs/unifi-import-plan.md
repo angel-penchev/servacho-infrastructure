@@ -1,8 +1,8 @@
 # Runbook: import the live UniFi controller into OpenTofu state
 
-**Written:** 2026-09-14 · **Status:** ready to run, not yet run
+**Written:** 2026-09-14 · **Status:** ✅ **done 2026-09-14** — 46 resources imported (apply run 34843335300), one re-imported (run 34876118372), `tofu/imports_unifi.tf` deleted, plan clean. Kept as the record of how it was done and for the next import (a new device, a resource created by hand).
 **Where:** the management plane (`servacho-managment-plane`, `192.168.5.11`), the only host with the state file (`/var/lib/opentofu/servacho-infrastructure.tfstate`, local backend in `tofu/providers.tf`) and OpenBao.
-**What:** `tofu/imports_unifi.tf` — 46 `import` blocks, one per resource in `tofu/unifi`, with the live ids read from the controller on 2026-09-14. Nothing has been applied since the factory reset of 2026-09-05; the tree was written to mirror live, so the imports should land with a near-empty diff.
+**What:** `tofu/imports_unifi.tf` (deleted after the run, see git history at 28664fc) — 46 `import` blocks, one per resource in `tofu/unifi`, with the live ids read from the controller on 2026-09-14. Nothing had been applied since the factory reset of 2026-09-05; the tree was written to mirror live, and the imports landed with a 4-change diff that §14.12 of the drift report walks through.
 
 ## Why import blocks
 
@@ -31,7 +31,7 @@ Everything below runs on the management plane in the repo's `tofu/` directory wi
 ### 1. Bring the tree over and initialise
 
 ```sh
-git pull                      # branch feat/unifi-port-config, commit with tofu/imports_unifi.tf
+git pull                      # the branch that carries the import blocks
 tofu init                     # provider ~> 0.55.0 is pinned; -upgrade not needed
 ```
 
@@ -79,8 +79,8 @@ If the plan is not clean and you still want the imports in state, do **not** app
 
 ### 5. Clean up
 
-- Delete `tofu/imports_unifi.tf` (or comment it out like `tofu/vms.tf` does) — a second plan with the blocks present is harmless but noisy. Commit.
-- Update `docs/unifi-manual-vs-tofu.md` §0.6 A1 → done, and note the first clean plan's date.
+- Delete `tofu/imports_unifi.tf` (or comment it out like `tofu/vms.tf` does) — a second plan with the blocks present is harmless but noisy. Commit. *(Done 2026-09-14.)*
+- Update `docs/unifi-manual-vs-tofu.md` §0.6 A1 → done, and note the first clean plan's date. *(Done; first clean plan 2026-09-14.)*
 - From here on the loop is: change in UI or API → read back → mirror → `tofu plan` must be clean. The `ignore_changes` blocks listed under §0.6 B stay until the provider ships the fixes.
 
 ## CLI fallback (state only, nothing applied)
@@ -148,7 +148,7 @@ The `unifi_radius_user` names carry their `for_each` key, e.g. `module.unifi.uni
 
 ## Re-import one resource
 
-Needed once for `module.unifi.unifi_network.unifi_devices` (drift report §14.12 #14: the network was imported with DHCP Guarding off and the provider's Read never fills `dhcp_guarding` afterwards). Keep its `import` block in `tofu/imports_unifi.tf`, drop the state entry on the management plane, and run the apply workflow once more — the import re-reads the object, this time with guarding on:
+Done once, 2026-09-14, for `module.unifi.unifi_network.unifi_devices` (drift report §14.12 #14: the network was imported with DHCP Guarding off and the provider's Read never fills `dhcp_guarding` afterwards; apply run 34876118372, `1 imported, 0 changed`). Recipe: keep (or re-add) the resource's `import` block, drop the state entry on the management plane, and run the apply workflow once more — the import re-reads the object. `sudo` leaves the state files owned by root only if it creates them; check with `ls -ln /var/lib/opentofu/` (trailing slash, it is a symlink) that every file has the directory's uid:
 
 ```sh
 cd ~/servacho-infrastructure && git pull
@@ -156,7 +156,7 @@ sudo tofu -chdir=tofu state rm module.unifi.unifi_network.unifi_devices
 sudo chown --reference=/var/lib/opentofu /var/lib/opentofu/servacho-infrastructure.tfstate*
 ```
 
-Then `gh workflow run tofu-apply.yaml --ref feat/unifi-port-config -f branch=feat/unifi-port-config -f auto_approve=false` (or let the PR plan show `1 to import, 0 to change` first). `state rm` never touches the controller.
+Then `gh workflow run tofu-apply.yaml --ref <branch> -f branch=<branch> -f auto_approve=false` (or let the PR plan show `1 to import, 0 to change` first). `state rm` never touches the controller.
 
 ## Rollback
 

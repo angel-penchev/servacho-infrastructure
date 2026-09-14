@@ -49,8 +49,8 @@ resource "unifi_network" "default" {
 # bug above; the same change was then made through the API (2026-09-14, incl. the empty
 # dhcpd_ip_2/3 keys the UI stores) and this block mirrors it. Because the network was
 # imported while guarding was off, state carries a null dhcp_guarding and the sticky Read
-# (header FIXME) never fills it: re-import once (unifi-import-plan.md, "Re-import one
-# resource") and the plan is clean.
+# (header FIXME) never fills it; re-imported once on 2026-09-14 (unifi-import-plan.md,
+# "Re-import one resource"), plan clean since.
 resource "unifi_network" "unifi_devices" {
   name               = "UniFi Devices"
   purpose            = "corporate"
