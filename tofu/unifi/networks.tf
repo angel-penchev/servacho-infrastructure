@@ -15,6 +15,11 @@
 #   so the controller answers api.err.MissingIPAddress (400) and ANY update to a
 #   guarded network fails (apply run 34843335300, unifi_network.unifi_devices). Until
 #   that is fixed upstream, change guarded networks in the UI/API first and mirror here.
+#   FIXME(unifi): Read is sticky as well (network_resource.go, networkToModel): outside an
+#   import it only fills `dhcp_guarding` when the previous state already had it. A network
+#   imported while guarding was OFF keeps a null block forever, so enabling guarding live
+#   afterwards still plans `+ dhcp_guarding` on every run (plan 34843770282). The only way
+#   out is `tofu state rm` + re-import of that one network.
 
 # The built-in VLAN 1 network. Cannot be deleted or tagged, so it stays declared, but
 # nothing uses it any more: management moved to VLAN 99 and the trunks' native network
@@ -41,8 +46,11 @@ resource "unifi_network" "default" {
 # Created through the API, so it lacked three fields the UI sets on every network
 # (auto_scale, lte_lan, gateway_type = "default") and had DHCP Guarding off. The first
 # apply tried to bring it in line with the other eight and hit the dhcp_guarding write
-# bug above; the same change was then made through the API (2026-09-14) and this block
-# mirrors it.
+# bug above; the same change was then made through the API (2026-09-14, incl. the empty
+# dhcpd_ip_2/3 keys the UI stores) and this block mirrors it. Because the network was
+# imported while guarding was off, state carries a null dhcp_guarding and the sticky Read
+# (header FIXME) never fills it: re-import once (unifi-import-plan.md, "Re-import one
+# resource") and the plan is clean.
 resource "unifi_network" "unifi_devices" {
   name               = "UniFi Devices"
   purpose            = "corporate"

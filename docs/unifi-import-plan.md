@@ -146,6 +146,18 @@ TSV
 
 The `unifi_radius_user` names carry their `for_each` key, e.g. `module.unifi.unifi_radius_user.users["a.penchev"]`; the quotes must reach `tofu`, which the loop preserves.
 
+## Re-import one resource
+
+Needed once for `module.unifi.unifi_network.unifi_devices` (drift report §14.12 #14: the network was imported with DHCP Guarding off and the provider's Read never fills `dhcp_guarding` afterwards). Keep its `import` block in `tofu/imports_unifi.tf`, drop the state entry on the management plane, and run the apply workflow once more — the import re-reads the object, this time with guarding on:
+
+```sh
+cd ~/servacho-infrastructure && git pull
+sudo tofu -chdir=tofu state rm module.unifi.unifi_network.unifi_devices
+sudo chown --reference=/var/lib/opentofu /var/lib/opentofu/servacho-infrastructure.tfstate*
+```
+
+Then `gh workflow run tofu-apply.yaml --ref feat/unifi-port-config -f branch=feat/unifi-port-config -f auto_approve=false` (or let the PR plan show `1 to import, 0 to change` first). `state rm` never touches the controller.
+
 ## Rollback
 
 Import changes state only. `tofu state rm <address>` undoes any single import; the controller is never written to by an import. The only write in this runbook is step 4's apply, and its plan is inspected first.
