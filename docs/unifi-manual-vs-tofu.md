@@ -85,7 +85,7 @@ Ordered by what unblocks what. Anything not on this list is done and mirrored.
 | A3 | ~~**Firewall policy `allow_main_to_iot`**~~ | `firewall.tf` | ✅ **Was wrong here: it has existed live since 2026-09-08** (change #6), re-pointed at the custom **IoT zone** when that zone was created on 2026-09-13, 5 200+ hits. A second custom policy, **Allow Private Servers to IoT**, exists as well. Code now mirrors both (`destination` = whole IoT zone, `matching_target ANY`) plus `unifi_firewall_zone.iot`. Ordering stays manual (§14, #348). |
 | A4 | ~~Pro Max **port 25**~~ | `device_usw_pro_max_24_poe.tf` | ✅ **Disabled 2026-09-14** (`SFP+ 1 (Disabled)`, copy of port 9's shape); code mirrors live. No port on any device is native VLAN 1 any more. |
 | A5 | ~~UDM **port 2 "Console"**~~ | `device_udm_pro_max.tf` | ✅ Re-disabled 2026-09-14 once the laptop was unplugged; code mirrors live. Re-enable it in the UI (Main access) before the next trunk change. |
-| A6 | Redundant per-device `flowctrl_enabled` / `jumboframe_enabled` on the Pro Max | `device_usw_pro_max_24_poe.tf` | Site-global under `global_switch` and already matching. Harmless; delete when touching the file. |
+| A6 | ~~Redundant per-device `flowctrl_enabled` / `jumboframe_enabled` on the Pro Max~~ | `device_usw_pro_max_24_poe.tf` | ✅ Removed 2026-09-14 — both are site-global under `global_switch` (flow control off, jumbo frames off live) and the per-device copies added nothing. |
 | A7 | Stale §1 "Differences" 1–3 | this document | Written 2026-09-08; the code has long since had `Default (Untagged)`, no VLAN 11 and the `/23` Qoax network. Struck through below. |
 
 ### B. Blocked on the provider (v0.55.0 is still the latest release, see §14)

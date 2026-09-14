@@ -1,10 +1,8 @@
 resource "unifi_device" "usw_pro_max_24_poe" {
-  mac                = "9c:05:d6:e2:6b:1d"
-  name               = "USW Pro Max 24 PoE"
-  forget_on_destroy  = false
-  disabled           = false
-  flowctrl_enabled   = false
-  jumboframe_enabled = false
+  mac               = "9c:05:d6:e2:6b:1d"
+  name              = "USW Pro Max 24 PoE"
+  forget_on_destroy = false
+  disabled          = false
   # Management on UniFi Devices (VLAN 99) since 2026-09-13. A switch keeps "Network
   # Override" ON even though the trunks are native 99 since Phase 4 (2026-09-14): its
   # CPU sits in VLAN 99 and the uplink's PVID strips the tag, so the wire is untagged.
