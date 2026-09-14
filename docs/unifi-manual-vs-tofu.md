@@ -82,8 +82,8 @@ Ordered by what unblocks what. Anything not on this list is done and mirrored.
 |---|---|---|---|
 | A1 | **`tofu import` of every live resource, then a first `tofu plan`** | management plane `192.168.5.11`, all of `tofu/unifi` | The tree has never been applied since the factory reset and state still holds pre-reset ids. Import is the only way in for `unifi_radius_user` (no `allow_existing`, `TODO(import)` in `radius.tf`) and the safe way in for everything else — a create `POST` for a duplicate network, profile, WLAN or firewall zone is rejected or, worse, succeeds twice. The service account was recreated 2026-09-13 and works. Expect the plan to be a no-op except for the items under B; anything else it shows is a doc bug here. |
 | A2 | **WireGuard peers** | `vpn.tf` → `unifi_wireguard_peer` blocks | Server exists live (`192.168.9.1/24`, UDP 51820, key in OpenBao). Decide the peer list (phones, laptop), generate each key pair off-box, put private keys in OpenBao, declare peers with `interface_ip` from `.9.2` up. Public keys are not secret. Create live → read back → mirror, as with the servers. |
-| A3 | **Firewall policy `allow_main_to_iot`** | `firewall.tf`, Settings → Security → Policies | Declared in code, **never created live** — zero custom policies exist. Decide whether Main → IoT should be open at all (IoT is its own zone, confirmed 2026-09-13; the default Internal → IoT rule already governs it). Either create it live and keep the resource, or delete the resource. Policy *ordering* stays manual (§14, #348/#473). |
-| A4 | Pro Max **port 25** | Port Manager | Unused since the uplink moved to 26. It has no override, i.e. the built-in "All" profile with native Default — the only port left whose native is VLAN 1. Give it the UniFi Device profile (or disable it) so a device plugged in by accident lands on 99, then mirror in `device_usw_pro_max_24_poe.tf`. |
+| A3 | ~~**Firewall policy `allow_main_to_iot`**~~ | `firewall.tf` | ✅ **Was wrong here: it has existed live since 2026-09-08** (change #6), re-pointed at the custom **IoT zone** when that zone was created on 2026-09-13, 5 200+ hits. A second custom policy, **Allow Private Servers to IoT**, exists as well. Code now mirrors both (`destination` = whole IoT zone, `matching_target ANY`) plus `unifi_firewall_zone.iot`. Ordering stays manual (§14, #348). |
+| A4 | ~~Pro Max **port 25**~~ | `device_usw_pro_max_24_poe.tf` | ✅ **Disabled 2026-09-14** (`SFP+ 1 (Disabled)`, copy of port 9's shape); code mirrors live. No port on any device is native VLAN 1 any more. |
 | A5 | ~~UDM **port 2 "Console"**~~ | `device_udm_pro_max.tf` | ✅ Re-disabled 2026-09-14 once the laptop was unplugged; code mirrors live. Re-enable it in the UI (Main access) before the next trunk change. |
 | A6 | Redundant per-device `flowctrl_enabled` / `jumboframe_enabled` on the Pro Max | `device_usw_pro_max_24_poe.tf` | Site-global under `global_switch` and already matching. Harmless; delete when touching the file. |
 | A7 | Stale §1 "Differences" 1–3 | this document | Written 2026-09-08; the code has long since had `Default (Untagged)`, no VLAN 11 and the `/23` Qoax network. Struck through below. |
@@ -104,7 +104,7 @@ Global 802.1X fallback VLAN (Guest); per-profile UI fields (Port Mode Edge, BPDU
 
 ### D. Decisions still open
 
-- **A3** — is Main → IoT supposed to be open?
+- ~~**A3** — is Main → IoT supposed to be open?~~ Yes — it already was; Private Servers → IoT too.
 - **A2** — which WireGuard peers, and whether OpenVPN stays now that WireGuard exists (it is live and mirrored; keeping it costs nothing).
 - ~~**A5** — keep the Console port.~~ Decided: disabled again, enable on demand.
 
@@ -349,7 +349,7 @@ The `StKr_IoT_2.4GHz` diff matters: applying the code would drop WPA3 from that 
 | Zone | Networks |
 |---|---|
 | Internal | Default (Untagged), UniFi Devices (VLAN 99), Main, Private Servers, Qoax VPS, FMI{Codes} VPS |
-| IoT *(non-default zone, verified 2026-09-13)* | IoT |
+| IoT *(custom zone, verified 2026-09-13; `unifi_firewall_zone.iot` since 2026-09-14)* | IoT |
 | External | Vivacom Primary, Vivacom Secondary |
 | Gateway | – |
 | Vpn | – |
@@ -362,7 +362,7 @@ Both checklist assignments (Hotspot ← Guest, DMZ ← Public Servers) are done,
 
 1. **`Hotspot` ← `Guest` is not in code.** Only the DMZ zone is managed.
 2. **Zone name casing.** Code uses `name = "DMZ"`; the controller reports `"Dmz"`. Likely harmless, but if the provider matches by exact name it will try to rename or fail to find it.
-3. **Zero custom firewall policies exist live.** All 88 policies are predefined. `unifi_firewall_policy.allow_main_to_iot` in code has never been applied — an apply will create it. Decide whether you still want Main → IoT open. Note policy **ordering cannot be managed at all** through the provider (§14.9) — it will land wherever the controller appends it.
+3. ~~**Zero custom firewall policies exist live.**~~ **Corrected 2026-09-14:** two custom policies exist — `Allow Main to IoT` (created 2026-09-08, index 10000) and `Allow Private Servers to IoT` (index 10001), both Internal → **IoT zone**, destination = the whole zone. `firewall.tf` mirrors both and declares the IoT zone. Policy **ordering cannot be managed** through the provider (§14, #348).
 4. **Adding the Hotspot zone is load-bearing, not cosmetic.** On zone-based-firewall controllers a network only keeps `purpose = "guest"` while it belongs to the Hotspot zone; elsewhere the controller rewrites it to `corporate`. `unifi_network.guest` declares `purpose = "guest"` while nothing in code owns that zone (§14.9).
 
 ---

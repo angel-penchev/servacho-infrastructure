@@ -278,10 +278,29 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id    = unifi_port_profile.unifi_devices.id
   }
 
+  # SFP+ 1: unused since the uplink cable moved to port 26 on 2026-09-14, Port State
+  # Disabled the same day. Same shape and UI-only keys as ports 9-11 (see their FIXMEs).
+  port_override {
+    index                          = 25
+    name                           = "SFP+ 1 (Disabled)"
+    forward                        = "disabled"
+    port_security_enabled          = true
+    port_security_mac_address      = []
+    tagged_vlan_mgmt               = "block_all"
+    native_networkconf_id          = null
+    voice_networkconf_id           = null
+    setting_preference             = "manual"
+    poe_mode                       = "auto"
+    autoneg                        = true
+    dot1x_ctrl                     = "auto"
+    lldpmed_enabled                = true
+    stp_port_mode                  = true
+    isolation                      = false
+    egress_rate_limit_kbps_enabled = false
+    port_keepalive_enabled         = false
+  }
+
   # SFP+ 2: 10 GbE uplink to UDM port 10 (cable moved here from port 25 on 2026-09-14).
-  # Port 25 (SFP+ 1) is now unused and has no override, i.e. the built-in "All" profile
-  # with native Default -- do not plug a UniFi device into it without giving it this
-  # profile first.
   port_override {
     index              = 26
     name               = "UDM-Pro-Max"

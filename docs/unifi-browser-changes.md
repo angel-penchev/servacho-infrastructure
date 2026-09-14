@@ -85,6 +85,18 @@ Both switches re-homed on their own within ~30 s of the DHCP write; no restarts 
 | **Read-back** | 200, all fields as sent, `wireguard_id 1`, in the `Vpn` zone; public key `mmWQkf3m…EKSw=` equals the one derived from the OpenBao key. `/rest/wireguardpeer` still returns `InvalidObject` on a bare GET (peers are listed per network); none exist yet. |
 | **Codifiable?** | Yes — `unifi_vpn_server.wireguard` already matched; comment updated. Peers → `unifi_wireguard_peer`. |
 
+### Pro Max port 25 disabled — 2026-09-14
+
+| | |
+|---|---|
+| **Endpoint** | `PUT /api/s/default/rest/device/<pro-max-id>` with the full `port_overrides` array (read-modify-write); a new entry for `port_idx 25` copied from port 9's disabled object, `name "SFP+ 1 (Disabled)"` |
+| **Read-back** | port 25 identical to port 9 except index and name; 26 overrides (was 25); port 26 still the 10 GbE uplink, all devices `state 1` |
+| **Codifiable?** | Yes — new `port_override` block in `device_usw_pro_max_24_poe.tf`. Closes drift report item A4. |
+
+### Firewall policies — read-only, code aligned — 2026-09-14
+
+Asked to create "Allow Main to IoT", found it already there (`GET /v2/api/site/default/firewall-policies`): created 2026-09-08 (change #6 below), destination since moved from *Internal / network IoT* to the custom **IoT zone / ANY** when that zone was created on 2026-09-13, index 10000, 5 200+ hits. A second custom policy **Allow Private Servers to IoT** (index 10001, same shape, source Private Servers) exists as well. Nothing was written. `firewall.tf` now declares `unifi_firewall_zone.iot` and both policies with the live shape; drift report A3 / §7 corrected (they claimed zero custom policies).
+
 ### UDM port 2 disabled again — 2026-09-14
 
 | | |

@@ -125,7 +125,7 @@ The controller does **not** re-derive tagging from the uplink's native network. 
 
 Total disruption: Living Room Wi-Fi ~5 min across the two tests, both APs ~3 min during the Pro Max recovery, no client on a Host/Server/IoT port affected, nothing reset.
 
-**Left as is:** Pro Max port 25 has no override (built-in "All", native Default) — harmless while nothing is plugged into it. The APs' *Default (Untagged)* label in the device list.
+**Left as is:** the APs' *Default (Untagged)* label in the device list. Pro Max port 25 was **disabled** later the same day (`SFP+ 1 (Disabled)`), so no port on any device is native VLAN 1 any more.
 
 ## Rollback
 
