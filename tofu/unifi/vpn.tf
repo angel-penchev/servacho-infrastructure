@@ -34,19 +34,21 @@ resource "unifi_vpn_server" "openvpn" {
   openvpn = {
     mode = "server"
     port = 1194 # UDP
+    # FIXME(unifi): CONCESSION. The controller stores no cipher (verified live
+    #   2026-09-14) and the UI sends none, but the provider defaults this computed
+    #   attribute to AES_256_GCM at plan time -- a value the controller rejects
+    #   (api.err.InvalidValue, 2026-09-13). `ignore_changes = [openvpn.encryption_cipher]`
+    #   does not help: the default is injected by the provider after lifecycle rules
+    #   apply (plan 34841691079 still showed "+ encryption_cipher = AES_256_GCM").
+    #   Pinning the one accepted cipher makes the write succeed; it is also the
+    #   controller's own default, so nothing changes on the wire.
+    encryption_cipher = "AES_256_CBC"
   }
 
-  # FIXME(unifi): the controller stores neither `openvpn_mode` nor an encryption cipher
-  #   (verified live 2026-09-14: the object has openvpn_interface, openvpn_local_wan_ip,
-  #   openvpn_id, openvpn_compression_disabled and nothing else openvpn_*). The provider
-  #   never reads `openvpn.mode` back and defaults `openvpn.encryption_cipher` to
-  #   AES_256_GCM, which the controller rejects on write (api.err.InvalidValue,
-  #   2026-09-13). Both are therefore ignored: without this every plan wants to "add"
-  #   them and the apply would fail. Upstream fix needed: read mode from vpn_type, drop
-  #   the cipher default (or read the controller's).
-  lifecycle {
-    ignore_changes = [openvpn.mode, openvpn.encryption_cipher]
-  }
+  # FIXME(unifi): the provider never reads `openvpn.mode` back (the controller expresses
+  #   it as vpn_type = openvpn-server), so every plan re-adds `mode = "server"` and
+  #   re-PUTs this resource. Check after the first apply whether the diff persists;
+  #   if it does, the only remedy is an upstream Read fix.
 }
 
 # FIXME(unifi-ui-only): OpenVPN live values without a provider attribute: vpn_protocol
