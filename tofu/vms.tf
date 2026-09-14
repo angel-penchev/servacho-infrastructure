@@ -1,18 +1,10 @@
-# Commented out because the import block is a one-time operation.
-# Once the VM is successfully imported into the OpenTofu state file, 
-# this block is no longer needed and can be safely disabled.
-# import {
-#   id = "Servacho-Alice/5011"
-#   to = proxmox_virtual_environment_vm.management_vm
-# }
-
 resource "proxmox_virtual_environment_vm" "management_vm" {
-  name          = "servacho-managment-plane"
-  node_name     = "Servacho-Alice"
+  name = "servacho-managment-plane"
+  # A different node_name forces replacement -- i.e. destroys the VM that runs the apply.
+  node_name     = "Servacho-Gosho"
   vm_id         = 5011
   scsi_hardware = "virtio-scsi-single"
 
-  # Reflecting the manual configuration
   on_boot = true
 
   agent {
@@ -51,15 +43,5 @@ resource "proxmox_virtual_environment_vm" "management_vm" {
 
   operating_system {
     type = "l26"
-  }
-
-  # Commented out because we now WANT OpenTofu to actively manage this VM. 
-  # Keeping 'ignore_changes = all' would prevent updating things like CPU or RAM
-  # in the future.
-  lifecycle {
-    # Bootstrap safety: import state first without mutating the VM that is
-    # currently running OpenTofu. Remove this once applying from another host
-    # and when ready to reconcile config changes intentionally.
-    # ignore_changes = all
   }
 }

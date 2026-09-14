@@ -1,0 +1,11 @@
+# The hook submodule is pinned by commit, so nothing updates on its own. Let Dependabot
+# open the bump.
+version: 2
+updates:
+  - package-ecosystem: gitsubmodule
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      # Conventional Commits, because the hook checks Dependabot too.
+      prefix: chore
