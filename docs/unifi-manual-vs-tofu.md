@@ -192,7 +192,7 @@ Ordered by what unblocks what. Anything not on this list is done and mirrored.
 | A6 | ~~Redundant per-device `flowctrl_enabled` / `jumboframe_enabled` on the Pro Max~~ | `device_usw_pro_max_24_poe.tf` | ✅ Removed 2026-09-14 — both are site-global under `global_switch` (flow control off, jumbo frames off live) and the per-device copies added nothing. |
 | A7 | Stale §1 "Differences" 1–3 | this document | Written 2026-09-08; the code has long since had `Default (Untagged)`, no VLAN 11 and the `/23` Qoax network. Struck through below. |
 | A8 | **`is_guest` on `StKr_Guest`** | `wlans.tf`, Settings → WiFi | Code says `true`, the remote-branch audit of 2026-09-11 found live `false` (Application was switched away from Hotspot during the guest-TV rollback). Re-check live; if still `false`, the first apply is the safe fix — the UI needs the guest passphrase re-entered, the provider sends the whole object (§0.5c). |
-| A9 | Stale local lock file | `tofu/unifi/.terraform.tfstate.lock.info` (200 B, 2026-09-04) next to a 0-byte `terraform.tfstate` | Untracked leftovers of an interrupted apply on the workstation. CI checks out fresh so they do not affect the plan workflow; delete them locally to avoid confusion. Real state is on the management plane. |
+| A9 | ~~Stale local lock file~~ | `tofu/unifi/.terraform.tfstate.lock.info` + 0-byte `terraform.tfstate` | ✅ Deleted from the workstation 2026-09-14. They were git-ignored leftovers of an apply interrupted on 2026-09-04 and never affected CI, which checks out fresh. Real state is on the management plane only. |
 
 ### B. Blocked on the provider (v0.55.0 is still the latest release, see §14)
 
