@@ -10,7 +10,7 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ## Session 2026-09-14 (c) — first `tofu apply` from CI
 
-Not a browser change but the first time code wrote to the controller, so it belongs in the same ledger. Workflow `tofu-apply.yaml`, run 34843335300, dispatched on `feat/unifi-port-config` at `5410007` after the state cleanup and a clean plan (46 to import, 4 to change).
+Not a browser change but the first time code wrote to the controller, so it belongs in the same ledger. Workflow `tofu-apply.yaml`, run 34843335300, dispatched on `feat/unifi-port-config` at `2c29885` after the state cleanup and a clean plan (46 to import, 4 to change).
 
 | Resource | Result | Read back |
 |---|---|---|
