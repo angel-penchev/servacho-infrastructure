@@ -1,8 +1,10 @@
 resource "unifi_device" "usw_pro_max_24_poe" {
-  mac               = "9c:05:d6:e2:6b:1d"
-  name              = "USW Pro Max 24 PoE"
-  forget_on_destroy = false
-  disabled          = false
+  mac  = "9c:05:d6:e2:6b:1d"
+  name = "USW Pro Max 24 PoE"
+  # forget_on_destroy is left at the provider default (true, as imported). Declaring
+  # false planned an update PUT on every device for a flag that only matters on a
+  # `tofu destroy`, which is never run against adopted hardware here.
+  disabled = false
   # Management on UniFi Devices (VLAN 99) since 2026-09-13. A switch keeps "Network
   # Override" ON even though the trunks are native 99 since Phase 4 (2026-09-14): its
   # CPU sits in VLAN 99 and the uplink's PVID strips the tag, so the wire is untagged.

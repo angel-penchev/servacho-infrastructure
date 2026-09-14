@@ -1,6 +1,14 @@
 # VLAN ID = third octet for every network with clients; management sits on 99.
 # Per-network multicast_dns is derived by the controller from the site-wide Gateway
 # mDNS Proxy scope (Main + IoT, see mdns.tf; upstream #282) -- not an independent knob.
+#
+# Two attributes appear on every network because the first real plan (CI run
+# 34837315409, 2026-09-14, after import) showed them as drift otherwise:
+# - setting_preference = "manual": what the controller stores for every network here;
+#   the provider defaults to "auto" and would have flipped all nine.
+# - dhcp_guarding: the UI enables DHCP Guarding with the gateway as the only allowed
+#   server on every VLAN it creates; without the block the plan would have switched
+#   guarding OFF on seven networks.
 
 # The built-in VLAN 1 network. Cannot be deleted or tagged, so it stays declared, but
 # nothing uses it any more: management moved to VLAN 99 and the trunks' native network
@@ -13,126 +21,175 @@ resource "unifi_network" "default" {
   purpose = "corporate"
   subnet  = "192.168.1.1/24"
 
-  multicast_dns = false
+  multicast_dns      = false
+  setting_preference = "manual"
 
-  dhcp_server = {
-    enabled = false
-    start   = "192.168.1.6"
-    stop    = "192.168.1.254"
-  }
+  # DHCP is off (Phase 4). The provider reads a disabled DHCP server as *no* dhcp_server
+  # block, so declaring one with enabled = false planned a perpetual update. Absent = off.
 }
 
 # Management network for the UDM, switches and APs (runbook Phase 0, 2026-09-13).
+# Created through the API, so it lacked three fields the UI sets on every network
+# (auto_scale, lte_lan, gateway_type = "default") and had DHCP Guarding off. The first
+# apply brings it in line with the other eight -- intentional, see the drift report.
 resource "unifi_network" "unifi_devices" {
-  name          = "UniFi Devices"
-  purpose       = "corporate"
-  vlan          = 99
-  subnet        = "192.168.99.1/24"
-  multicast_dns = false
+  name               = "UniFi Devices"
+  purpose            = "corporate"
+  vlan               = 99
+  subnet             = "192.168.99.1/24"
+  multicast_dns      = false
+  setting_preference = "manual"
 
   dhcp_server = {
     enabled = true
     start   = "192.168.99.6"
     stop    = "192.168.99.254"
   }
+
+  dhcp_guarding = {
+    enabled = true
+    servers = ["192.168.99.1"]
+  }
 }
 
 resource "unifi_network" "main" {
-  name          = "Main"
-  purpose       = "corporate"
-  vlan          = 2
-  subnet        = "192.168.2.1/24"
-  multicast_dns = true
+  name               = "Main"
+  purpose            = "corporate"
+  vlan               = 2
+  subnet             = "192.168.2.1/24"
+  multicast_dns      = true
+  setting_preference = "manual"
 
   dhcp_server = {
     enabled = true
     start   = "192.168.2.6"
     stop    = "192.168.2.254"
   }
+
+  dhcp_guarding = {
+    enabled = true
+    servers = ["192.168.2.1"]
+  }
 }
 
 # purpose = "guest" only sticks while the network is in the Hotspot zone (firewall.tf).
 resource "unifi_network" "guest" {
-  name          = "Guest"
-  purpose       = "guest"
-  vlan          = 3
-  subnet        = "192.168.3.1/24"
-  multicast_dns = false
+  name               = "Guest"
+  purpose            = "guest"
+  vlan               = 3
+  subnet             = "192.168.3.1/24"
+  multicast_dns      = false
+  setting_preference = "manual"
 
   dhcp_server = {
     enabled = true
     start   = "192.168.3.6"
     stop    = "192.168.3.254"
   }
+
+  dhcp_guarding = {
+    enabled = true
+    servers = ["192.168.3.1"]
+  }
 }
 
 resource "unifi_network" "public_servers" {
-  name          = "Public Servers"
-  purpose       = "corporate"
-  vlan          = 4
-  subnet        = "192.168.4.1/24"
-  multicast_dns = false
+  name               = "Public Servers"
+  purpose            = "corporate"
+  vlan               = 4
+  subnet             = "192.168.4.1/24"
+  multicast_dns      = false
+  setting_preference = "manual"
 
   dhcp_server = {
     enabled = true
     start   = "192.168.4.6"
     stop    = "192.168.4.254"
   }
+
+  dhcp_guarding = {
+    enabled = true
+    servers = ["192.168.4.1"]
+  }
 }
 
 resource "unifi_network" "private_servers" {
-  name          = "Private Servers"
-  purpose       = "corporate"
-  vlan          = 5
-  subnet        = "192.168.5.1/24"
-  multicast_dns = false
+  name               = "Private Servers"
+  purpose            = "corporate"
+  vlan               = 5
+  subnet             = "192.168.5.1/24"
+  multicast_dns      = false
+  setting_preference = "manual"
 
   dhcp_server = {
     enabled = true
     start   = "192.168.5.6"
     stop    = "192.168.5.254"
   }
+
+  dhcp_guarding = {
+    enabled = true
+    servers = ["192.168.5.1"]
+  }
 }
 
 resource "unifi_network" "iot" {
-  name          = "IoT"
-  purpose       = "corporate"
-  vlan          = 6
-  subnet        = "192.168.6.1/24"
-  multicast_dns = true
+  name               = "IoT"
+  purpose            = "corporate"
+  vlan               = 6
+  subnet             = "192.168.6.1/24"
+  multicast_dns      = true
+  setting_preference = "manual"
 
   dhcp_server = {
     enabled = true
     start   = "192.168.6.6"
     stop    = "192.168.6.254"
   }
+
+  dhcp_guarding = {
+    enabled = true
+    servers = ["192.168.6.1"]
+  }
 }
 
 # A /23 (192.168.10.0-192.168.11.255); VLAN 11 no longer exists.
 resource "unifi_network" "qoax_community_vps" {
-  name          = "Qoax VPS"
-  purpose       = "corporate"
-  vlan          = 10
-  subnet        = "192.168.10.1/23"
-  multicast_dns = false
+  name               = "Qoax VPS"
+  purpose            = "corporate"
+  vlan               = 10
+  subnet             = "192.168.10.1/23"
+  multicast_dns      = false
+  setting_preference = "manual"
 
   dhcp_server = {
     enabled = true
     start   = "192.168.10.11"
     stop    = "192.168.11.254"
   }
+
+  dhcp_guarding = {
+    enabled = true
+    servers = ["192.168.10.1"]
+  }
 }
 
 resource "unifi_network" "fmicodes_vps" {
-  name          = "FMI{Codes} VPS"
-  purpose       = "corporate"
-  vlan          = 12
-  subnet        = "192.168.12.1/24"
-  multicast_dns = false
+  name               = "FMI{Codes} VPS"
+  purpose            = "corporate"
+  vlan               = 12
+  subnet             = "192.168.12.1/24"
+  multicast_dns      = false
+  setting_preference = "manual"
 
   dhcp_server = {
     enabled = true
     start   = "192.168.12.6"
     stop    = "192.168.12.254"
+  }
+
+  dhcp_guarding = {
+    enabled = true
+    servers = ["192.168.12.1"]
   }
 }

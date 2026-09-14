@@ -14,6 +14,13 @@ resource "unifi_wan" "vivacom_primary" {
     download_kilobits_per_second = 600000
     upload_kilobits_per_second   = 400000
   }
+
+  # FIXME(unifi): the controller stores no `enabled` on WAN networks, so the import read
+  #   false while the provider defaults to true. Ignored rather than "fixed": an update
+  #   PUT to a WAN is the one write that can take the internet down.
+  lifecycle {
+    ignore_changes = [enabled]
+  }
 }
 
 # Failover-only: the controller stores no weight and no provider_capabilities for it.
@@ -26,6 +33,10 @@ resource "unifi_wan" "vivacom_secondary" {
   load_balance = {
     failover_priority = 2
     type              = "failover-only"
+  }
+
+  lifecycle {
+    ignore_changes = [enabled] # see vivacom_primary
   }
 }
 

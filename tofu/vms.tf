@@ -7,8 +7,10 @@
 # }
 
 resource "proxmox_virtual_environment_vm" "management_vm" {
-  name          = "servacho-managment-plane"
-  node_name     = "Servacho-Alice"
+  name = "servacho-managment-plane"
+  # Live node as of 2026-09-14 (the VM was moved from Servacho-Alice). A different
+  # value here forces replacement -- i.e. destroys the VM that runs the apply.
+  node_name     = "Servacho-Gosho"
   vm_id         = 5011
   scsi_hardware = "virtio-scsi-single"
 

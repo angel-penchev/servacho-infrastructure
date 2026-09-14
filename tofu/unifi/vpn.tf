@@ -34,6 +34,9 @@ resource "unifi_vpn_server" "openvpn" {
   openvpn = {
     mode = "server"
     port = 1194 # UDP
+    # The provider defaults to AES_256_GCM, which the controller rejects
+    # (api.err.InvalidValue, 2026-09-13); AES_256_CBC is what it accepts and runs.
+    encryption_cipher = "AES_256_CBC"
   }
 }
 

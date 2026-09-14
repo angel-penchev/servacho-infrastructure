@@ -1,8 +1,10 @@
 resource "unifi_device" "usw_aggregation" {
-  mac               = "1c:6a:1b:98:38:ee"
-  name              = "USW Aggregation"
-  forget_on_destroy = false
-  disabled          = false
+  mac  = "1c:6a:1b:98:38:ee"
+  name = "USW Aggregation"
+  # forget_on_destroy is left at the provider default (true, as imported). Declaring
+  # false planned an update PUT on every device for a flag that only matters on a
+  # `tofu destroy`, which is never run against adopted hardware here.
+  disabled = false
 
   # Management on UniFi Devices (VLAN 99) since 2026-09-13. A switch keeps "Network
   # Override" ON even though the trunks are native 99 since Phase 4 (2026-09-14): its

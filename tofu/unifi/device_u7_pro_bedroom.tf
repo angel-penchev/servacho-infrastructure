@@ -1,8 +1,10 @@
 resource "unifi_device" "u7_pro_bedroom" {
-  mac               = "9c:05:d6:d9:af:65"
-  name              = "Bedroom U7-Pro"
-  forget_on_destroy = false
-  disabled          = false
+  mac  = "9c:05:d6:d9:af:65"
+  name = "Bedroom U7-Pro"
+  # forget_on_destroy is left at the provider default (true, as imported). Declaring
+  # false planned an update PUT on every device for a flag that only matters on a
+  # `tofu destroy`, which is never run against adopted hardware here.
+  disabled = false
 
   led_override = "off"
 

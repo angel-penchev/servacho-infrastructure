@@ -29,6 +29,8 @@ resource "unifi_wlan" "stkr" {
 
   is_guest = false
 
+  group_rekey = 0 # live: GTK rekey disabled on every SSID (provider default 3600)
+
   lifecycle {
     ignore_changes = [passphrase, wlan_bands, wlan_band]
   }
@@ -57,6 +59,8 @@ resource "unifi_wlan" "stkr_guest" {
   # Ported from the remote branch's 2026-09-11 fix during the 2026-09-14 merge.
   l2_isolation = true
 
+  group_rekey = 0 # live: GTK rekey disabled on every SSID (provider default 3600)
+
   lifecycle {
     ignore_changes = [passphrase, wlan_bands, wlan_band]
   }
@@ -79,6 +83,8 @@ resource "unifi_wlan" "stkr_iot" {
 
   is_guest  = false
   hide_ssid = true
+
+  group_rekey = 0 # live: GTK rekey disabled on every SSID (provider default 3600)
 
   lifecycle {
     ignore_changes = [passphrase, wlan_bands, wlan_band]
@@ -103,6 +109,9 @@ resource "unifi_wlan" "stkr_iot_2_4ghz" {
 
   is_guest  = false
   hide_ssid = true
+
+  group_rekey = 0     # live: GTK rekey disabled on every SSID (provider default 3600)
+  no2ghz_oui  = false # live: 2.4 GHz-only clients are not steered away (default true)
 
   lifecycle {
     ignore_changes = [passphrase, wlan_bands, wlan_band]
