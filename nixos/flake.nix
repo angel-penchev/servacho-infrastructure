@@ -1,5 +1,5 @@
 {
-  description = "servacho NixOS modules and Proxmox VM image templates";
+  description = "servacho NixOS modules, hosts and Proxmox VM image templates";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
@@ -23,6 +23,36 @@
             image
           ];
         };
+
+      # Two files of the management plane are not in git until someone puts
+      # them there (docs/management-plane-nixos.md): the hardware description
+      # nixos-generate-config wrote on the VM, and the public half of the key
+      # OpenTofu deploys with. A flake only sees tracked files, so a missing
+      # one is reported by name instead of as a bare "path does not exist".
+      managementPlaneDir = ./hosts/servacho-managment-plane;
+      managementPlaneFiles = [
+        "hardware-configuration.nix"
+        "deploy-key.pub"
+      ];
+      managementPlaneMissing = builtins.filter (
+        f: !builtins.pathExists (managementPlaneDir + "/${f}")
+      ) managementPlaneFiles;
+      managementPlaneHardware =
+        if managementPlaneMissing == [ ] then
+          managementPlaneDir + "/hardware-configuration.nix"
+        else
+          {
+            assertions = [
+              {
+                assertion = false;
+                message = ''
+                  servacho-management-plane: missing ${lib.concatStringsSep " and " managementPlaneMissing}
+                  in nixos/hosts/servacho-managment-plane/. Copy them in and commit them;
+                  docs/management-plane-nixos.md says where they come from.
+                '';
+              }
+            ];
+          };
     in
     {
       # Reusable pieces for host configurations in this and other repositories.
@@ -32,6 +62,17 @@
       };
 
       nixosConfigurations = {
+        # Hosts: switched to in place, by tofu/nixos_management_plane.tf.
+        servacho-management-plane = lib.nixosSystem {
+          inherit system;
+          modules = [
+            self.nixosModules.base
+            ./hosts/servacho-managment-plane/configuration.nix
+            managementPlaneHardware
+          ];
+        };
+
+        # Image templates: cloned, never switched to.
         k3s-server = mkImage ./images/k3s-server.nix;
         k3s-agent = mkImage ./images/k3s-agent.nix;
       };
@@ -45,6 +86,8 @@
       # `nix flake check` builds the systems (a binary-cache download), not the
       # disk images, which is enough to catch a broken module.
       checks.${system} = {
+        servacho-management-plane =
+          self.nixosConfigurations.servacho-management-plane.config.system.build.toplevel;
         k3s-server = self.nixosConfigurations.k3s-server.config.system.build.toplevel;
         k3s-agent = self.nixosConfigurations.k3s-agent.config.system.build.toplevel;
       };

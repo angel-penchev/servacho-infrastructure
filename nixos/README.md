@@ -1,10 +1,12 @@
 # NixOS
 
-NixOS modules and the Proxmox VM image templates built from them. A template is
-what a Kubernetes node is before it knows its cluster: OpenTofu clones it once
-per VM, cloud-init gives the clone its name, address and SSH key, and one small
-k3s configuration file makes it a control-plane or worker node of a particular
-cluster.
+NixOS modules, the hosts built from them, and the Proxmox VM image templates.
+A host is switched to in place; the management plane is deployed that way by
+OpenTofu (see [docs/management-plane-nixos.md](../docs/management-plane-nixos.md)).
+A template is what a Kubernetes node is before it knows its cluster: OpenTofu
+clones it once per VM, cloud-init gives the clone its name, address and SSH
+key, and one small k3s configuration file makes it a control-plane or worker
+node of a particular cluster.
 
 ## Layout
 
@@ -16,7 +18,7 @@ cluster.
 | `images/proxmox.nix` | The VMA build, the QEMU hardware the template declares, cloud-init |
 | `images/k3s-server.nix` | The control-plane ("master") template |
 | `images/k3s-agent.nix` | The worker ("runner") template |
-| `hosts/` | Per-host configurations; today only the management plane, applied by hand |
+| `hosts/servacho-managment-plane/` | The management plane, built on `modules/base.nix` and deployed by `tofu/nixos_management_plane.tf`; its `hardware-configuration.nix` and `deploy-key.pub` are committed once from the VM |
 
 ## The two templates
 
