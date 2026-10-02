@@ -16,6 +16,16 @@ terraform {
       source  = "hashicorp/vault"
       version = "~> 5.11.0"
     }
+    # For the nixos-anywhere modules in nixos_management_plane.tf: nix-build is
+    # an external data source, nixos-rebuild a null_resource.
+    external = {
+      source  = "hashicorp/external"
+      version = "~> 2.3"
+    }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.2"
+    }
   }
 }
 
