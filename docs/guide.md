@@ -790,6 +790,8 @@ resource "vault_kv_secret_v2" "qoax_community_broadcast_vault_secret" {
 
 ## Phase 5: The Dedicated Management Plane and State Isolation
 
+> **Done differently.** The tenant planes are built from this repository's NixOS flake and created and deployed by the root OpenTofu, not by a hand-made template and Colmena; see [tenant-management-planes.md](tenant-management-planes.md), which also holds the address table. The text below is the original design.
+
 While software-defined RBAC provides the hypervisor-level barrier, the IaC state files and the execution environments themselves must be isolated. Relying solely on logical namespaces within a single, monolithic management instance increases the risk of cross-tenant contamination. The architectural solution is to deploy a dedicated "Management VM" for each Virtual Private Server (VPS) organization.
 
 Each Management VM operates in an isolated VLAN (or a highly restricted management subnet) and hosts its own independent instances of OpenTofu and OpenBao.
@@ -926,6 +928,8 @@ provider "proxmox" {
 ```
 
 ## Phase 7: Dynamic Virtual Machine Identifier Calculation
+
+> **Done differently.** The id rule stands and is applied by hand in `tofu/`; the clone source is a template built by `nix build` from `nixos/images/`, and the host configuration is switched to by OpenTofu after cloud-init, not pushed by Colmena. See [tenant-management-planes.md](tenant-management-planes.md).
 
 With access controls, networks, and secrets handled, OpenTofu is ready to deploy tenant workloads. Proxmox VE requires a unique integer ID for every virtual machine across the cluster, which serves as the primary key for all API operations. In manually managed environments, these IDs are often assigned sequentially, leading to administrative overhead and cognitive disconnect when attempting to correlate a VM ID with its IP address or network segment.
 
