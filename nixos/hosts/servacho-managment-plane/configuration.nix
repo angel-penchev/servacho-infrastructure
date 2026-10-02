@@ -19,7 +19,7 @@
   networking.networkmanager.enable = true;
   networking.interfaces.eth0.ipv4.addresses = [
     {
-      address = "192.168.5.11";
+      address = "192.168.5.15";
       prefixLength = 24;
     }
   ];

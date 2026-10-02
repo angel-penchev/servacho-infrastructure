@@ -2,7 +2,7 @@ resource "proxmox_virtual_environment_vm" "management_vm" {
   name = "servacho-managment-plane"
   # A different node_name forces replacement -- i.e. destroys the VM that runs the apply.
   node_name     = "Servacho-Gosho"
-  vm_id         = 5011
+  vm_id         = 5015
   scsi_hardware = "virtio-scsi-single"
 
   on_boot = true

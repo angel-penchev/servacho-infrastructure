@@ -13,6 +13,15 @@ resource "unifi_client" "servacho_gosho" {
   allow_existing = true
 }
 
+# The root management plane, VM 5015. Its address is static in the host
+# configuration; the reservation keeps DHCP from handing .15 to anything else.
+resource "unifi_client" "servacho_management_plane" {
+  mac            = "bc:24:11:5a:ab:e2"
+  name           = "servacho-management-plane"
+  fixed_ip       = "192.168.5.15"
+  allow_existing = true
+}
+
 # USW Pro Max port 12.
 resource "unifi_client" "jetkvm_servacho_gosho" {
   mac      = "30:52:53:0a:09:87"

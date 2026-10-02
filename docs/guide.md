@@ -14,7 +14,7 @@ To begin managing a brand new Proxmox cluster with self-hosted OpenTofu, the ini
   - Assign the bootstrap token to a global administrator ACL for the first apply, since the custom `TofuProvisioner` role will be created by OpenTofu itself: `pveum aclmod / -user tofu-provisioner@pve -role Administrator`.
   - The token ID and secret will be displayed in a table; the secret must be saved immediately as it cannot be retrieved again.
 2. **Bootstrap the Management VM:** Since OpenTofu is not yet running, manually create the first virtual machine using the "Create VM" wizard in the Proxmox Web UI. Navigate through each screen as follows:
-    - **General:** Select your target node (e.g., `pve-01`). Enter **5011** for the VM ID (derived from the Phase 7 dynamic naming convention: VLAN 5 + zero-padded IP octet 011). Set the Name to `management-plane-01`.
+    - **General:** Select your target node (e.g., `pve-01`). Enter **5015** for the VM ID (derived from the Phase 7 dynamic naming convention: VLAN 5 + zero-padded IP octet 015; a management plane takes `.15` of its VLAN). Set the Name to `management-plane-01`.
     - **OS:** Select "Use CD/DVD disc image file (iso)" and choose your uploaded NixOS minimal installation ISO.
     - **System:** Leave most defaults, but check the **Qemu Agent** box. This allows the Proxmox API (and subsequently OpenTofu) to read the guest's IP address later.
     - **Disks:** Leave Bus/Device as `scsi0` (which implies the high-performance VirtIO SCSI controller). Select your local datastore (e.g., `local-lvm`), check the **Discard** box (to enable TRIM support if you are using SSDs/NVMe storage), and set Disk size to `30` GiB (to accommodate NixOS store caching).
@@ -22,8 +22,8 @@ To begin managing a brand new Proxmox cluster with self-hosted OpenTofu, the ini
     - **Memory:** Set Memory to `4096` MiB (4 GiB). The NixOS evaluation process, coupled with running the OpenBao cryptographic engine, OpenTofu processes, and the GitHub Runner agent requires substantial RAM. 2 GiB is insufficient and will cause out-of-memory (OOM) errors during the NixOS installation or builds.
     - **Network:** Ensure the Model is set to **VirtIO (paravirtualized)** for maximum throughput. Select the default bridge (`vmbr0`) and enter **5** in the VLAN Tag field to place it on the Private Servers network.
     - **Options (Post-Creation):** After the wizard finishes, select the newly created VM on the left sidebar, navigate to the **Options** tab, double-click **Start at boot**, and check the box. This ensures your critical management plane automatically powers on if the physical Proxmox host loses power or reboots.
-    - **Finish & Install:** Start the VM, open the console, and complete the NixOS installation. Crucially, during the configuration phase, statically set the machine's IP address to **192.168.5.11**. Ensure the OpenSSH daemon is enabled so you can connect to it remotely.
-3. **Install OpenTofu:** SSH into the newly created Management VM at `192.168.5.11` and modify your NixOS environment to install OpenTofu. A concrete, minimal snippet of the NixOS `/etc/nixos/configuration.nix` for this Management VM looks like this:
+    - **Finish & Install:** Start the VM, open the console, and complete the NixOS installation. Crucially, during the configuration phase, statically set the machine's IP address to **192.168.5.15**. Ensure the OpenSSH daemon is enabled so you can connect to it remotely.
+3. **Install OpenTofu:** SSH into the newly created Management VM at `192.168.5.15` and modify your NixOS environment to install OpenTofu. A concrete, minimal snippet of the NixOS `/etc/nixos/configuration.nix` for this Management VM looks like this:
 
 ```
 { config, pkgs, ... }:
@@ -32,7 +32,7 @@ To begin managing a brand new Proxmox cluster with self-hosted OpenTofu, the ini
 
   # Set the static IP as requested
   networking.interfaces.eth0.ipv4.addresses = [ {
-    address = "192.168.5.11";
+    address = "192.168.5.15";
     prefixLength = 24;
   } ];
   networking.defaultGateway = "192.168.5.1";
@@ -84,7 +84,7 @@ The below steps are not explicitly nessary, check phase 1 before doing them:
 
 7. **Create the IaC Role in OpenTofu During Phase 0:** Define `TofuProvisioner` directly in `main.tf` with the provider privileges required for day-to-day VM lifecycle work. This keeps the role declarative from the beginning instead of creating it manually with `pveum`. The root `tofu-provisioner@pve` account will permanently retain the `Administrator` role on `/` to manage cluster-wide infrastructure, IAM, and networking. The custom `TofuProvisioner` role you create here is designed specifically for restricted organizational/tenant users later on.
 
-8. **Avoid Self-Interrupting Apply Runs:** If OpenTofu is executed from the same VM being imported (for example VM `5011`), in-place VM updates can restart the machine and terminate the SSH session mid-apply. During bootstrap, keep the VM resource import-only (`ignore_changes = all`) or execute applies from a different control host.
+8. **Avoid Self-Interrupting Apply Runs:** If OpenTofu is executed from the same VM being imported (for example VM `5015`), in-place VM updates can restart the machine and terminate the SSH session mid-apply. During bootstrap, keep the VM resource import-only (`ignore_changes = all`) or execute applies from a different control host.
 
 OpenTofu Configuration for Phase 0 (Provider Bootstrap & VM Import Safety Pattern):
 
@@ -122,7 +122,7 @@ resource "proxmox_virtual_environment_role" "tofu_provisioner" {
 resource "proxmox_virtual_environment_vm" "management_vm" {
   name          = "servacho-managment-plane"
   node_name     = "Servacho-Alice"
-  vm_id         = 5011
+  vm_id         = 5015
   scsi_hardware = "virtio-scsi-single"
 
   # Reflecting the manual configuration

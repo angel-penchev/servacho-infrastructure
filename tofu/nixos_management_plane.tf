@@ -5,9 +5,10 @@
 # set nix-community maintains today.
 #
 # This runs on the machine it deploys to: the runner builds the closure, `nix
-# copy` to itself is a no-op, and the switch happens over SSH to 192.168.5.11
-# as root with a key kept in OpenBao. The runner's own unit is excluded from
-# restarts in the NixOS configuration, so the job survives the switch.
+# copy` to itself is a no-op, and the switch happens over SSH to loopback as
+# root with a key kept in OpenBao, so a change to the plane's own address
+# cannot cut the session doing the switch. The runner's own unit is excluded
+# from restarts in the NixOS configuration, so the job survives the switch.
 # docs/management-plane-nixos.md has the one-time bootstrap.
 
 data "vault_kv_secret_v2" "management_plane_ssh" {
@@ -28,11 +29,8 @@ module "management_plane_system" {
 module "management_plane_deploy" {
   source = "github.com/nix-community/nixos-anywhere//terraform/nixos-rebuild?ref=1.13.0"
 
-  nixos_system = module.management_plane_system.result.out
-  # The static address from nixos/hosts/servacho-managment-plane/configuration.nix.
-  target_host     = "192.168.5.11"
+  nixos_system    = module.management_plane_system.result.out
+  target_host     = "127.0.0.1"
   target_user     = "root"
   ssh_private_key = data.vault_kv_secret_v2.management_plane_ssh.data["private_key"]
-
-  depends_on = [proxmox_virtual_environment_vm.management_vm]
 }
