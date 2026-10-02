@@ -15,10 +15,14 @@ node of a particular cluster.
 | `flake.nix` | Pins nixpkgs, exports the modules, builds the images |
 | `modules/base.nix` | What every servacho VM shares: SSH by key only, the QEMU guest agent, the nftables firewall, Nix housekeeping |
 | `modules/k3s-node.nix` | `servacho.k3s.*`: a k3s server or agent with its firewall, its bootstrap and the host side of Longhorn |
+| `modules/management-plane.nix` | `servacho.managementPlane.*`: OpenTofu, OpenBao and an optional runner; the root plane and every tenant plane |
+| `modules/proxmox-guest.nix` | The hardware of a VM cloned from one of the images, so a cloned host needs no generated hardware file |
 | `images/proxmox.nix` | The VMA build, the QEMU hardware the template declares, cloud-init |
 | `images/k3s-server.nix` | The control-plane ("master") template |
 | `images/k3s-agent.nix` | The worker ("runner") template |
-| `hosts/servacho-managment-plane/` | The management plane, built on `modules/base.nix` and deployed by `tofu/nixos_management_plane.tf`; its `hardware-configuration.nix` and `deploy-key.pub` are committed once from the VM |
+| `images/management.nix` | The management plane template the tenant planes are cloned from |
+| `hosts/servacho-managment-plane/` | The root management plane, deployed by `tofu/nixos_management_plane.tf`; its `hardware-configuration.nix` and `deploy-key.pub` were committed once from the VM |
+| `hosts/*-management-plane.nix` | The tenant planes, clones of the management image deployed by `tofu/tenant_management_planes.tf` (see [docs/tenant-management-planes.md](../docs/tenant-management-planes.md)) |
 
 ## The two templates
 
