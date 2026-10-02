@@ -87,17 +87,15 @@ with it.
 
 ## 5. Afterwards
 
-- A later pull request may drop the `import` block from `tofu/vms.tf`. Once
-  the VM is in state the block is inert, so this is tidying, not a fix.
+Done on 2026-10-02, the same day as the move.
+
+- The `import` block is gone from `tofu/vms.tf`. Once the VM was in state the
+  block was inert, so removing it was tidying, not a fix.
 - SSH from a workstation uses the new address; the host key is unchanged.
 - The qoaxhack specification already names `192.168.5.15` and 5015.
-- Once 5015 has run for a few days, on the Proxmox host:
-
-  ```sh
-  qm destroy 5011 --purge
-  ```
-
-  and remove the backup file from `/var/lib/vz/dump` when the disk needs it.
-- Both `.11` and `.15` lie inside VLAN 5's DHCP pool (`.6`–`.254`), as the
-  old address always did. Narrowing the pool or reserving `.15` in UniFi is a
-  separate change.
+- VM 5011 is destroyed (`qm destroy 5011 --purge`). Its backup,
+  `/var/lib/vz/dump/vzdump-qemu-5011-2026_10_02-05_48_50.vma.zst`, can go
+  when the disk needs the space.
+- `.15` lies inside VLAN 5's DHCP pool (`.6`–`.254`), so
+  `unifi_client.servacho_management_plane` in `tofu/unifi/clients.tf`
+  reserves it for the plane's MAC address.
