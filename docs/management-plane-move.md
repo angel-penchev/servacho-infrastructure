@@ -57,6 +57,20 @@ The restored VM boots the same disk: same address for now, same OpenBao data
 Within a minute the runner shows online in the repository's settings, and the
 next workflow run unseals OpenBao. Leave 5011 stopped; do not destroy it yet.
 
+Then detach the NixOS installer ISO, which the original VM still had on
+`ide2`. The provider imports an attached ISO as a disk
+(bpg/terraform-provider-proxmox#1372), and step 4's plan would then rewrite it
+into `scsi0` and drop the real `scsi0`, the root disk of the VM running the
+apply. An IDE drive cannot be unplugged live, so the removal waits as a pending
+change until the VM restarts; `qm reboot` restarts it and applies it:
+
+```sh
+qm set 5015 --delete ide2 && qm reboot 5015 && qm config 5015 | grep -E '^(ide2|boot|scsi0):'
+```
+
+The output should show `scsi0` and a boot order without `ide2`, and no `ide2`
+line.
+
 ## 4. Repository: adopt 5015 and move the address
 
 The second pull request puts the VM resource back with `vm_id = 5015` and an
