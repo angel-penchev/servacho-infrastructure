@@ -9,9 +9,10 @@
 
   servacho.managementPlane = {
     enable = true;
-    # VLAN 12 is a /24 (tofu/unifi/networks.tf); id rule: 12 + 011 = VM 12011.
+    # A management plane takes .15 of its VLAN. VLAN 12 is a /24
+    # (tofu/unifi/networks.tf); id rule: 12 + 015 = VM 12015.
     network = {
-      address = "192.168.12.11";
+      address = "192.168.12.15";
       prefixLength = 24;
       gateway = "192.168.12.1";
     };

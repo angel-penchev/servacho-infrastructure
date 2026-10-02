@@ -15,22 +15,23 @@ locals {
   tenant_management_planes_enabled = false
   management_template_vm_id        = 9003
 
-  # VM id rule: the VLAN followed by the zero-padded last octet.
+  # A management plane takes .15 of its VLAN; VM id rule: the VLAN followed by
+  # the zero-padded last octet.
   tenant_management_planes = {
     qoax-community = {
       host    = "qoax-community-management-plane"
-      vm_id   = 10011
+      vm_id   = 10015
       pool_id = proxmox_virtual_environment_pool.pool_qoax_community.id
       vlan    = 10
-      address = "192.168.10.11/23"
+      address = "192.168.10.15/23"
       gateway = "192.168.10.1"
     }
     fmicodes = {
       host    = "fmicodes-management-plane"
-      vm_id   = 12011
+      vm_id   = 12015
       pool_id = proxmox_virtual_environment_pool.pool_fmicodes.id
       vlan    = 12
-      address = "192.168.12.11/24"
+      address = "192.168.12.15/24"
       gateway = "192.168.12.1"
     }
   }

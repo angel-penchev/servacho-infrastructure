@@ -11,21 +11,22 @@ same OpenTofu run.
 
 ## Addresses
 
-VM ids follow the rule from Phase 7 of the guide: the VLAN followed by the
-zero-padded last octet.
+A management plane takes `.15` of its VLAN. VM ids follow the rule from Phase
+7 of the guide: the VLAN followed by the zero-padded last octet.
 
 | Host | Pool | VLAN | Address | VM id | Status |
 |---|---|---|---|---|---|
-| `servacho-management-plane` (root) | — | 5 (`192.168.5.0/24`) | `192.168.5.11` | 5011 | running |
-| `qoax-community-management-plane` | `pool-qoax-community` | 10 (`192.168.10.0/23`) | `192.168.10.11` | 10011 | defined, not yet created |
-| `fmicodes-management-plane` | `pool-fmicodes` | 12 (`192.168.12.0/24`) | `192.168.12.11` | 12011 | defined, not yet created |
-| qoaxhack prod k3s servers | `pool-qoax-community` | 10 | `192.168.10.31`–`.33` | 10031–10033 | planned by the qoaxhack spec |
-| qoaxhack dev k3s server, agent | `pool-qoax-community` | 10 | `192.168.10.41`, `.42` | 10041, 10042 | planned by the qoaxhack spec |
+| `servacho-management-plane` (root) | — | 5 (`192.168.5.0/24`) | `192.168.5.11` | 5011 | running; installed before the `.15` rule, moving it is a separate step |
+| `qoax-community-management-plane` | `pool-qoax-community` | 10 (`192.168.10.0/23`) | `192.168.10.15` | 10015 | defined, not yet created |
+| `fmicodes-management-plane` | `pool-fmicodes` | 12 (`192.168.12.0/24`) | `192.168.12.15` | 12015 | defined, not yet created |
+| qoaxhack prod k3s servers | `pool-qoax-community` | 10 | `192.168.10.21`–`.23` | 10021–10023 | planned by the qoaxhack spec |
+| qoaxhack dev k3s server, agent | `pool-qoax-community` | 10 | `192.168.10.26`, `.27` | 10026, 10027 | planned by the qoaxhack spec |
 
-The qoaxhack specification proposes `192.168.10.10` for the OpenBao its
-clusters read from. That OpenBao is the Qoax Community plane's, at
-`192.168.10.11`; the spec should follow this table. Qoax Community Broadcast has
-a pool and a token but no VLAN; whether it gets a plane of its own is open.
+Two points where the qoaxhack specification and this table still differ, to be
+settled on its side: it describes VLAN 10 as a `/24` (it is a `/23`), and it
+plans a separate OpenBao VM at `192.168.10.10` while keeping `.15` free; here
+the Qoax Community plane is that OpenBao. Qoax Community Broadcast has a pool
+and a token but no VLAN; whether it gets a plane of its own is open.
 
 ## What is where
 
