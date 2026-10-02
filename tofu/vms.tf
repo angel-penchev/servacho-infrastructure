@@ -1,47 +1,10 @@
-resource "proxmox_virtual_environment_vm" "management_vm" {
-  name = "servacho-managment-plane"
-  # A different node_name forces replacement -- i.e. destroys the VM that runs the apply.
-  node_name     = "Servacho-Gosho"
-  vm_id         = 5011
-  scsi_hardware = "virtio-scsi-single"
+# The root management plane is being moved from VM 5011 to VM 5015
+# (docs/management-plane-move.md). OpenTofu forgets 5011 here and adopts 5015
+# in the next step; it never destroys either, since the VM runs this apply.
+removed {
+  from = proxmox_virtual_environment_vm.management_vm
 
-  on_boot = true
-
-  agent {
-    enabled = true
-    timeout = "15m"
-    trim    = false
-  }
-
-  cpu {
-    cores = 2
-    type  = "x86-64-v2-AES"
-  }
-
-  disk {
-    interface    = "scsi0"
-    datastore_id = "local-lvm"
-    file_format  = "raw"
-    size         = 32
-    cache        = "none"
-    discard      = "ignore"
-    iothread     = true
-    ssd          = false
-  }
-
-  memory {
-    dedicated = 4096
-  }
-
-  network_device {
-    bridge   = "vmbr0"
-    enabled  = true
-    firewall = true
-    model    = "virtio"
-    vlan_id  = 0
-  }
-
-  operating_system {
-    type = "l26"
+  lifecycle {
+    destroy = false
   }
 }
