@@ -19,13 +19,10 @@ module "management_plane_system" {
   source = "github.com/nix-community/nixos-anywhere//terraform/nix-build?ref=1.13.0"
 
   # Evaluated at plan time, so a plan shows whether the system would change.
+  # Flakes come from the host's nix.conf (modules/base.nix); the module's
+  # nix_options cannot carry a value with a space, and a command-line
+  # experimental-features would replace the file's rather than add to it.
   attribute = "${abspath("${path.module}/../nixos")}#nixosConfigurations.servacho-management-plane.config.system.build.toplevel"
-
-  # Passed on the command line so the first deployment works from a host whose
-  # nix.conf does not enable flakes yet.
-  nix_options = {
-    experimental-features = "nix-command flakes"
-  }
 }
 
 module "management_plane_deploy" {
