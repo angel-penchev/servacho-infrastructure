@@ -29,6 +29,12 @@ DHCP lease. The host configuration names `eth0`; if the device is `ens18`, the
 static block has been ignored and the address comes from a lease, which decides
 how step 4 writes the new address.
 
+On 2026-10-02 it showed `eth0` holding `192.168.5.11/24`, which NetworkManager
+reported as `connected (externally)`: the static address in the host
+configuration is the one in use, applied by NixOS's own networking, so step 4
+only changes that address. The last `nmcli` part errors on `IP4.ADDRESS`, a
+field only a named connection has; `ip -br addr` already answers the question.
+
 ## 3. Proxmox host, as root: restore the VM under 5015
 
 The backup goes to the `local` directory storage. The restore keeps the MAC
@@ -67,8 +73,8 @@ with it.
 
 ## 5. Afterwards
 
-- A third pull request drops the `import` block; a plan with it still present
-  fails once the VM is in state.
+- A later pull request may drop the `import` block from `tofu/vms.tf`. Once
+  the VM is in state the block is inert, so this is tidying, not a fix.
 - SSH from a workstation uses the new address; the host key is unchanged.
 - The qoaxhack specification already names `192.168.5.15` and 5015.
 - Once 5015 has run for a few days, on the Proxmox host:

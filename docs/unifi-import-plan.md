@@ -1,7 +1,7 @@
 # Runbook: import the live UniFi controller into OpenTofu state
 
 **Written:** 2026-09-14 · **Status:** ✅ **done 2026-09-14** — 46 resources imported (apply run 34843335300), one re-imported (run 34876118372), `tofu/imports_unifi.tf` deleted, plan clean. Kept as the record of how it was done and for the next import (a new device, a resource created by hand).
-**Where:** the management plane (`servacho-managment-plane`, `192.168.5.11`), the only host with the state file (`/var/lib/opentofu/servacho-infrastructure.tfstate`, local backend in `tofu/providers.tf`) and OpenBao.
+**Where:** the management plane (`servacho-managment-plane`, `192.168.5.15`), the only host with the state file (`/var/lib/opentofu/servacho-infrastructure.tfstate`, local backend in `tofu/providers.tf`) and OpenBao.
 **What:** `tofu/imports_unifi.tf` (deleted after the run, see git history at 2057aa6) — 46 `import` blocks, one per resource in `tofu/unifi`, with the live ids read from the controller on 2026-09-14. Nothing had been applied since the factory reset of 2026-09-05; the tree was written to mirror live, and the imports landed with a 4-change diff that §14.12 of the drift report walks through.
 
 ## Why import blocks
