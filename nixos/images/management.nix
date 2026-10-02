@@ -9,6 +9,8 @@
     cores = 2;
     memory = 4096;
   };
+  # Overrides the k3s tags images/proxmox.nix gives a template by default.
+  proxmox.qemuExtraConf.tags = "nixos;management-plane";
 
   servacho.managementPlane.enable = true;
 }

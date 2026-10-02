@@ -4,7 +4,7 @@
 #
 # Hosts deployed onto a clone later do not import this file; they import the
 # modules only. The template is what a node is before it knows its cluster.
-{ modulesPath, ... }:
+{ lib, modulesPath, ... }:
 {
   imports = [ "${modulesPath}/virtualisation/proxmox-image.nix" ];
 
@@ -23,7 +23,8 @@
     };
     qemuExtraConf = {
       cpu = "x86-64-v2-AES";
-      tags = "nixos;k3s";
+      # An image that is not a k3s node sets its own.
+      tags = lib.mkDefault "nixos;k3s";
     };
     cloudInit = {
       enable = true;
