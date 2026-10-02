@@ -1,11 +1,3 @@
-# VM 5015 is the restore of 5011 (docs/management-plane-move.md); the import
-# adopts it into state. Once the VM is in state the block is inert, so removing
-# it after the apply is tidying, not a requirement.
-import {
-  id = "Servacho-Gosho/5015"
-  to = proxmox_virtual_environment_vm.management_vm
-}
-
 resource "proxmox_virtual_environment_vm" "management_vm" {
   name = "servacho-managment-plane"
   # A different node_name forces replacement -- i.e. destroys the VM that runs the apply.

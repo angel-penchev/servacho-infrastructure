@@ -8,6 +8,20 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ---
 
+## Session 2026-10-02 — fixed IP for the management plane
+
+Made in the UniFi web UI (Client Devices → `servacho-management-plane` → Settings → Apply Changes) on client `6a9c949c3346f05e9f318255`, `bc:24:11:5a:ab:e2`, the root management plane after its move to VM 5015 (`docs/management-plane-move.md`). Read back over `GET /rest/user/6a9c949c3346f05e9f318255`.
+
+| Attribute | Was | Now |
+|---|---|---|
+| `name` (alias) | unset (hostname only) | `servacho-management-plane` |
+| `use_fixedip` | `false` | `true` |
+| `fixed_ip` | unset | `192.168.5.15` |
+
+No network binding and no local DNS record, like the other reservations. Done in the UI rather than by apply because every in-place `unifi_client` update fails at v0.55.0 (`tofu/unifi/clients.tf`). `unifi_client.servacho_management_plane` mirrors it and `tofu/imports_unifi.tf` adopts it; the plan for the change is "1 to import" and nothing else.
+
+---
+
 ## Session 2026-09-14 (d) — port labels on the USW Pro Max
 
 `PUT /rest/device/6a9c94d33346f05e9f31829b` with the full `port_overrides` array (26 entries), three `name` values changed, everything else byte-identical; `200 ok`, read back, switch stayed online (state 1). Labels only — no profile, PoE or VLAN change.
