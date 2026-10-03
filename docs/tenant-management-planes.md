@@ -19,24 +19,42 @@ A management plane takes `.15` of its VLAN. VM ids follow the rule from Phase
 | `servacho-management-plane` (root) | — | 5 (`192.168.5.0/24`) | `192.168.5.15` | 5015 | running; moved from `.11` / 5011 on 2026-10-02 ([management-plane-move.md](management-plane-move.md)) |
 | `qoax-community-management-plane` | `pool-qoax-community` | 10 (`192.168.10.0/23`) | `192.168.10.15` | 10015 | defined, created when enabled |
 | `fmicodes-management-plane` | `pool-fmicodes` | 12 (`192.168.12.0/24`) | `192.168.12.15` | 12015 | defined, created when enabled |
-| qoaxhack prod k3s servers | `pool-qoax-community` | 10 | `192.168.10.21`–`.23` | 10021–10023 | planned by the qoaxhack spec |
-| qoaxhack dev k3s server, agent | `pool-qoax-community` | 10 | `192.168.10.26`, `.27` | 10026, 10027 | planned by the qoaxhack spec |
 
-Two points where the qoaxhack specification and this table still differ, to be
-settled on its side: it describes VLAN 10 as a `/24` (it is a `/23`), and it
-plans a separate OpenBao VM at `192.168.10.10` while keeping `.15` free; here
-the Qoax Community plane is that OpenBao. Qoax Community Broadcast has a pool
-and a token but no VLAN; whether it gets a plane of its own is open.
+Addresses inside an organisation's VLAN other than its plane's are that
+organisation's to allocate, in its own infrastructure repository (Qoax
+Community's are in qoax-community/qoax-infrastructure). Qoax Community
+Broadcast has a pool and a token but no VLAN; whether it gets a plane of its
+own is open.
+
+## Who owns what
+
+| | servacho-infrastructure (this repository) | The organisation's repository |
+|---|---|---|
+| Pool, Proxmox user and token, VLAN | ✓ | |
+| The plane's VM, install, host configuration, OpenBao bootstrap | ✓ | |
+| What the plane's runner applies: VMs, clusters and services in the pool | | ✓ |
+| Secrets for that, in the plane's OpenBao | the Proxmox token, seeded once | everything else |
+
+The plane stays here because something has to create it before the
+organisation's OpenTofu can run, and because its host configuration carries the
+root plane's deploy key and the runner registration: an organisation that could
+change it could also lock the root plane out. The organisation chooses only the
+runner's repository and labels, set in its host file here.
+
+The NixOS and OpenTofu modules both sides use are in
+[infrastructure-reusables](https://github.com/angel-penchev/infrastructure-reusables):
+an organisation's repository installs its own VMs with the same `nixos-vm`
+module this repository installs the planes with.
 
 ## What is where
 
 | Piece | Path |
 |---|---|
-| The module every plane is made of | `nixos/modules/management-plane.nix` |
-| The VM's hardware and disk layout (disko), in place of a generated file | `nixos/modules/proxmox-guest.nix` |
+| The module every plane is made of | infrastructure-reusables' `nixosModules.management-plane` |
+| The VM's hardware and disk layout (disko), in place of a generated file | infrastructure-reusables' `nixosModules.proxmox-guest` |
 | The installer every plane starts from | `nixos/images/installer.nix`, built as `installer-iso` |
 | The tenant hosts | `nixos/hosts/qoax-community-management-plane.nix`, `nixos/hosts/fmicodes-management-plane.nix` |
-| The VMs, their install, deploy and OpenBao bootstrap | `tofu/tenant_management_planes.tf` |
+| The VMs, their install, deploy and OpenBao bootstrap | `tofu/tenant_management_planes.tf`, with infrastructure-reusables' `installer-iso` and `nixos-vm` |
 | The OpenBao bootstrap and the unseal after a reboot | `scripts/tenant-plane-openbao.sh`, `.github/actions/unseal-tenant-planes` |
 
 A tenant host differs from the root plane in three ways, all visible in its
@@ -57,9 +75,10 @@ the root plane:
 1. **The installer.** `nixos/images/installer.nix` is built as
    `installer-iso` and uploaded to the `local` storage through the Proxmox API.
    Only an ISO can go that way at the pinned provider; a disk image or a backup
-   would need SSH to the node, which is why there is no VM template. The upload
-   happens once: a newer installer is never pushed over it, because the planes
-   keep it attached and Proxmox will not start a VM whose ISO is gone.
+   would need SSH to the node, which is why there is no VM template. A plan
+   only evaluates the ISO; it is built and uploaded once, and again only when
+   the module's `generation` changes, under the same name, so the planes that
+   keep it attached keep a valid reference.
 2. **The VM.** Each plane is created in its pool and VLAN with an empty
    32 GiB disk first in the boot order, so SeaBIOS falls through to the
    installer. The installer takes a DHCP address, and the VM resource waits
@@ -67,8 +86,8 @@ the root plane:
 3. **The install.** nixos-anywhere connects to that address with the root
    plane's deploy key, partitions the disk with the host's disko layout,
    installs the host configuration and reboots. The plane comes up from its
-   disk on its static `.15` address. This happens once per VM: only a new VM
-   id installs again.
+   disk on its static `.15` address. This happens once per VM: a VM that is
+   replaced gets a new MAC address and installs again, nothing else does.
 4. **The deploy.** As for the root plane: from then on a change to a tenant
    host under `nixos/` shows in a plan and reaches the VM on merge.
 5. **OpenBao.** `scripts/tenant-plane-openbao.sh bootstrap` initialises the
@@ -100,9 +119,8 @@ exists to register with.
 
 - **Unsealing without a workflow run.** A plane that reboots stays sealed
   until the root plane's next plan or apply. Transit auto-unseal keyed by the
-  root OpenBao would remove the wait; a sealed-at-boot alert is the alternative
-  the qoaxhack spec accepts.
+  root OpenBao would remove the wait; a sealed-at-boot alert is the alternative.
 - **A listener on the tenant VLAN, with TLS**, for workloads that read
-  secrets from the plane (the qoaxhack clusters). The module keeps OpenBao on
+  secrets from the plane (Qoax Community's clusters). The module keeps OpenBao on
   loopback until that consumer exists.
 - **Human access** through Google Workspace OIDC, Phase 6 of the guide.

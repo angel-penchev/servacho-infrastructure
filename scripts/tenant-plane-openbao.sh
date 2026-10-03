@@ -59,6 +59,14 @@ unseal() {
   [[ $(plane_status "$host" | jq -r .sealed) == false ]]
 }
 
+# The plane's OpenBao may be initialised without its keys reaching the root
+# OpenBao. A new plane holds nothing yet, so starting it over is the way out.
+lost_keys() {
+  echo "The OpenBao on $TARGET_HOST may be initialised with keys nobody has. If it" >&2
+  echo "holds nothing yet: stop openbao there, empty /var/lib/openbao, start it, and" >&2
+  echo "run this again (tofu apply -replace on its terraform_data)." >&2
+}
+
 bootstrap() {
   : "${TENANT:?}" "${TARGET_HOST:?}" "${PROXMOX_TOKEN_SECRET:?}"
   local path="management-planes/$TENANT" state init record token
@@ -76,23 +84,26 @@ bootstrap() {
 
   if [[ $(jq -r .initialized <<<"$state") == false ]]; then
     echo "Initialising OpenBao on $TARGET_HOST"
-    init=$(echo 'bao operator init -key-shares=5 -key-threshold=3 -format=json' | on_plane "$TARGET_HOST")
     # The record first: without it the plane's OpenBao can never be unsealed.
+    if ! init=$(echo 'bao operator init -key-shares=5 -key-threshold=3 -format=json' | on_plane "$TARGET_HOST") ||
+      ! jq -e '(.root_token | length > 0) and ((.unseal_keys_b64 | length) >= .unseal_threshold)' <<<"$init" >/dev/null 2>&1; then
+      lost_keys
+      return 1
+    fi
     for attempt in 1 2 3; do
       if jq --arg address "$TARGET_HOST" '. + {address: $address}' <<<"$init" |
         "$BAO" kv put -mount=secret "$path" - >/dev/null; then
         break
       fi
       if [[ $attempt == 3 ]]; then
-        echo "Could not store secret/$path in the root OpenBao. The plane's OpenBao is" >&2
-        echo "initialised with keys nobody has: stop openbao on $TARGET_HOST, empty" >&2
-        echo "/var/lib/openbao, start it and run this again." >&2
+        lost_keys
         return 1
       fi
       sleep 5
     done
   elif ! "$BAO" kv get -mount=secret "$path" >/dev/null 2>&1; then
-    echo "OpenBao on $TARGET_HOST is initialised, but secret/$path is not in the root OpenBao" >&2
+    echo "OpenBao on $TARGET_HOST is initialised, but secret/$path is not in the root OpenBao." >&2
+    lost_keys
     return 1
   fi
 
@@ -124,8 +135,11 @@ unseal_all() {
   fi
   for tenant in $tenants; do
     tenant=${tenant%/}
-    record=$("$BAO" kv get -mount=secret -format=json "management-planes/$tenant" | jq .data.data)
-    host=$(jq -r .address <<<"$record")
+    if ! record=$("$BAO" kv get -mount=secret -format=json "management-planes/$tenant" | jq -e .data.data) ||
+      ! host=$(jq -er .address <<<"$record"); then
+      echo "::warning::could not read secret/management-planes/$tenant from the root OpenBao"
+      continue
+    fi
     status=$(plane_status "$host")
     case $(jq -r .sealed <<<"$status" 2>/dev/null) in
       false) echo "$tenant ($host): unsealed" ;;
