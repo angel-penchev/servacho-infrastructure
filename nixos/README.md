@@ -1,12 +1,16 @@
 # NixOS
 
-NixOS modules, the hosts built from them, and the Proxmox VM image templates.
+NixOS modules, the hosts built from them, the Proxmox VM image templates and
+the installer ISO.
 A host is switched to in place; the management plane is deployed that way by
 OpenTofu (see [docs/management-plane-nixos.md](../docs/management-plane-nixos.md)).
 A template is what a Kubernetes node is before it knows its cluster: OpenTofu
 clones it once per VM, cloud-init gives the clone its name, address and SSH
 key, and one small k3s configuration file makes it a control-plane or worker
-node of a particular cluster.
+node of a particular cluster. The installer is how a tenant management plane
+starts instead: OpenTofu boots a new VM from it and nixos-anywhere installs the
+host onto the empty disk (see
+[docs/tenant-management-planes.md](../docs/tenant-management-planes.md)).
 
 ## Layout
 
@@ -16,13 +20,13 @@ node of a particular cluster.
 | `modules/base.nix` | What every servacho VM shares: SSH by key only, the QEMU guest agent, the nftables firewall, Nix housekeeping |
 | `modules/k3s-node.nix` | `servacho.k3s.*`: a k3s server or agent with its firewall, its bootstrap and the host side of Longhorn |
 | `modules/management-plane.nix` | `servacho.managementPlane.*`: OpenTofu, OpenBao and an optional runner; the root plane and every tenant plane |
-| `modules/proxmox-guest.nix` | The hardware of a VM cloned from one of the images, so a cloned host needs no generated hardware file |
+| `modules/proxmox-guest.nix` | The hardware and disko disk layout of a VM installed by nixos-anywhere, so an installed host needs no generated hardware file |
 | `images/proxmox.nix` | The VMA build, the QEMU hardware the template declares, cloud-init |
 | `images/k3s-server.nix` | The control-plane ("master") template |
 | `images/k3s-agent.nix` | The worker ("runner") template |
-| `images/management.nix` | The management plane template the tenant planes are cloned from |
+| `images/installer.nix` | The installer ISO a tenant plane boots from an empty disk: DHCP, the guest agent, root by the deploy key |
 | `hosts/servacho-managment-plane/` | The root management plane, deployed by `tofu/nixos_management_plane.tf`; its `hardware-configuration.nix` and `deploy-key.pub` were committed once from the VM |
-| `hosts/*-management-plane.nix` | The tenant planes, clones of the management image deployed by `tofu/tenant_management_planes.tf` (see [docs/tenant-management-planes.md](../docs/tenant-management-planes.md)) |
+| `hosts/*-management-plane.nix` | The tenant planes, installed from the installer and deployed by `tofu/tenant_management_planes.tf` (see [docs/tenant-management-planes.md](../docs/tenant-management-planes.md)) |
 
 ## The two templates
 

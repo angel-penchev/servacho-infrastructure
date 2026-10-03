@@ -1,6 +1,6 @@
 # The FMI{Codes} management plane: OpenTofu, OpenBao and the runner for the
-# FMI{Codes} tenant, on its VPS network. A clone of images/management.nix,
-# created and deployed by tofu/tenant_management_planes.tf.
+# FMI{Codes} tenant, on its VPS network. Installed from
+# images/installer.nix and deployed by tofu/tenant_management_planes.tf.
 { ... }:
 {
   imports = [ ../modules/proxmox-guest.nix ];
@@ -21,8 +21,7 @@
     runner.enable = false;
   };
 
-  # The same key the root plane deploys with; cloud-init installs it on first
-  # boot and this keeps it after the switch replaces cloud-init.
+  # The same key the root plane deploys with, as on the installer it starts from.
   users.users.root.openssh.authorizedKeys.keyFiles = [
     ./servacho-managment-plane/deploy-key.pub
   ];

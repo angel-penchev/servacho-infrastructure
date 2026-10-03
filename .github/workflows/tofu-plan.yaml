@@ -28,6 +28,12 @@ jobs:
           unseal_key: ${{ secrets.OPENBAO_UNSEAL_KEY }}
           vault_addr: ${{ env.VAULT_ADDR }}
 
+      - name: Unseal the tenant management planes
+        uses: ./.github/actions/unseal-tenant-planes
+        with:
+          vault_token: ${{ secrets.OPENBAO_ROOT_TOKEN }}
+          vault_addr: ${{ env.VAULT_ADDR }}
+
       - name: OpenTofu init
         env:
           VAULT_TOKEN: ${{ secrets.OPENBAO_ROOT_TOKEN }}

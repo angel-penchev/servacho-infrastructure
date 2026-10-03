@@ -1,10 +1,21 @@
 {
-  description = "servacho NixOS modules, hosts and Proxmox VM image templates";
+  description = "servacho NixOS modules, hosts, Proxmox VM image templates and installer";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
+    # Partitions a VM's disk when nixos-anywhere installs a host onto it.
+    disko = {
+      url = "github:nix-community/disko";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
 
   outputs =
-    { self, nixpkgs }:
+    {
+      self,
+      nixpkgs,
+      disko,
+    }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
@@ -19,21 +30,22 @@
           modules = [
             self.nixosModules.base
             self.nixosModules.k3s-node
-            self.nixosModules.management-plane
             ./images/proxmox.nix
             image
           ];
         };
 
-      # A host cloned from a template: the clone's hardware is known, so no
-      # generated hardware-configuration.nix is needed.
-      mkClonedHost =
+      # A host nixos-anywhere installs onto an empty VM disk: disko lays the
+      # disk out from the host's own configuration, so no generated
+      # hardware-configuration.nix is needed.
+      mkInstalledHost =
         host:
         lib.nixosSystem {
           inherit system;
           modules = [
             self.nixosModules.base
             self.nixosModules.management-plane
+            disko.nixosModules.disko
             host
           ];
         };
@@ -74,7 +86,7 @@
         base = ./modules/base.nix;
         k3s-node = ./modules/k3s-node.nix;
         management-plane = ./modules/management-plane.nix;
-        # The hardware of a VM cloned from one of the images below.
+        # The hardware and disk layout of a VM installed by nixos-anywhere.
         proxmox-guest = ./modules/proxmox-guest.nix;
       };
 
@@ -89,21 +101,30 @@
             managementPlaneHardware
           ];
         };
-        # Tenant planes, deployed by tofu/tenant_management_planes.tf.
-        qoax-community-management-plane = mkClonedHost ./hosts/qoax-community-management-plane.nix;
-        fmicodes-management-plane = mkClonedHost ./hosts/fmicodes-management-plane.nix;
+        # Tenant planes, installed and deployed by tofu/tenant_management_planes.tf.
+        qoax-community-management-plane = mkInstalledHost ./hosts/qoax-community-management-plane.nix;
+        fmicodes-management-plane = mkInstalledHost ./hosts/fmicodes-management-plane.nix;
 
         # Image templates: cloned, never switched to.
         k3s-server = mkImage ./images/k3s-server.nix;
         k3s-agent = mkImage ./images/k3s-agent.nix;
-        management = mkImage ./images/management.nix;
+
+        # The ISO an installed host boots before it has a system of its own.
+        installer = lib.nixosSystem {
+          inherit system;
+          modules = [ ./images/installer.nix ];
+        };
       };
 
       # nix build .#k3s-server-image -> result/vzdump-qemu-servacho-k3s-server.vma.zst
       packages.${system} = {
         k3s-server-image = self.nixosConfigurations.k3s-server.config.system.build.VMA;
         k3s-agent-image = self.nixosConfigurations.k3s-agent.config.system.build.VMA;
-        management-image = self.nixosConfigurations.management.config.system.build.VMA;
+        # nix build .#installer-iso -> result/iso/servacho-installer.iso
+        installer-iso = self.nixosConfigurations.installer.config.system.build.isoImage;
+        # The CLI OpenTofu and the workflows use against the planes' OpenBao,
+        # from the same nixpkgs as the planes themselves.
+        openbao = pkgs.openbao;
       };
 
       # `nix flake check` builds the systems (a binary-cache download), not the
@@ -117,7 +138,7 @@
           self.nixosConfigurations.fmicodes-management-plane.config.system.build.toplevel;
         k3s-server = self.nixosConfigurations.k3s-server.config.system.build.toplevel;
         k3s-agent = self.nixosConfigurations.k3s-agent.config.system.build.toplevel;
-        management = self.nixosConfigurations.management.config.system.build.toplevel;
+        installer = self.nixosConfigurations.installer.config.system.build.toplevel;
       };
 
       formatter.${system} = pkgs.nixfmt-tree;

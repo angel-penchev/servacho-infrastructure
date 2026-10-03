@@ -929,7 +929,7 @@ provider "proxmox" {
 
 ## Phase 7: Dynamic Virtual Machine Identifier Calculation
 
-> **Done differently.** The id rule stands and is applied by hand in `tofu/`; the clone source is a template built by `nix build` from `nixos/images/`, and the host configuration is switched to by OpenTofu after cloud-init, not pushed by Colmena. See [tenant-management-planes.md](tenant-management-planes.md).
+> **Done differently.** The id rule stands and is applied by hand in `tofu/`. A tenant plane is not cloned: OpenTofu boots a new VM from an installer ISO built from `nixos/images/`, nixos-anywhere installs the host configuration onto its disk, and later changes are switched to by OpenTofu, not pushed by Colmena. See [tenant-management-planes.md](tenant-management-planes.md).
 
 With access controls, networks, and secrets handled, OpenTofu is ready to deploy tenant workloads. Proxmox VE requires a unique integer ID for every virtual machine across the cluster, which serves as the primary key for all API operations. In manually managed environments, these IDs are often assigned sequentially, leading to administrative overhead and cognitive disconnect when attempting to correlate a VM ID with its IP address or network segment.
 

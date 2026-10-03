@@ -1,0 +1,25 @@
+name: "Unseal the tenant management planes"
+description: >-
+  After the root OpenBao is unsealed, unseals every tenant management plane
+  recorded in it (scripts/tenant-plane-openbao.sh unseal-all). A plane that is
+  down or stays sealed is a warning, not a failure.
+inputs:
+  vault_token:
+    description: "Token for the root OpenBao"
+    required: true
+  vault_addr:
+    description: "Address of the root OpenBao"
+    required: false
+    default: "http://127.0.0.1:8200"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Unseal the tenant management planes
+      shell: bash
+      env:
+        VAULT_TOKEN: ${{ inputs.vault_token }}
+        VAULT_ADDR: ${{ inputs.vault_addr }}
+      run: |
+        BAO="$(nix --extra-experimental-features 'nix-command flakes' build --no-link --print-out-paths ./nixos#openbao)/bin/bao" \
+          scripts/tenant-plane-openbao.sh unseal-all
