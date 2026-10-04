@@ -28,14 +28,11 @@ jobs:
           unseal_key: ${{ secrets.OPENBAO_UNSEAL_KEY }}
           vault_addr: ${{ env.VAULT_ADDR }}
 
-      - name: Unseal the tenant management planes
-        uses: ./.github/actions/unseal-tenant-planes
-        # The root pipeline does not depend on the tenants' planes; a failure
-        # here is reported and the run goes on.
-        continue-on-error: true
-        with:
-          vault_token: ${{ secrets.OPENBAO_ROOT_TOKEN }}
-          vault_addr: ${{ env.VAULT_ADDR }}
+      # Before anything reads the flake or the modules: a pull request that
+      # moves one side of the infrastructure-reusables pin without the other
+      # fails here.
+      - name: infrastructure-reusables pins
+        run: scripts/check-reusables-pins.sh
 
       - name: OpenTofu init
         env:
