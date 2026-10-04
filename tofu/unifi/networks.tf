@@ -156,7 +156,9 @@ resource "unifi_network" "iot" {
   }
 }
 
-# A /23 (192.168.10.0-192.168.11.255).
+# A /23 (192.168.10.0-192.168.11.255). .2-.99 are for static hosts (the
+# management plane on .15, the clusters from .21); DHCP, which a VM's
+# installer needs, starts above them.
 resource "unifi_network" "qoax_community_vps" {
   name               = "Qoax VPS"
   purpose            = "corporate"
@@ -167,7 +169,7 @@ resource "unifi_network" "qoax_community_vps" {
 
   dhcp_server = {
     enabled = true
-    start   = "192.168.10.11"
+    start   = "192.168.10.100"
     stop    = "192.168.11.254"
   }
 
@@ -177,6 +179,7 @@ resource "unifi_network" "qoax_community_vps" {
   }
 }
 
+# .2-.99 are for static hosts (the management plane on .15); DHCP starts above.
 resource "unifi_network" "fmicodes_vps" {
   name               = "FMI{Codes} VPS"
   purpose            = "corporate"
@@ -187,7 +190,7 @@ resource "unifi_network" "fmicodes_vps" {
 
   dhcp_server = {
     enabled = true
-    start   = "192.168.12.6"
+    start   = "192.168.12.100"
     stop    = "192.168.12.254"
   }
 
