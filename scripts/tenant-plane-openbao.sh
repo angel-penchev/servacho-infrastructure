@@ -25,23 +25,8 @@
 # put on a command line, here or on the plane.
 set -euo pipefail
 
-export BAO_ADDR="${BAO_ADDR:-${VAULT_ADDR:?root OpenBao address}}"
-export BAO_TOKEN="${BAO_TOKEN:-${VAULT_TOKEN:?root OpenBao token}}"
-: "${BAO:?path to the bao binary}"
-
-work=$(mktemp -d)
-trap 'rm -rf "$work"' EXIT
-(
-  umask 077
-  "$BAO" kv get -mount=secret -field=private_key management-plane/ssh >"$work/key"
-)
-
-# Runs the script on stdin on a plane, as root, against its local OpenBao.
-on_plane() {
-  ssh -i "$work/key" -o BatchMode=yes -o ConnectTimeout=10 \
-    -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
-    "root@$1" 'BAO_ADDR=http://127.0.0.1:8200 bash -s'
-}
+# shellcheck source=lib/tenant-plane.sh
+source "$(dirname "$(realpath "$0")")/lib/tenant-plane.sh"
 
 # The plane's seal status as JSON; empty if it cannot be reached.
 plane_status() {

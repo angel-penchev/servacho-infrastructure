@@ -15,9 +15,13 @@
       prefixLength = 23;
       gateway = "192.168.10.1";
     };
-    # The runner joins once the tenant's infrastructure repository exists;
-    # until then the plane is an OpenBao and a tofu host reached over SSH.
-    runner.enable = false;
+    # Applies qoax-community/qoax-infrastructure. Its registration token is
+    # placed by the root plane after the deploy (tofu/organisation/plane.tf).
+    runner = {
+      enable = true;
+      url = "https://github.com/qoax-community/qoax-infrastructure";
+      labels = [ "qoax-community-management-plane" ];
+    };
   };
 
   # The same key the root plane deploys with, as on the installer it starts from.
