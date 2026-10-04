@@ -4,9 +4,9 @@
 # organisation's own infrastructure repository.
 
 locals {
-  # Creates the organisations' management planes. Until then nothing below
+  # Creates the organisations' management planes. Turned off, nothing below
   # builds or uploads anything, and the planes plan as no changes.
-  management_planes_enabled = false
+  management_planes_enabled = true
 
   nixos_flake = abspath("${path.module}/../nixos")
 
