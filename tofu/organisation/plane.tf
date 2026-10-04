@@ -11,7 +11,7 @@
 
 module "plane" {
   count  = var.plane == null ? 0 : 1
-  source = "github.com/angel-penchev/infrastructure-reusables//tofu/modules/nixos-vm?ref=v0.1.0"
+  source = "github.com/angel-penchev/infrastructure-reusables//tofu/modules/nixos-vm?ref=v0.2.0"
 
   name             = var.plane.host
   node_name        = var.node_name
@@ -26,12 +26,17 @@ module "plane" {
   ssh_private_key  = var.ssh_private_key
 }
 
-# Once per installation. The root OpenBao's address and token come from the
-# workflow's environment, as for the vault provider.
+# Once per installation, and again whenever the organisation's Proxmox token
+# changes, so the plane's copy follows it (the bootstrap is safe to repeat).
+# The root OpenBao's address and token come from the workflow's environment,
+# as for the vault provider.
 resource "terraform_data" "openbao" {
   count = var.plane == null ? 0 : 1
 
-  triggers_replace = [module.plane[0].installation_id]
+  triggers_replace = [
+    module.plane[0].installation_id,
+    sha256(proxmox_virtual_environment_user_token.tofu.value),
+  ]
 
   provisioner "local-exec" {
     command = "${abspath("${path.module}/../../scripts/tenant-plane-openbao.sh")} bootstrap"

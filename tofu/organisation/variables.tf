@@ -28,6 +28,14 @@ variable "plane" {
   })
   default     = null
   description = "The organisation's management plane: its host in ../nixos, VM id, VLAN and static address. null for none."
+
+  validation {
+    condition = var.plane == null || (
+      var.installer_iso_id != null && var.nixos_flake != null &&
+      var.openbao_cli != null && var.ssh_private_key != null
+    )
+    error_message = "A plane needs installer_iso_id, nixos_flake, openbao_cli and ssh_private_key (local.plane_tools in ../organisations.tf)."
+  }
 }
 
 # What a plane is built with, shared by every organisation's; needed only with
