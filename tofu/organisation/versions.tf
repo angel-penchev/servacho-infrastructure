@@ -6,5 +6,8 @@ terraform {
     vault = {
       source = "hashicorp/vault"
     }
+    tls = {
+      source = "hashicorp/tls"
+    }
   }
 }
