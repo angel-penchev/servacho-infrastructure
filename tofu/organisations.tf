@@ -79,16 +79,6 @@ module "fmicodes" {
   ssh_private_key  = data.vault_kv_secret_v2.management_plane_ssh.data["private_key"]
 }
 
-# No VLAN yet, so no plane; whether it gets one of its own is open.
-module "qoax_community_broadcast" {
-  source = "./organisation"
-
-  id           = "qoax-community-broadcast"
-  name         = "Qoax Community Broadcast"
-  pool_comment = "Isolated Resource Pool for Qoax Community Broadcast Media"
-  role_id      = proxmox_virtual_environment_role.tofu_provisioner.role_id
-}
-
 # Where the organisations' resources were before organisation/ existed.
 
 moved {
@@ -123,21 +113,4 @@ moved {
 moved {
   from = vault_kv_secret_v2.fmicodes_vault_secret
   to   = module.fmicodes.vault_kv_secret_v2.proxmox_token
-}
-
-moved {
-  from = proxmox_virtual_environment_pool.pool_qoax_community_broadcast
-  to   = module.qoax_community_broadcast.proxmox_virtual_environment_pool.this
-}
-moved {
-  from = proxmox_virtual_environment_user.tofu_qoax_community_broadcast
-  to   = module.qoax_community_broadcast.proxmox_virtual_environment_user.tofu
-}
-moved {
-  from = proxmox_virtual_environment_user_token.qoax_community_broadcast_token
-  to   = module.qoax_community_broadcast.proxmox_virtual_environment_user_token.tofu
-}
-moved {
-  from = vault_kv_secret_v2.qoax_community_broadcast_vault_secret
-  to   = module.qoax_community_broadcast.vault_kv_secret_v2.proxmox_token
 }

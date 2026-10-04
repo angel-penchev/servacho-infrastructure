@@ -8,12 +8,6 @@ variable "name" {
   description = "Display name, for the comments Proxmox shows."
 }
 
-variable "pool_comment" {
-  type        = string
-  default     = null
-  description = "The pool's comment, when \"Isolated Resource Pool for <name> Infrastructure\" does not fit."
-}
-
 variable "role_id" {
   type        = string
   description = "Role the organisation's OpenTofu user has on its pool."

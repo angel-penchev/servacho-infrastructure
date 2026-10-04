@@ -4,7 +4,7 @@
 
 resource "proxmox_virtual_environment_pool" "this" {
   pool_id = "pool-${var.id}"
-  comment = coalesce(var.pool_comment, "Isolated Resource Pool for ${var.name} Infrastructure")
+  comment = "Isolated Resource Pool for ${var.name} Infrastructure"
 }
 
 resource "proxmox_virtual_environment_user" "tofu" {
