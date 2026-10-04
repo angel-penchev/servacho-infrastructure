@@ -158,7 +158,8 @@ resource "unifi_network" "iot" {
 
 # A /23 (192.168.10.0-192.168.11.255). .2-.99 are for static hosts (the
 # management plane on .15, the clusters from .21); DHCP, which a VM's
-# installer needs, starts above them.
+# installer needs, starts above them (changed in the UI on 2026-10-04,
+# docs/unifi-browser-changes.md).
 resource "unifi_network" "qoax_community_vps" {
   name               = "Qoax VPS"
   purpose            = "corporate"
@@ -166,6 +167,9 @@ resource "unifi_network" "qoax_community_vps" {
   subnet             = "192.168.10.1/23"
   multicast_dns      = false
   setting_preference = "manual"
+
+  # Off, or the DHCP range below cannot differ from the whole subnet.
+  auto_scale = false
 
   dhcp_server = {
     enabled = true
@@ -187,6 +191,9 @@ resource "unifi_network" "fmicodes_vps" {
   subnet             = "192.168.12.1/24"
   multicast_dns      = false
   setting_preference = "manual"
+
+  # Off, or the DHCP range below cannot differ from the whole subnet.
+  auto_scale = false
 
   dhcp_server = {
     enabled = true
