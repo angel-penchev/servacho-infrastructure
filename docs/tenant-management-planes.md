@@ -66,11 +66,13 @@ exists.
 
 ## Bringing a plane up
 
-Nothing is run by hand on Proxmox or on the plane. Set
-`management_planes_enabled = true` in `tofu/organisations.tf`
-and open a pull request. Its plan shows the installer upload, and for each
-plane the VM, the install, the deploy and the OpenBao bootstrap. On apply, from
-the root plane:
+Nothing is run by hand on Proxmox or on the plane. The planes are on while
+`management_planes_enabled` in `tofu/organisations.tf` is true; a new
+organisation's plane is a `plane` block in its module there, a host file
+under `nixos/hosts/` and its VLAN in UniFi, with DHCP for the installer above
+the static addresses (from `.100`). The plan shows the installer upload, and
+for each plane the VM, the install, the deploy and the OpenBao bootstrap. On
+apply, from the root plane:
 
 1. **The installer.** `nixos/images/installer.nix` is built as
    `installer-iso` and uploaded to the `local` storage through the Proxmox API.

@@ -8,6 +8,21 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ---
 
+## Session 2026-10-04 — DHCP pools of the VPS VLANs start at .100
+
+Made in the UniFi web UI (Settings → Networks → the network → IPv4: Auto-Scale Network off, DHCP Range Start, Apply Changes) so that the organisations' management planes (`.15`) and Qoax Community's cluster addresses (from `.21`) are outside DHCP. Read back over `GET /rest/networkconf`. Neither VLAN had a client or a reservation at the time.
+
+| Network | Attribute | Was | Now |
+|---|---|---|---|
+| Qoax VPS (VLAN 10) | `auto_scale_enabled` | `true` | `false` |
+| Qoax VPS (VLAN 10) | `dhcpd_start` | `192.168.10.11` | `192.168.10.100` |
+| FMI{Codes} VPS (VLAN 12) | `auto_scale_enabled` | `true` | `false` |
+| FMI{Codes} VPS (VLAN 12) | `dhcpd_start` | `192.168.12.6` | `192.168.12.100` |
+
+`dhcpd_stop`, the subnet, DHCP guarding and everything else are unchanged. The range fields are read-only in the UI while Auto-Scale Network is on, and the provider defaults `auto_scale` to `true`, so `tofu/unifi/networks.tf` sets `auto_scale = false` along with the new `start` on both networks; the plan shows no change to either.
+
+---
+
 ## Session 2026-10-02 — fixed IP for the management plane
 
 Made in the UniFi web UI (Client Devices → `servacho-management-plane` → Settings → Apply Changes) on client `6a9c949c3346f05e9f318255`, `bc:24:11:5a:ab:e2`, the root management plane after its move to VM 5015 (`docs/management-plane-move.md`). Read back over `GET /rest/user/6a9c949c3346f05e9f318255`.
