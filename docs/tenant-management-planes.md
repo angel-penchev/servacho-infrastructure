@@ -55,7 +55,7 @@ module this repository installs the planes with.
 | The installer every plane starts from | `nixos/images/installer.nix`, built as `installer-iso` |
 | The tenant hosts | `nixos/hosts/qoax-community-management-plane.nix`, `nixos/hosts/fmicodes-management-plane.nix` |
 | The VMs, their install, deploy and OpenBao bootstrap | `tofu/organisation/plane.tf`, with infrastructure-reusables' `installer-iso` and `nixos-vm` |
-| The OpenBao bootstrap and the unseal after a reboot | `scripts/tenant-plane-openbao.sh`, `.github/actions/unseal-tenant-planes` |
+| The OpenBao bootstrap and the unseal after a reboot | `scripts/tenant-plane-openbao.sh`, `.github/actions/unseal-tenant-planes`, `.github/workflows/tenant-planes-unseal.yaml` |
 
 A tenant host differs from the root plane in three ways, all visible in its
 file: it imports the VM hardware and disk layout instead of a generated
@@ -76,21 +76,24 @@ the root plane:
    `installer-iso` and uploaded to the `local` storage through the Proxmox API.
    Only an ISO can go that way at the pinned provider; a disk image or a backup
    would need SSH to the node, which is why there is no VM template. A plan
-   only evaluates the ISO. It is built and uploaded once, and again whenever
-   the deploy key or the locked nixpkgs changes (`installer_generation` in
-   `tofu/organisations.tf`), under the same name, so the planes that keep it
-   attached keep a valid reference. The ISO holds the minimal NixOS installer,
-   the QEMU guest agent, and SSH for root with the deploy key's public half;
-   no secrets and no host configuration.
+   only evaluates the ISO's store path, which changes with anything that goes
+   into it: the locked nixpkgs, the deploy key, `installer.nix`, a new
+   infrastructure-reusables release. Each new one is built at apply and
+   uploaded as `servacho-installer-<hash>.iso`; the planes are moved onto it,
+   then the previous one is deleted. The ISO holds the minimal NixOS
+   installer, the QEMU guest agent, and SSH for root with the deploy key's
+   public half; no secrets and no host configuration.
 2. **The VM.** Each plane is created in its pool and VLAN with an empty
    32 GiB disk first in the boot order, so SeaBIOS falls through to the
-   installer. The installer takes a DHCP address, and the VM resource waits
-   until the guest agent reports it.
+   installer. The installer takes a DHCP address, its guest agent starts only
+   once it has one, and the VM resource waits for the agent.
 3. **The install.** nixos-anywhere connects to that address with the root
    plane's deploy key, partitions the disk with the host's disko layout,
    installs the host configuration and reboots. The plane comes up from its
-   disk on its static `.15` address. This happens once per VM: a VM that is
-   replaced gets a new MAC address and installs again, nothing else does.
+   disk on its static `.15` address. This happens once per VM OpenTofu
+   creates: a VM it replaces installs again, and a VM restored from a backup
+   under the same id is left alone (`tofu apply -replace` on the plane's
+   `terraform_data.installation` reinstalls one on purpose).
 4. **The deploy.** As for the root plane: from then on a change to a tenant
    host under `nixos/` shows in a plan and reaches the VM on merge.
 5. **OpenBao.** `scripts/tenant-plane-openbao.sh bootstrap` initialises the
@@ -100,11 +103,15 @@ the root plane:
    `secret/` and copies the tenant's Proxmox token from the root OpenBao's
    `secret/proxmox/<tenant>_token` to the plane's `secret/proxmox`. The
    tenant's pipeline provisions with that token and never sees the root one.
+   The bootstrap runs again when that token changes, so the plane's copy
+   follows a rotation.
 
-After a reboot a plane's OpenBao is sealed, like the root plane's. Every plan
-and apply workflow unseals the root OpenBao and then every plane recorded under
+After a reboot a plane's OpenBao is sealed, like the root plane's. Every
+apply, and `tenant-planes-unseal.yaml` every 30 minutes from `main`, unseals
+the root OpenBao and then every plane recorded under
 `secret/management-planes`; a plane that is down is a warning in the run, not
-a failure.
+a failure. Pull request plans do not: they never need a tenant plane, and the
+script would run from the pull request's branch with the root token.
 
 The root plane holds every plane's unseal keys and root token. Tenants still
 cannot read each other's secrets, since each pipeline runs on its own plane;
@@ -121,8 +128,8 @@ exists to register with.
 ## Still open
 
 - **Unsealing without a workflow run.** A plane that reboots stays sealed
-  until the root plane's next plan or apply. Transit auto-unseal keyed by the
-  root OpenBao would remove the wait; a sealed-at-boot alert is the alternative.
+  for up to 30 minutes, until the scheduled unseal. Transit auto-unseal keyed
+  by the root OpenBao would remove the wait.
 - **A listener on the tenant VLAN, with TLS**, for workloads that read
   secrets from the plane (Qoax Community's clusters). The module keeps OpenBao on
   loopback until that consumer exists.

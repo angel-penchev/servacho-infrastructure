@@ -34,5 +34,7 @@ builds what it deploys.
 ## Updating infrastructure-reusables
 
 Change the tag in `flake.nix`, run `nix flake lock ./nixos`, and change the
-`?ref=` of the OpenTofu modules in `tofu/organisations.tf` and `tofu/organisation/plane.tf` to the same
-tag. The pull request's plan shows which hosts the new version changes.
+`?ref=` of the OpenTofu modules in `tofu/organisations.tf` and
+`tofu/organisation/plane.tf` to the same tag; `scripts/check-reusables-pins.sh`
+fails the plan while they differ. The pull request's plan shows which hosts
+the new version changes, and a new installer ISO if the release changes it.

@@ -10,15 +10,6 @@ locals {
 
   nixos_flake = abspath("${path.module}/../nixos")
 
-  # The installer is rebuilt and uploaded again when the key it lets in or the
-  # nixpkgs it is built from changes: a rotated key would otherwise leave an
-  # installer no plane's install can log in to, and a newer nixpkgs brings its
-  # kernel and SSH fixes. Anything else leaves the uploaded ISO alone.
-  installer_generation = sha256(join("\n", [
-    file("${path.module}/../nixos/hosts/servacho-managment-plane/deploy-key.pub"),
-    jsondecode(file("${path.module}/../nixos/flake.lock")).nodes.nixpkgs.locked.rev,
-  ]))
-
   # What every plane is built with.
   plane_tools = {
     installer_iso_id = local.management_planes_enabled ? module.installer_iso[0].file_id : null
@@ -29,12 +20,14 @@ locals {
 
 module "installer_iso" {
   count  = local.management_planes_enabled ? 1 : 0
-  source = "github.com/angel-penchev/infrastructure-reusables//tofu/modules/installer-iso?ref=v0.1.0"
+  source = "github.com/angel-penchev/infrastructure-reusables//tofu/modules/installer-iso?ref=v0.2.0"
 
+  # Rebuilt and uploaded again whenever anything that goes into it changes
+  # (nixpkgs, the deploy key, the installer module), under a new name; the
+  # planes are moved onto it and the old one is deleted.
   flake_attr = "${local.nixos_flake}#installer-iso"
   iso_name   = "servacho-installer"
   node_name  = "Servacho-Gosho"
-  generation = local.installer_generation
 }
 
 module "openbao_cli" {
