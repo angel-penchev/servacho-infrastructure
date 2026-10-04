@@ -2,7 +2,7 @@
 # Actions runner for this repository. What it shares with the tenant planes is
 # modules/management-plane.nix; this file is what is particular to it. Built as
 # nixosConfigurations.servacho-management-plane in ../../flake.nix and deployed
-# by tofu/nixos_management_plane.tf; see docs/management-plane-nixos.md.
+# by tofu/root-plane/; see docs/management-plane-nixos.md.
 { ... }:
 
 {

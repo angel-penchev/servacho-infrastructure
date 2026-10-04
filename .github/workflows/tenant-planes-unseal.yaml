@@ -1,0 +1,42 @@
+name: Unseal the management planes
+
+# A plane that reboots comes back sealed. This unseals the root OpenBao and
+# every tenant plane recorded in it from main's copy of the scripts, on a
+# schedule and after every apply (tofu-apply.yaml), never from a pull request.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Not tofu-state: a queued run there would replace a pending apply.
+  group: unseal
+  cancel-in-progress: false
+
+jobs:
+  unseal:
+    runs-on: [self-hosted, servacho-management-plane]
+    env:
+      VAULT_ADDR: http://127.0.0.1:8200
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - name: Auto-Unseal OpenBao (if sealed)
+        uses: ./.github/actions/auto-unseal
+        with:
+          unseal_key: ${{ secrets.OPENBAO_UNSEAL_KEY }}
+          vault_addr: ${{ env.VAULT_ADDR }}
+
+      - name: Unseal the tenant management planes
+        uses: ./.github/actions/unseal-tenant-planes
+        with:
+          vault_token: ${{ secrets.OPENBAO_ROOT_TOKEN }}
+          vault_addr: ${{ env.VAULT_ADDR }}

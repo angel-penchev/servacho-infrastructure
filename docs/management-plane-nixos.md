@@ -1,7 +1,7 @@
 # Management plane: NixOS deployed by OpenTofu
 
 The management VM's operating system is part of the same OpenTofu run as its
-VM. `tofu/nixos_management_plane.tf` builds
+VM. `tofu/root-plane/` builds
 `nixosConfigurations.servacho-management-plane` from `nixos/`, and when the
 built system differs from the one it last deployed, copies it to the VM over
 SSH and switches to it. The build happens at plan time, so a pull request's

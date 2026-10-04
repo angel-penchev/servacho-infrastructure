@@ -1,5 +1,26 @@
 {
   "nodes": {
+    "disko": {
+      "inputs": {
+        "nixpkgs": [
+          "reusables",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1789770686,
+        "narHash": "sha256-uZkBR7yHdIKUFB5SZdfgh1qkGfI3XmYmI/lTiquxbck=",
+        "owner": "nix-community",
+        "repo": "disko",
+        "rev": "725ea35e410ad83be4931d1bff7e090eacaf3563",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-community",
+        "repo": "disko",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1790635395,
@@ -16,9 +37,32 @@
         "type": "github"
       }
     },
+    "reusables": {
+      "inputs": {
+        "disko": "disko",
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1791079512,
+        "narHash": "sha256-mSz2yPMnszm92DnEIugOf5wpajR2TT4xxYtsm2a7aRo=",
+        "owner": "angel-penchev",
+        "repo": "infrastructure-reusables",
+        "rev": "8a70f146348c6a77ba037ae96fcc7ae502fed47f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "angel-penchev",
+        "ref": "v0.2.0",
+        "repo": "infrastructure-reusables",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "reusables": "reusables"
       }
     }
   },
