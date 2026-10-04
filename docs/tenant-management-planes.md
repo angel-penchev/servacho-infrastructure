@@ -76,9 +76,12 @@ the root plane:
    `installer-iso` and uploaded to the `local` storage through the Proxmox API.
    Only an ISO can go that way at the pinned provider; a disk image or a backup
    would need SSH to the node, which is why there is no VM template. A plan
-   only evaluates the ISO; it is built and uploaded once, and again only when
-   the module's `generation` changes, under the same name, so the planes that
-   keep it attached keep a valid reference.
+   only evaluates the ISO. It is built and uploaded once, and again whenever
+   the deploy key or the locked nixpkgs changes (`installer_generation` in
+   `tofu/organisations.tf`), under the same name, so the planes that keep it
+   attached keep a valid reference. The ISO holds the minimal NixOS installer,
+   the QEMU guest agent, and SSH for root with the deploy key's public half;
+   no secrets and no host configuration.
 2. **The VM.** Each plane is created in its pool and VLAN with an empty
    32 GiB disk first in the boot order, so SeaBIOS falls through to the
    installer. The installer takes a DHCP address, and the VM resource waits
