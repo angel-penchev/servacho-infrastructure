@@ -31,7 +31,28 @@ Community's are in qoax-community/qoax-infrastructure).
 | Pool, Proxmox user and token, VLAN | ✓ | |
 | The plane's VM, install, host configuration, OpenBao bootstrap | ✓ | |
 | What the plane's runner applies: VMs, clusters and services in the pool | | ✓ |
-| Secrets for that, in the plane's OpenBao | the Proxmox token, seeded once | everything else |
+| Secrets for that, in the plane's OpenBao | the Proxmox token and the plane's deploy key | everything else |
+
+### What an organisation's token can do
+
+`tofu/organisation/main.tf` gives each organisation's OpenTofu user exactly
+what creating VMs in its pool takes, each right on one path:
+
+| Path | Role (`tofu/roles.tf`) | For |
+|---|---|---|
+| `/pool/pool-<id>` | `TofuProvisioner` | the VMs in the pool: create, configure (CD-ROM included), power, read the guest agent |
+| `/storage/local-lvm` | `TofuDisks` | their disks |
+| `/storage/iso-<id>` | `TofuIsos` | its own ISO storage: upload and delete its installer |
+| `/sdn/zones/localnetwork/vmbr0/<vlan>` | `TofuNetwork` | a network card on its own VLAN, and no other |
+
+`iso-<id>` is a directory storage at `/var/lib/organisation-isos/<id>` for ISO
+images only, created through the Proxmox API by
+`scripts/organisation-iso-storage.sh` (the pinned provider has no storage
+resource). Keeping each organisation's installer in a storage of its own lets
+it replace the installer in its own state, moving its VMs onto the new one
+before the old one is deleted, without a right to delete anything on the
+shared `local`. Changing a storage's definition needs `Datastore.Allocate` on
+`/storage` itself, which no organisation has.
 
 The plane stays here because something has to create it before the
 organisation's OpenTofu can run, and because its host configuration carries the
@@ -54,6 +75,7 @@ module this repository installs the planes with.
 | The tenant hosts | `nixos/hosts/qoax-community-management-plane.nix`, `nixos/hosts/fmicodes-management-plane.nix` |
 | The VMs, their install, deploy and OpenBao bootstrap | `tofu/organisation/plane.tf`, with infrastructure-reusables' `installer-iso` and `nixos-vm` |
 | The OpenBao bootstrap and the unseal after a reboot | `scripts/tenant-plane-openbao.sh`, `.github/actions/unseal-tenant-planes`, `.github/workflows/tenant-planes-unseal.yaml` |
+| The organisation's rights outside its pool, its ISO storage, the plane's deploy key | `tofu/organisation/main.tf`, `tofu/organisation/plane.tf`, `tofu/roles.tf`, `scripts/organisation-iso-storage.sh` |
 
 A tenant host differs from the root plane in three ways, all visible in its
 file: it imports the VM hardware and disk layout instead of a generated
@@ -103,8 +125,18 @@ apply, from the root plane:
    `secret/` and copies the tenant's Proxmox token from the root OpenBao's
    `secret/proxmox/<tenant>_token` to the plane's `secret/proxmox`. The
    tenant's pipeline provisions with that token and never sees the root one.
-   The bootstrap runs again when that token changes, so the plane's copy
-   follows a rotation.
+   It also copies the plane's deploy key (below) from the root OpenBao's
+   `secret/deploy-keys/<tenant>` to the plane's `secret/deploy-key`. The
+   bootstrap runs again when either changes, so the plane's copies follow a
+   rotation.
+
+**The plane's deploy key** is what the plane installs and deploys its
+organisation's VMs with: an ED25519 key OpenTofu generates for each plane
+(`tls_private_key` in `tofu/organisation/plane.tf`), kept in the root state and
+the root OpenBao and copied to the plane. Its public half is the root output
+`organisation_deploy_keys`, printed at the end of every apply; the
+organisation commits it to its repository, for its installer and its hosts.
+Replacing the `tls_private_key` rotates it.
 
 After a reboot a plane's OpenBao is sealed, like the root plane's. Every
 apply, and `tenant-planes-unseal.yaml` every 30 minutes from `main`, unseals

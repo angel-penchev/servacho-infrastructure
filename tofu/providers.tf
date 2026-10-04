@@ -26,6 +26,11 @@ terraform {
       source  = "hashicorp/null"
       version = "~> 3.2"
     }
+    # The organisations' plane deploy keys (organisation/plane.tf).
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.1"
+    }
   }
 }
 

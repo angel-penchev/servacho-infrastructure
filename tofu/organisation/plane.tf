@@ -18,7 +18,7 @@ module "plane" {
   vm_id            = var.plane.vm_id
   pool_id          = proxmox_virtual_environment_pool.this.id
   tags             = ["nixos", "management-plane", var.id]
-  vlan_id          = var.plane.vlan
+  vlan_id          = var.vlan
   installer_iso_id = var.installer_iso_id
   flake            = var.nixos_flake
   host             = var.plane.host
@@ -26,8 +26,30 @@ module "plane" {
   ssh_private_key  = var.ssh_private_key
 }
 
+# The key the plane installs and deploys its organisation's VMs with. The
+# private half goes to the plane's OpenBao (secret/deploy-key) through the
+# root OpenBao; the public half is the organisation's to commit, for its
+# installer and its hosts (the root output organisation_deploy_keys).
+resource "tls_private_key" "plane_deploy" {
+  count = var.plane == null ? 0 : 1
+
+  algorithm = "ED25519"
+}
+
+resource "vault_kv_secret_v2" "plane_deploy_key" {
+  count = var.plane == null ? 0 : 1
+
+  mount = "secret"
+  name  = "deploy-keys/${var.id}"
+  data_json = jsonencode({
+    private_key = tls_private_key.plane_deploy[0].private_key_openssh
+    public_key  = trimspace(tls_private_key.plane_deploy[0].public_key_openssh)
+  })
+}
+
 # Once per installation, and again whenever the organisation's Proxmox token
-# changes, so the plane's copy follows it (the bootstrap is safe to repeat).
+# or the plane's deploy key changes, so the plane's copies follow them (the
+# bootstrap is safe to repeat).
 # The root OpenBao's address and token come from the workflow's environment,
 # as for the vault provider.
 resource "terraform_data" "openbao" {
@@ -36,6 +58,7 @@ resource "terraform_data" "openbao" {
   triggers_replace = [
     module.plane[0].installation_id,
     sha256(proxmox_virtual_environment_user_token.tofu.value),
+    sha256(tls_private_key.plane_deploy[0].public_key_openssh),
   ]
 
   provisioner "local-exec" {
@@ -45,6 +68,7 @@ resource "terraform_data" "openbao" {
       TENANT               = var.id
       TARGET_HOST          = var.plane.address
       PROXMOX_TOKEN_SECRET = vault_kv_secret_v2.proxmox_token.name
+      DEPLOY_KEY_SECRET    = vault_kv_secret_v2.plane_deploy_key[0].name
     }
   }
 

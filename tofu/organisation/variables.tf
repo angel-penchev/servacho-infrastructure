@@ -8,20 +8,44 @@ variable "name" {
   description = "Display name, for the comments Proxmox shows."
 }
 
-variable "role_id" {
-  type        = string
-  description = "Role the organisation's OpenTofu user has on its pool."
+variable "vlan" {
+  type        = number
+  description = "The organisation's VLAN on the bridge: its VMs' network, and its plane's."
+}
+
+variable "roles" {
+  type = object({
+    pool    = string
+    disks   = string
+    isos    = string
+    network = string
+  })
+  description = "Roles of the organisation's OpenTofu user: on its pool, on disk_storage, on its ISO storage and on its VLAN (../roles.tf)."
+}
+
+variable "disk_storage" {
+  type    = string
+  default = "local-lvm"
+}
+
+variable "bridge" {
+  type    = string
+  default = "vmbr0"
+}
+
+variable "proxmox_endpoint" {
+  type    = string
+  default = "https://192.168.5.10:8006/"
 }
 
 variable "plane" {
   type = object({
     host    = string
     vm_id   = number
-    vlan    = number
     address = string
   })
   default     = null
-  description = "The organisation's management plane: its host in ../nixos, VM id, VLAN and static address. null for none."
+  description = "The organisation's management plane: its host in ../nixos, VM id and static address on the VLAN. null for none."
 
   validation {
     condition = var.plane == null || (

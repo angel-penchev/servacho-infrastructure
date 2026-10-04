@@ -10,6 +10,14 @@ locals {
 
   nixos_flake = abspath("${path.module}/../nixos")
 
+  # The organisation's OpenTofu user's roles (roles.tf).
+  organisation_roles = {
+    pool    = proxmox_virtual_environment_role.tofu_provisioner.role_id
+    disks   = proxmox_virtual_environment_role.tofu_disks.role_id
+    isos    = proxmox_virtual_environment_role.tofu_isos.role_id
+    network = proxmox_virtual_environment_role.tofu_network.role_id
+  }
+
   # What every plane is built with.
   plane_tools = {
     installer_iso_id = local.management_planes_enabled ? module.installer_iso[0].file_id : null
@@ -44,13 +52,13 @@ module "openbao_cli" {
 module "qoax_community" {
   source = "./organisation"
 
-  id      = "qoax-community"
-  name    = "Qoax Community"
-  role_id = proxmox_virtual_environment_role.tofu_provisioner.role_id
+  id    = "qoax-community"
+  name  = "Qoax Community"
+  vlan  = 10
+  roles = local.organisation_roles
   plane = local.management_planes_enabled ? {
     host    = "qoax-community-management-plane"
     vm_id   = 10015
-    vlan    = 10
     address = "192.168.10.15"
   } : null
 
@@ -63,13 +71,13 @@ module "qoax_community" {
 module "fmicodes" {
   source = "./organisation"
 
-  id      = "fmicodes"
-  name    = "FMI{Codes}"
-  role_id = proxmox_virtual_environment_role.tofu_provisioner.role_id
+  id    = "fmicodes"
+  name  = "FMI{Codes}"
+  vlan  = 12
+  roles = local.organisation_roles
   plane = local.management_planes_enabled ? {
     host    = "fmicodes-management-plane"
     vm_id   = 12015
-    vlan    = 12
     address = "192.168.12.15"
   } : null
 
@@ -77,4 +85,14 @@ module "fmicodes" {
   openbao_cli      = local.plane_tools.openbao_cli
   nixos_flake      = local.plane_tools.nixos_flake
   ssh_private_key  = data.vault_kv_secret_v2.management_plane_ssh.data["private_key"]
+}
+
+# The public halves of the planes' deploy keys, for each organisation to
+# commit to its repository (its installer and hosts let the plane in with it).
+output "organisation_deploy_keys" {
+  value = {
+    for org in [module.qoax_community, module.fmicodes] :
+    org.id => org.deploy_public_key
+    if org.deploy_public_key != null
+  }
 }

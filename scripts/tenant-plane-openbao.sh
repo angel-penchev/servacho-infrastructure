@@ -5,11 +5,13 @@
 #               install: initialise the plane's OpenBao, keep its unseal keys
 #               and root token in the root OpenBao at
 #               secret/management-planes/<tenant> before anything uses them,
-#               unseal it, and copy the tenant's Proxmox token from the root
-#               OpenBao into the plane's secret/proxmox. The tenant's pipeline
-#               then provisions with that token and never sees the root one.
+#               unseal it, and copy the tenant's Proxmox token and the plane's
+#               deploy key from the root OpenBao into the plane's secret/proxmox
+#               and secret/deploy-key. The tenant's pipeline then provisions
+#               with that token and never sees the root one.
 #               Safe to run again: an initialised plane is unsealed and reseeded.
-#               Needs TENANT, TARGET_HOST and PROXMOX_TOKEN_SECRET.
+#               Needs TENANT, TARGET_HOST, PROXMOX_TOKEN_SECRET and
+#               DEPLOY_KEY_SECRET.
 #
 #   unseal-all  From the workflows, after the root OpenBao is unsealed: unseal
 #               every plane recorded under secret/management-planes, the way
@@ -68,8 +70,8 @@ lost_keys() {
 }
 
 bootstrap() {
-  : "${TENANT:?}" "${TARGET_HOST:?}" "${PROXMOX_TOKEN_SECRET:?}"
-  local path="management-planes/$TENANT" state init record token
+  : "${TENANT:?}" "${TARGET_HOST:?}" "${PROXMOX_TOKEN_SECRET:?}" "${DEPLOY_KEY_SECRET:?}"
+  local path="management-planes/$TENANT" state init record token deploy_key
 
   # OpenBao starts with the system; give it a few minutes after the switch.
   for _ in $(seq 36); do
@@ -116,14 +118,17 @@ bootstrap() {
   fi
 
   token=$("$BAO" kv get -mount=secret -field=api_token "$PROXMOX_TOKEN_SECRET")
+  deploy_key=$("$BAO" kv get -mount=secret -format=json "$DEPLOY_KEY_SECRET" |
+    jq -c '.data.data | {private_key, public_key}')
   on_plane "$TARGET_HOST" <<EOF
 set -euo pipefail
 export BAO_TOKEN=$(printf %q "$(jq -r .root_token <<<"$record")")
 bao secrets list -format=json | jq -e 'has("secret/")' >/dev/null ||
   bao secrets enable -path=secret kv-v2 >/dev/null
 printf '%s' $(printf %q "$token") | bao kv put -mount=secret proxmox api_token=- >/dev/null
+printf '%s' $(printf %q "$deploy_key") | bao kv put -mount=secret deploy-key - >/dev/null
 EOF
-  echo "OpenBao on $TARGET_HOST: unsealed, record at secret/$path, Proxmox token at its secret/proxmox"
+  echo "OpenBao on $TARGET_HOST: unsealed, record at secret/$path, Proxmox token at its secret/proxmox, deploy key at its secret/deploy-key"
 }
 
 unseal_all() {
