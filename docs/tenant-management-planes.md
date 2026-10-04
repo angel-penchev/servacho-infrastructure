@@ -17,8 +17,8 @@ A management plane takes `.15` of its VLAN. VM ids follow the rule from Phase
 | Host | Pool | VLAN | Address | VM id | Status |
 |---|---|---|---|---|---|
 | `servacho-management-plane` (root) | — | 5 (`192.168.5.0/24`) | `192.168.5.15` | 5015 | running; moved from `.11` / 5011 on 2026-10-02 ([management-plane-move.md](management-plane-move.md)) |
-| `qoax-community-management-plane` | `pool-qoax-community` | 10 (`192.168.10.0/23`) | `192.168.10.15` | 10015 | defined, created when enabled |
-| `fmicodes-management-plane` | `pool-fmicodes` | 12 (`192.168.12.0/24`) | `192.168.12.15` | 12015 | defined, created when enabled |
+| `qoax-community-management-plane` | `pool-qoax-community` | 10 (`192.168.10.0/23`) | `192.168.10.15` | 10015 | running; brought up on 2026-10-04 (#47) |
+| `fmicodes-management-plane` | `pool-fmicodes` | 12 (`192.168.12.0/24`) | `192.168.12.15` | 12015 | running; brought up on 2026-10-04 (#47) |
 
 Addresses inside an organisation's VLAN other than its plane's are that
 organisation's to allocate, in its own infrastructure repository (Qoax

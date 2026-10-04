@@ -8,6 +8,21 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ---
 
+## Session 2026-10-04 (b) — names and fixed IPs for the organisations' planes
+
+Made in the UniFi web UI (Client Devices → the client → Settings → Apply Changes) on the two planes created by the apply of #47. Both had the hostname `nixos` from their installer's DHCP request, which the controller keeps for a client with a static address. Read back over `GET /rest/user`.
+
+| Client | Attribute | Was | Now |
+|---|---|---|---|
+| `6ac1bbce75a2b1cefae96c0a`, `bc:24:11:0c:b4:13` (VM 10015) | `name` (alias) | unset | `qoax-community-management-plane` |
+| | `use_fixedip` / `fixed_ip` | `false` / unset | `true` / `192.168.10.15` |
+| `6ac1bbcd75a2b1cefae96c07`, `bc:24:11:9d:30:04` (VM 12015) | `name` (alias) | unset | `fmicodes-management-plane` |
+| | `use_fixedip` / `fixed_ip` | `false` / unset | `true` / `192.168.12.15` |
+
+No network binding and no local DNS record, like the root plane's entry. The fixed IPs are outside the DHCP pools (from `.100`), so they only record the address. `unifi_client.qoax_community_management_plane` and `unifi_client.fmicodes_management_plane` mirror them and `tofu/imports_unifi.tf` adopts them; the plan is "2 to import" and nothing else.
+
+---
+
 ## Session 2026-10-04 — DHCP pools of the VPS VLANs start at .100
 
 Made in the UniFi web UI (Settings → Networks → the network → IPv4: Auto-Scale Network off, DHCP Range Start, Apply Changes) so that the organisations' management planes (`.15`) and Qoax Community's cluster addresses (from `.21`) are outside DHCP. Read back over `GET /rest/networkconf`. Neither VLAN had a client or a reservation at the time.
