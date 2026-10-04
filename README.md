@@ -13,6 +13,6 @@ applied from the root plane.
 | an FMI{Codes} repository, when there is one | Everything in FMI{Codes}' pool | FMI{Codes}' plane |
 | [infrastructure-reusables](https://github.com/angel-penchev/infrastructure-reusables) | The NixOS and OpenTofu modules all of the above share | — |
 
-- `tofu/`: the OpenTofu the root plane applies.
+- `tofu/`: the OpenTofu the root plane applies; see [tofu/README.md](tofu/README.md).
 - `nixos/`: the root plane's and the organisations' planes' NixOS hosts; see [nixos/README.md](nixos/README.md).
 - `docs/`: runbooks, among them [tenant-management-planes.md](docs/tenant-management-planes.md).

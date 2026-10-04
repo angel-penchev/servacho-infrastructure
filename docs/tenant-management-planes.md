@@ -54,7 +54,7 @@ module this repository installs the planes with.
 | The VM's hardware and disk layout (disko), in place of a generated file | infrastructure-reusables' `nixosModules.proxmox-guest` |
 | The installer every plane starts from | `nixos/images/installer.nix`, built as `installer-iso` |
 | The tenant hosts | `nixos/hosts/qoax-community-management-plane.nix`, `nixos/hosts/fmicodes-management-plane.nix` |
-| The VMs, their install, deploy and OpenBao bootstrap | `tofu/tenant_management_planes.tf`, with infrastructure-reusables' `installer-iso` and `nixos-vm` |
+| The VMs, their install, deploy and OpenBao bootstrap | `tofu/organisation/plane.tf`, with infrastructure-reusables' `installer-iso` and `nixos-vm` |
 | The OpenBao bootstrap and the unseal after a reboot | `scripts/tenant-plane-openbao.sh`, `.github/actions/unseal-tenant-planes` |
 
 A tenant host differs from the root plane in three ways, all visible in its
@@ -67,7 +67,7 @@ exists.
 ## Bringing a plane up
 
 Nothing is run by hand on Proxmox or on the plane. Set
-`tenant_management_planes_enabled = true` in `tofu/tenant_management_planes.tf`
+`management_planes_enabled = true` in `tofu/organisations.tf`
 and open a pull request. Its plan shows the installer upload, and for each
 plane the VM, the install, the deploy and the OpenBao bootstrap. On apply, from
 the root plane:

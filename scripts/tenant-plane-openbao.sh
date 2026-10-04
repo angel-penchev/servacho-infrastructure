@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The OpenBao of the tenant management planes, driven from the root plane.
 #
-#   bootstrap   Once per plane, from tofu/tenant_management_planes.tf after the
+#   bootstrap   Once per plane, from tofu/organisation/plane.tf after the
 #               install: initialise the plane's OpenBao, keep its unseal keys
 #               and root token in the root OpenBao at
 #               secret/management-planes/<tenant> before anything uses them,

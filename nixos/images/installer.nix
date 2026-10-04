@@ -1,7 +1,7 @@
 # The installer every organisation's plane starts from: infrastructure-reusables'
 # installer ISO, letting the root plane in as root with its deploy key. OpenTofu
 # boots a new plane's VM from it and nixos-anywhere installs the host
-# (tofu/tenant_management_planes.tf).
+# (tofu/organisation/plane.tf).
 { ... }:
 {
   servacho.installer.name = "servacho-installer";

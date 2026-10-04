@@ -23,7 +23,7 @@
       inherit (nixpkgs) lib;
 
       # An organisation's plane, installed onto an empty VM disk by
-      # tofu/tenant_management_planes.tf: the disk layout comes with
+      # tofu/organisation/plane.tf: the disk layout comes with
       # proxmox-guest, so no generated hardware-configuration.nix is needed.
       mkInstalledPlane =
         host:
@@ -69,7 +69,7 @@
     in
     {
       nixosConfigurations = {
-        # The root plane, switched to in place by tofu/nixos_management_plane.tf.
+        # The root plane, switched to in place by tofu/root-plane/.
         servacho-management-plane = lib.nixosSystem {
           inherit system;
           modules = [
@@ -81,7 +81,7 @@
         };
 
         # The organisations' planes, installed and deployed by
-        # tofu/tenant_management_planes.tf.
+        # tofu/organisation/plane.tf.
         qoax-community-management-plane = mkInstalledPlane ./hosts/qoax-community-management-plane.nix;
         fmicodes-management-plane = mkInstalledPlane ./hosts/fmicodes-management-plane.nix;
 

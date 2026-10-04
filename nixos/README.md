@@ -10,8 +10,8 @@ repository, not here.
 | Path | Contents |
 |---|---|
 | `flake.nix` | Pins nixpkgs and infrastructure-reusables; the hosts, the installer, the `openbao` CLI |
-| `hosts/servacho-managment-plane/` | The root management plane, deployed by `tofu/nixos_management_plane.tf`; its `hardware-configuration.nix` and `deploy-key.pub` were committed once from the VM |
-| `hosts/*-management-plane.nix` | The organisations' planes, installed and deployed by `tofu/tenant_management_planes.tf` (see [docs/tenant-management-planes.md](../docs/tenant-management-planes.md)) |
+| `hosts/servacho-managment-plane/` | The root management plane, deployed by `tofu/root-plane/`; its `hardware-configuration.nix` and `deploy-key.pub` were committed once from the VM |
+| `hosts/*-management-plane.nix` | The organisations' planes, installed and deployed by `tofu/organisation/plane.tf` (see [docs/tenant-management-planes.md](../docs/tenant-management-planes.md)) |
 | `images/installer.nix` | The installer ISO an organisation's plane boots from an empty disk, letting the root plane in with its deploy key |
 
 ## Building
@@ -34,5 +34,5 @@ builds what it deploys.
 ## Updating infrastructure-reusables
 
 Change the tag in `flake.nix`, run `nix flake lock ./nixos`, and change the
-`?ref=` of the OpenTofu modules in `tofu/tenant_management_planes.tf` to the same
+`?ref=` of the OpenTofu modules in `tofu/organisations.tf` and `tofu/organisation/plane.tf` to the same
 tag. The pull request's plan shows which hosts the new version changes.

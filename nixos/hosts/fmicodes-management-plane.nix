@@ -1,6 +1,6 @@
 # The FMI{Codes} management plane: OpenTofu, OpenBao and the runner for the
 # FMI{Codes} tenant, on its VPS network. Installed from
-# images/installer.nix and deployed by tofu/tenant_management_planes.tf; the
+# images/installer.nix and deployed by tofu/organisation/plane.tf; the
 # VM's hardware and disk layout come from infrastructure-reusables.
 { ... }:
 {
