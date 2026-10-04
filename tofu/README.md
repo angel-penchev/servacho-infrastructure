@@ -14,9 +14,7 @@ What the root management plane applies. The state is local to the plane
 `organisation/` is instantiated once per organisation, so its resources are
 written once and named generically (`proxmox_virtual_environment_pool.this`);
 `root-plane/` and `unifi/` are single instances kept in their own directory to
-group them. The `moved` blocks in `root_plane.tf` and `organisations.tf` record
-where the resources lived before; they can go once every state has been
-applied past them.
+group them.
 
 Adding an organisation is one more `module "<id>"` call in `organisations.tf`,
 plus its VLAN in `unifi/networks.tf` and, for a plane, its host in

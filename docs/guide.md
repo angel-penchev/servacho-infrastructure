@@ -480,6 +480,8 @@ resource "proxmox_virtual_environment_vm" "legacy_database" {
 
 The following example shows a practical single-repository layout for a tenant-specific Management Plane (for example, Qoax Community). It keeps infrastructure provisioning (`terraform`) and operating system state (`nixos`) separated while sharing environment-specific values through clear boundaries.
 
+> **Done differently.** Qoax Community's repository is `qoax-community/qoax-infrastructure`, with a `tofu/` and a `nixos/` directory. The NixOS modules, the installer image, and the OpenTofu modules shared by every plane come from [infrastructure-reusables](https://github.com/angel-penchev/infrastructure-reusables), pinned by tag, rather than from each repository's own `modules/` and `profiles/`. The tree below is the original design.
+
 ```
 management-plane-qoax-community/
 ├── .github/
@@ -513,8 +515,7 @@ management-plane-qoax-community/
 │   │       ├── variables.tf
 │   │       └── outputs.tf
 │   └── env/
-│       ├── qoax-community.tfvars
-│       └── qoax-community-broadcast.tfvars
+│       └── qoax-community.tfvars
 ├── nixos/
 │   ├── flake.nix
 │   ├── flake.lock
@@ -629,6 +630,8 @@ With GitOps established, all further changes are handled via Pull Requests. A fo
 
 Managing the Unifi network layer via OpenTofu ensures that the physical and logical network configurations remain synchronized with the compute infrastructure. By utilizing a Unifi OpenTofu provider, the infrastructure pipeline can programmatically define networks, firewall rules, and DHCP reservations. The network topology dictates the operational boundaries for the virtual machines.
 
+> **Done differently.** The UniFi configuration lives in `tofu/unifi/` with the `ubiquiti-community/unifi` provider, not `paultyng/unifi`; `tofu/unifi/README.md` maps it. There is no VLAN 11: Qoax VPS was widened to a /23 instead. The DHCP pools of the organisations' VLANs start at `.100`, which leaves `.2`–`.99` for static hosts such as each management plane on `.15`. The table below reflects that.
+
 The following table outlines the prescribed VLAN architecture based on the specified network requirements and the provided environment topography:
 
 | **Network Name** | **VLAN ID** | **Subnet** | **DHCP Strategy** | **Primary Architectural Use Case** |
@@ -639,9 +642,8 @@ The following table outlines the prescribed VLAN architecture based on the speci
 | Public Servers | 4 | 192.168.4.0/24 | Server | Externally facing services, reverse proxies, and ingress controllers |
 | Private Servers | 5 | 192.168.5.0/24 | Server | Internal databases, management planes, and personal administration |
 | IoT | 6 | 192.168.6.0/24 | Server | Isolated smart devices and sensors |
-| Qoax Community VPS | 10 | 192.168.10.0/24 | Server | Multi-tenant compute for the Qoax Community organization |
-| Qoax Community Broadcast VPS | 11 | 192.168.11.0/24 | Server | High-bandwidth broadcast processing, transcoders, and object storage |
-| FMI{Codes} VPS | 12 | 192.168.12.0/24 | Server | Isolated compute for the FMI educational/development organization |
+| Qoax VPS | 10 | 192.168.10.0/23 | Server (from .100) | Multi-tenant compute for the Qoax Community organization |
+| FMI{Codes} VPS | 12 | 192.168.12.0/24 | Server (from .100) | Isolated compute for the FMI educational/development organization |
 
 ### Implementation Steps
 
@@ -708,11 +710,13 @@ To prevent organizational overreach, Proxmox Resource Pools and Role-Based Acces
 ### Implementation Steps
 
 1. **Manage Roles via Root OpenTofu:** Utilize the root OpenTofu instance to manage all Proxmox roles. The `TofuProvisioner` role is created declaratively in Phase 0. While the root `tofu-provisioner@pve` user stays an `Administrator`, this `TofuProvisioner` role serves as the template for all organizational tenant access.
-2. **Create Resource Pools:** Use the root OpenTofu instance to codify organizational pools (e.g., `pool-qoax-community`, `pool-qoax-community-broadcast`, `pool-personal`).
+2. **Create Resource Pools:** Use the root OpenTofu instance to codify organizational pools (e.g., `pool-qoax-community`, `pool-fmicodes`, `pool-personal`).
 3. **Create the Users:** Generate distinct users for each tenant's automation using the root OpenTofu configuration.
 4. **Apply Access Control Lists (ACLs):** Bind the user to their specific pool via the root OpenTofu instance, referencing the managed `TofuProvisioner` role to strictly enforce organizational boundaries.
 5. **Generate API Tokens via IaC:** Use the `proxmox_virtual_environment_user_token` resource within the root OpenTofu pipeline to dynamically create the tokens for each tenant user (with privilege separation disabled, so they inherit the pool ACLs).
 6. **Zero-Touch Vault Hand-Off:** In that exact same pipeline run, use the `vault_kv_secret_v2` resource to instantly push the raw token output directly into the root OpenBao (Vault) instance. When the isolated tenant repository (e.g. `qoax-community`) executes its pipeline later, it uses a `vault_kv_secret_v2` data source to dynamically pull its specific token. No human ever sees or copy-pastes the credentials.
+
+> **Done differently.** Each organisation is one instance of the `tofu/organisation/` module in `tofu/organisations.tf`: a pool, a user with its ACL, a token, and the token's copy in the root OpenBao, plus the organisation's management plane once it has one. Qoax Community and FMI{Codes} are the two organisations. The Qoax Community Broadcast pool was removed on 2026-10-04 without ever being used. The code below is that module written out for a single organisation.
 
 OpenTofu Configuration for Phase 4 (RBAC Setup via Root Management VM):
 
@@ -751,46 +755,11 @@ resource "vault_kv_secret_v2" "qoax_community_vault_secret" {
     api_token = proxmox_virtual_environment_user_token.qoax_community_token.value
   })
 }
-
-# -------------------------------------------------------------
-# QOAX COMMUNITY BROADCAST ISOLATION
-# -------------------------------------------------------------
-resource "proxmox_virtual_environment_pool" "pool_qoax_community_broadcast" {
-  pool_id = "pool-qoax-community-broadcast"
-  comment = "Isolated Resource Pool for Qoax Community Broadcast Media"
-}
-
-resource "proxmox_virtual_environment_user" "tofu_qoax_community_broadcast" {
-  user_id = "tofu-qoax-community-broadcast@pve"
-  comment = "Qoax Community Broadcast IaC Account"
-}
-
-resource "proxmox_virtual_environment_acl" "qoax_community_broadcast_pool_acl" {
-  path      = "/pool/${proxmox_virtual_environment_pool.pool_qoax_community_broadcast.pool_id}"
-  propagate = true
-  role_id   = proxmox_virtual_environment_role.tofu_provisioner.role_id
-  user_id   = proxmox_virtual_environment_user.tofu_qoax_community_broadcast.user_id
-}
-
-resource "proxmox_virtual_environment_user_token" "qoax_community_broadcast_token" {
-  comment               = "Qoax Community Broadcast Automation Token"
-  user_id               = proxmox_virtual_environment_user.tofu_qoax_community_broadcast.user_id
-  token_name            = "tofu-provisioner"
-  privileges_separation = false
-}
-
-resource "vault_kv_secret_v2" "qoax_community_broadcast_vault_secret" {
-  mount     = "secret"
-  name      = "proxmox/qoax_community_broadcast_token"
-  data_json = jsonencode({
-    api_token = proxmox_virtual_environment_user_token.qoax_community_broadcast_token.value
-  })
-}
 ```
 
 ## Phase 5: The Dedicated Management Plane and State Isolation
 
-> **Done differently.** The tenant planes are built from this repository's NixOS flake and created and deployed by the root OpenTofu, not by a hand-made template and Colmena; see [tenant-management-planes.md](tenant-management-planes.md), which also holds the address table. The text below is the original design.
+> **Done differently.** The tenant planes are built from this repository's NixOS flake and created and deployed by the root OpenTofu, not by a hand-made template and Colmena; see [tenant-management-planes.md](tenant-management-planes.md), which also holds the address table. Each plane is on `.15` of its VLAN (VM 10015 and 12015, not `.11`). The root plane initialises and unseals each plane's OpenBao itself and keeps the keys in the root OpenBao, so none of the steps below is done by hand. Both planes have been running since 2026-10-04. The text below is the original design.
 
 While software-defined RBAC provides the hypervisor-level barrier, the IaC state files and the execution environments themselves must be isolated. Relying solely on logical namespaces within a single, monolithic management instance increases the risk of cross-tenant contamination. The architectural solution is to deploy a dedicated "Management VM" for each Virtual Private Server (VPS) organization.
 
@@ -905,6 +874,8 @@ Because the infrastructure spans multiple environments (Root, Personal, Qoax Com
 3. **Configure the Auth Method:** Set the OIDC provider settings in OpenBao, injecting the Google credentials.
 4. **Create Role Mappings:** Create the `qoax-community-engineers` role within OpenBao to map the Google authentication to specific internal policies.
 5. **Dynamic Provider Injection:** In your IaC code, utilize the HashiCorp Vault provider to fetch your Proxmox token dynamically at runtime so it is never committed to Git.
+
+> **Done differently.** On an organisation's plane the Proxmox token is at `secret/proxmox` (key `api_token`) in the plane's own OpenBao, copied there from the root OpenBao when the plane is bootstrapped and again whenever the token changes. `qoax-infrastructure`'s `tofu/providers.tf` reads it from there. The OIDC login below is still to do.
 
 OpenTofu Configuration for Phase 6 (Dynamic Credentials via Vault/OpenBao):
 

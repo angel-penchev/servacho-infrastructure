@@ -78,39 +78,3 @@ module "fmicodes" {
   nixos_flake      = local.plane_tools.nixos_flake
   ssh_private_key  = data.vault_kv_secret_v2.management_plane_ssh.data["private_key"]
 }
-
-# Where the organisations' resources were before organisation/ existed.
-
-moved {
-  from = proxmox_virtual_environment_pool.pool_qoax_community
-  to   = module.qoax_community.proxmox_virtual_environment_pool.this
-}
-moved {
-  from = proxmox_virtual_environment_user.tofu_qoax_community
-  to   = module.qoax_community.proxmox_virtual_environment_user.tofu
-}
-moved {
-  from = proxmox_virtual_environment_user_token.qoax_community_token
-  to   = module.qoax_community.proxmox_virtual_environment_user_token.tofu
-}
-moved {
-  from = vault_kv_secret_v2.qoax_community_vault_secret
-  to   = module.qoax_community.vault_kv_secret_v2.proxmox_token
-}
-
-moved {
-  from = proxmox_virtual_environment_pool.pool_fmicodes
-  to   = module.fmicodes.proxmox_virtual_environment_pool.this
-}
-moved {
-  from = proxmox_virtual_environment_user.tofu_fmicodes
-  to   = module.fmicodes.proxmox_virtual_environment_user.tofu
-}
-moved {
-  from = proxmox_virtual_environment_user_token.fmicodes_token
-  to   = module.fmicodes.proxmox_virtual_environment_user_token.tofu
-}
-moved {
-  from = vault_kv_secret_v2.fmicodes_vault_secret
-  to   = module.fmicodes.vault_kv_secret_v2.proxmox_token
-}
