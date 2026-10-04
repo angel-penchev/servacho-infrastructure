@@ -22,9 +22,7 @@ A management plane takes `.15` of its VLAN. VM ids follow the rule from Phase
 
 Addresses inside an organisation's VLAN other than its plane's are that
 organisation's to allocate, in its own infrastructure repository (Qoax
-Community's are in qoax-community/qoax-infrastructure). Qoax Community
-Broadcast has a pool and a token but no VLAN; whether it gets a plane of its
-own is open.
+Community's are in qoax-community/qoax-infrastructure).
 
 ## Who owns what
 
