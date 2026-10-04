@@ -101,6 +101,8 @@
         # The CLI OpenTofu and the workflows use against the planes' OpenBao,
         # from the same nixpkgs as the planes themselves.
         openbao = pkgs.openbao;
+        # For scripts/organisation-iso-storage.sh: the runner has no curl.
+        curl = pkgs.curl;
       };
 
       # `nix flake check` builds the systems (a binary-cache download), not the
