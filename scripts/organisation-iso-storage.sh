@@ -15,19 +15,25 @@
 # command line.
 set -euo pipefail
 
+# The runner has no curl of its own; take it from this repository's flake.
+if ! command -v curl >/dev/null 2>&1; then
+  exec nix --extra-experimental-features 'nix-command flakes' shell \
+    "$(realpath "$(dirname "$0")/../nixos")#curl" --command "$0" "$@"
+fi
+
 : "${PROXMOX_ENDPOINT:?}" "${STORAGE:?}" "${STORAGE_PATH:?}"
 bao_addr="${BAO_ADDR:-${VAULT_ADDR:?root OpenBao address}}"
 bao_token="${BAO_TOKEN:-${VAULT_TOKEN:?root OpenBao token}}"
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-(
-  umask 077
-  printf 'X-Vault-Token: %s\n' "$bao_token" >"$work/bao"
-  printf 'Authorization: PVEAPIToken=%s\n' "$(
-    curl -sf -H @"$work/bao" "$bao_addr/v1/secret/data/proxmox" | jq -er .data.data.api_token
-  )" >"$work/pve"
-)
+umask 077
+printf 'X-Vault-Token: %s\n' "$bao_token" >"$work/bao"
+if ! pve_token=$(curl -sf -H @"$work/bao" "$bao_addr/v1/secret/data/proxmox" | jq -er .data.data.api_token); then
+  echo "Could not read the root Proxmox token from secret/proxmox in the root OpenBao" >&2
+  exit 1
+fi
+printf 'Authorization: PVEAPIToken=%s\n' "$pve_token" >"$work/pve"
 
 # A Proxmox API call; prints the response body, or on an HTTP error reports
 # it on stderr and fails.
