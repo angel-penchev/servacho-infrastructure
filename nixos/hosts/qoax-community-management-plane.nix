@@ -24,9 +24,12 @@
     };
   };
 
-  # The same key the root plane deploys with, as on the installer it starts from.
+  # The same key the root plane deploys with, as on the installer it starts
+  # from, and the administrators' workstations. A tenant plane has no other
+  # user, so administrators log in as root.
   users.users.root.openssh.authorizedKeys.keyFiles = [
     ./servacho-managment-plane/deploy-key.pub
+    ../keys/yogacho-v2.pub
   ];
 
   system.stateVersion = "26.05";
