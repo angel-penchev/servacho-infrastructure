@@ -41,9 +41,8 @@
       "networkmanager"
       "wheel"
     ];
-    openssh.authorizedKeys.keys = [
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP2JL59Lss34Wvr+yEoTMR9GewxUF5MH1LKNRDk8NT6M tsb@yogacho-v2"
-    ];
+    # Administrators' workstations; root stays deploy-key only.
+    openssh.authorizedKeys.keyFiles = [ ../../keys/yogacho-v2.pub ];
   };
 
   # The key OpenTofu deploys this configuration with (docs/management-plane-nixos.md).
