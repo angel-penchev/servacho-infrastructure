@@ -75,6 +75,7 @@ module this repository installs the planes with.
 | The tenant hosts | `nixos/hosts/qoax-community-management-plane.nix`, `nixos/hosts/fmicodes-management-plane.nix` |
 | The VMs, their install, deploy and OpenBao bootstrap | `tofu/organisation/plane.tf`, with infrastructure-reusables' `installer-iso` and `nixos-vm` |
 | The OpenBao bootstrap and the unseal after a reboot | `scripts/tenant-plane-openbao.sh`, `.github/actions/unseal-tenant-planes`, `.github/workflows/tenant-planes-unseal.yaml` |
+| The runner's registration | `scripts/tenant-plane-runner.sh`, `tofu/organisation/plane.tf` |
 | The organisation's rights outside its pool, its ISO storage, the plane's deploy key | `tofu/organisation/main.tf`, `tofu/organisation/plane.tf`, `tofu/roles.tf`, `scripts/organisation-iso-storage.sh` |
 
 A tenant host differs from the root plane in three ways, all visible in its
@@ -150,12 +151,38 @@ cannot read each other's secrets, since each pipeline runs on its own plane;
 the root plane already created their Proxmox tokens, so this adds no trust it
 did not have.
 
-**The runner** joins when the tenant's infrastructure repository exists: set
-`servacho.managementPlane.runner` in the host file (`enable`, `url`,
-`labels`) and place the registration token at `/var/lib/github-runner/.token`
-on the plane. Placing that token from OpenTofu, as the bootstrap does for the
-Proxmox token, is the next piece of automation, left until a tenant repository
-exists to register with.
+**The runner** is set up in the plane's host file
+(`servacho.managementPlane.runner`: `enable`, `url`, `labels`) and registered
+by the root plane. A runner needs a registration token once: it registers on
+its first start and keeps its own credentials from then on, and until then
+infrastructure-reusables keeps its unit from starting, so the deploy that
+enables it does not fail. After that deploy, `scripts/tenant-plane-runner.sh`
+(`terraform_data.runner` in `tofu/organisation/plane.tf`) mints a
+registration token, valid for an hour, with the organisation's GitHub token
+from the root OpenBao, puts it in the runner's token file on the plane and
+waits for the runner to register. The GitHub token never reaches the plane. It
+runs again for a new installation or a different repository, and leaves a
+runner that has registered with its repository alone.
+
+The GitHub token is the one thing put in by hand, once per organisation:
+
+1. A fine-grained personal access token, resource owner the organisation,
+   access to the one repository (`qoax-community/qoax-infrastructure`), with
+   the repository permission **Administration: Read and write**, which is what
+   creating a runner registration token takes. An organisation-level runner
+   would need **Self-hosted runners: Read and write** on the organisation.
+2. In the root OpenBao, at `secret/github/runners/<organisation id>`, key
+   `token`:
+
+   ```bash
+   bao kv put -mount=secret github/runners/qoax-community token=-
+   ```
+
+   (`-` reads it from stdin, so it stays out of the shell history.)
+
+Without it the apply fails at `terraform_data.runner` with a message saying
+where it goes. When the token expires, nothing breaks until a runner has to
+register again.
 
 ## Still open
 

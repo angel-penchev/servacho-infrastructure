@@ -11,7 +11,7 @@
 
 module "plane" {
   count  = var.plane == null ? 0 : 1
-  source = "github.com/angel-penchev/infrastructure-reusables//tofu/modules/nixos-vm?ref=v0.2.0"
+  source = "github.com/angel-penchev/infrastructure-reusables//tofu/modules/nixos-vm?ref=v0.3.0"
 
   name             = var.plane.host
   node_name        = var.node_name
@@ -69,6 +69,49 @@ resource "terraform_data" "openbao" {
       TARGET_HOST          = var.plane.address
       PROXMOX_TOKEN_SECRET = vault_kv_secret_v2.proxmox_token.name
       DEPLOY_KEY_SECRET    = vault_kv_secret_v2.plane_deploy_key[0].name
+    }
+  }
+
+  depends_on = [module.plane]
+}
+
+# The plane's GitHub Actions runner, as its host file in ../nixos sets it up.
+data "external" "runner" {
+  count = var.plane == null ? 0 : 1
+
+  program = [
+    "nix",
+    "--extra-experimental-features",
+    "nix-command flakes",
+    "eval",
+    "--json",
+    "${var.nixos_flake}#nixosConfigurations.${var.plane.host}.config.servacho.managementPlane.runner",
+    "--apply",
+    "r: { enable = if r.enable then \"true\" else \"false\"; url = if r.enable then r.url else \"\"; name = r.name; token_file = r.tokenFile; }",
+  ]
+}
+
+# Registers the runner once the deploy has enabled it, with a registration
+# token minted from the organisation's GitHub token in the root OpenBao
+# (secret/github/runners/<id>); again for a new installation or repository.
+resource "terraform_data" "runner" {
+  count = var.plane != null && try(data.external.runner[0].result.enable, "false") == "true" ? 1 : 0
+
+  triggers_replace = [
+    module.plane[0].installation_id,
+    data.external.runner[0].result.url,
+    data.external.runner[0].result.name,
+  ]
+
+  provisioner "local-exec" {
+    command = abspath("${path.module}/../../scripts/tenant-plane-runner.sh")
+    environment = {
+      BAO                 = var.openbao_cli
+      TARGET_HOST         = var.plane.address
+      RUNNER_URL          = data.external.runner[0].result.url
+      RUNNER_NAME         = data.external.runner[0].result.name
+      TOKEN_FILE          = data.external.runner[0].result.token_file
+      GITHUB_TOKEN_SECRET = "github/runners/${var.id}"
     }
   }
 
