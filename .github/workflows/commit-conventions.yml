@@ -39,4 +39,4 @@ jobs:
           fetch-depth: 0
 
       - name: Validate commit messages and pull request title
-        uses: qoax-community/qoax-githooks@13c0c65665cc036a517e541149d664a2da7ce863
+        uses: qoax-community/qoax-githooks@6d36e527ca2a812b3a11af3ec91821c2c07ef964 # v1.0.7
