@@ -43,9 +43,11 @@ variable "plane" {
     host    = string
     vm_id   = number
     address = string
+    cores   = optional(number, 2)
+    memory  = optional(number, 8192)
   })
   default     = null
-  description = "The organisation's management plane: its host in ../nixos, VM id and static address on the VLAN. null for none."
+  description = "The organisation's management plane: its host in ../nixos, VM id and static address on the VLAN, and its size (memory in MiB). null for none. Each NixOS host or ISO a plan reads is a Nix evaluation of up to about 0.75 GB; infrastructure-reusables' plan and apply actions run four at once, and 8 GiB keeps that at half the plane's memory."
 
   validation {
     condition = var.plane == null || (
