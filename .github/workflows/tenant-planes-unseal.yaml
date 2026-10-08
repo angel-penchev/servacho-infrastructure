@@ -30,7 +30,7 @@ jobs:
           ref: main
 
       - name: Unseal OpenBao
-        uses: angel-penchev/infrastructure-reusables/actions/openbao-unseal@v0.5.0
+        uses: angel-penchev/infrastructure-reusables/actions/openbao-unseal@v0.6.0
         with:
           unseal_keys: ${{ secrets.OPENBAO_UNSEAL_KEY }}
           vault_addr: ${{ env.VAULT_ADDR }}
