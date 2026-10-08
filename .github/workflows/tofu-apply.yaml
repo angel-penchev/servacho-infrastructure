@@ -39,7 +39,7 @@ jobs:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.sha }}
 
       - name: Unseal OpenBao
-        uses: angel-penchev/infrastructure-reusables/actions/openbao-unseal@a967eee66b1b32e6154d8839f3e1230dfc4a222a # v0.5.0
+        uses: angel-penchev/infrastructure-reusables/actions/openbao-unseal@v0
         with:
           unseal_keys: ${{ secrets.OPENBAO_UNSEAL_KEY }}
           vault_addr: ${{ env.VAULT_ADDR }}
@@ -54,7 +54,7 @@ jobs:
           vault_addr: ${{ env.VAULT_ADDR }}
 
       - name: OpenTofu apply
-        uses: angel-penchev/infrastructure-reusables/actions/tofu-apply@a967eee66b1b32e6154d8839f3e1230dfc4a222a # v0.5.0
+        uses: angel-penchev/infrastructure-reusables/actions/tofu-apply@v0
         with:
           vault_token: ${{ secrets.OPENBAO_ROOT_TOKEN }}
           branch: ${{ inputs.branch }}
@@ -74,7 +74,7 @@ jobs:
           ref: ${{ inputs.branch }}
 
       - name: Unseal OpenBao
-        uses: angel-penchev/infrastructure-reusables/actions/openbao-unseal@a967eee66b1b32e6154d8839f3e1230dfc4a222a # v0.5.0
+        uses: angel-penchev/infrastructure-reusables/actions/openbao-unseal@v0
         with:
           unseal_keys: ${{ secrets.OPENBAO_UNSEAL_KEY }}
           vault_addr: ${{ env.VAULT_ADDR }}
@@ -89,7 +89,7 @@ jobs:
           vault_addr: ${{ env.VAULT_ADDR }}
 
       - name: OpenTofu apply
-        uses: angel-penchev/infrastructure-reusables/actions/tofu-apply@a967eee66b1b32e6154d8839f3e1230dfc4a222a # v0.5.0
+        uses: angel-penchev/infrastructure-reusables/actions/tofu-apply@v0
         with:
           vault_token: ${{ secrets.OPENBAO_ROOT_TOKEN }}
           branch: ${{ inputs.branch }}
