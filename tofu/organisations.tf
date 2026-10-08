@@ -28,7 +28,7 @@ locals {
 
 module "installer_iso" {
   count  = local.management_planes_enabled ? 1 : 0
-  source = "github.com/angel-penchev/infrastructure-reusables//tofu/modules/installer-iso?ref=v0.4.0"
+  source = "github.com/angel-penchev/infrastructure-reusables//tofu/modules/installer-iso?ref=v0.5.0"
 
   # Rebuilt and uploaded again whenever anything that goes into it changes
   # (nixpkgs, the deploy key, the installer module), under a new name; the

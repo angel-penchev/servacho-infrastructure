@@ -45,16 +45,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1791252742,
-        "narHash": "sha256-S6wL/KbWgI3LHzlFcNEAP9nL0yBmqjhXza41Git9t3A=",
+        "lastModified": 1791450488,
+        "narHash": "sha256-OjW7mS9CfjxWdH7AuKJAvG8n4GACr48a8cDC8hYtDBk=",
         "owner": "angel-penchev",
         "repo": "infrastructure-reusables",
-        "rev": "a28a86e673f42d6e7167f83302181b7c4c3a59be",
+        "rev": "a6e3f915e6490b406775452cb5f0467e8abc0a0b",
         "type": "github"
       },
       "original": {
         "owner": "angel-penchev",
-        "ref": "v0.4.0",
+        "ref": "v0.5.0",
         "repo": "infrastructure-reusables",
         "type": "github"
       }
