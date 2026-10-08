@@ -15,7 +15,7 @@
 #
 #   unseal-all  From the workflows, after the root OpenBao is unsealed: unseal
 #               every plane recorded under secret/management-planes, the way
-#               the auto-unseal action does for the root plane. A plane that
+#               the openbao-unseal action does for the root plane. A plane that
 #               cannot be reached is reported and skipped, so one tenant's
 #               outage never fails the root pipeline.
 #

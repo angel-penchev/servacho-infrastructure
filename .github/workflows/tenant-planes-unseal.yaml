@@ -29,10 +29,10 @@ jobs:
         with:
           ref: main
 
-      - name: Auto-Unseal OpenBao (if sealed)
-        uses: ./.github/actions/auto-unseal
+      - name: Unseal OpenBao
+        uses: angel-penchev/infrastructure-reusables/actions/openbao-unseal@v0
         with:
-          unseal_key: ${{ secrets.OPENBAO_UNSEAL_KEY }}
+          unseal_keys: ${{ secrets.OPENBAO_UNSEAL_KEY }}
           vault_addr: ${{ env.VAULT_ADDR }}
 
       - name: Unseal the tenant management planes

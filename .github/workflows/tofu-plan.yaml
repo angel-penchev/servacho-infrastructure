@@ -22,10 +22,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Auto-Unseal OpenBao (if sealed)
-        uses: ./.github/actions/auto-unseal
+      - name: Unseal OpenBao
+        uses: angel-penchev/infrastructure-reusables/actions/openbao-unseal@v0
         with:
-          unseal_key: ${{ secrets.OPENBAO_UNSEAL_KEY }}
+          unseal_keys: ${{ secrets.OPENBAO_UNSEAL_KEY }}
           vault_addr: ${{ env.VAULT_ADDR }}
 
       # Before anything reads the flake or the modules: a pull request that
@@ -34,79 +34,7 @@ jobs:
       - name: infrastructure-reusables pins
         run: scripts/check-reusables-pins.sh
 
-      - name: OpenTofu init
-        env:
-          VAULT_TOKEN: ${{ secrets.OPENBAO_ROOT_TOKEN }}
-        run: tofu -chdir=tofu init
-
       - name: OpenTofu plan
-        id: plan
-        env:
-          VAULT_TOKEN: ${{ secrets.OPENBAO_ROOT_TOKEN }}
-        run: |
-          set -o pipefail
-          tofu -chdir=tofu plan -no-color -input=false -out=tfplan 2>&1 | tee plan_output.txt
-          exit_code=${PIPESTATUS[0]}
-          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
-          exit 0
-
-      - name: Post plan to PR
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v8
-        env:
-          PLAN_EXIT_CODE: ${{ steps.plan.outputs.exit_code }}
+        uses: angel-penchev/infrastructure-reusables/actions/tofu-plan@v0
         with:
-          script: |
-            const fs = require('fs');
-            const { owner, repo } = context.repo;
-            const path = 'plan_output.txt';
-            let planOutput = fs.existsSync(path) ? fs.readFileSync(path, 'utf8') : 'No plan output found.';
-            const summaryMatch = planOutput.match(/^(Plan: .*|No changes\..*)$/m);
-            const maxLen = 60000;
-            if (planOutput.length > maxLen) {
-              planOutput = `...truncated...\n\n${planOutput.slice(-maxLen)}`;
-            }
-            const status = process.env.PLAN_EXIT_CODE === '0' ? 'Success' : 'Failed';
-            const sha = context.payload.pull_request.head.sha;
-            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
-            const lines = [
-              '### OpenTofu Plan Results',
-              `**Status:** ${status}`,
-            ];
-            if (summaryMatch) {
-              lines.push(`**Summary:** ${summaryMatch[0]}`);
-            }
-            lines.push(
-              `**Commit:** ${sha.slice(0, 7)}`,
-              `**Run:** ${runUrl}`,
-              `**Generated:** ${new Date().toUTCString()}`,
-              '',
-              '```hcl',
-              planOutput,
-              '```',
-            );
-            const body = lines.join('\n');
-
-            // A plan replaces the previous plan while nothing happened in between.
-            // Once an apply has been posted after it, the next plan starts a new
-            // comment, so the thread keeps the order: plan, apply, plan.
-            const planMarker = '### OpenTofu Plan Results';
-            const applyMarker = '### OpenTofu Apply Results';
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner, repo, issue_number: context.issue.number,
-            });
-            const botComments = comments.filter(comment =>
-              comment.user.type === 'Bot' &&
-              (comment.body.includes(planMarker) || comment.body.includes(applyMarker)));
-            const last = botComments[botComments.length - 1];
-            if (last && last.body.includes(planMarker)) {
-              await github.rest.issues.updateComment({ owner, repo, comment_id: last.id, body });
-            } else {
-              await github.rest.issues.createComment({ owner, repo, issue_number: context.issue.number, body });
-            }
-
-      - name: Fail workflow if plan failed
-        if: steps.plan.outputs.exit_code != '0'
-        run: |
-          echo "OpenTofu plan failed. See PR comment for details."
-          exit 1
+          vault_token: ${{ secrets.OPENBAO_ROOT_TOKEN }}
