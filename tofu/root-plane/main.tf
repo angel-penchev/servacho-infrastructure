@@ -43,11 +43,13 @@ resource "proxmox_virtual_environment_vm" "this" {
   }
 
   # Its plans evaluate every plane's NixOS host and the installer, up to
-  # about 0.75 GB each (see the organisation module's plane.memory). Resize
-  # it in Proxmox first and reboot it when no job runs: an apply that changed
-  # it would reboot the VM it runs on.
+  # about 0.75 GB each (see the organisation module's plane.memory), and
+  # between plans it balloons down to `floating`. Resize it in Proxmox first
+  # and reboot it when no job runs: an apply that changed it would reboot the
+  # VM it runs on.
   memory {
-    dedicated = 8192
+    dedicated = 6144
+    floating  = 4096
   }
 
   network_device {

@@ -11,7 +11,7 @@
 
 module "plane" {
   count  = var.plane == null ? 0 : 1
-  source = "github.com/angel-penchev/infrastructure-reusables//tofu/modules/nixos-vm?ref=v0.6.0"
+  source = "github.com/angel-penchev/infrastructure-reusables//tofu/modules/nixos-vm?ref=v0.7.0"
 
   name             = var.plane.host
   node_name        = var.node_name
@@ -21,6 +21,7 @@ module "plane" {
   vlan_id          = var.vlan
   cores            = var.plane.cores
   memory           = var.plane.memory
+  memory_floating  = var.plane.memory_floating
   installer_iso_id = var.installer_iso_id
   flake            = var.nixos_flake
   host             = var.plane.host

@@ -40,14 +40,15 @@ variable "proxmox_endpoint" {
 
 variable "plane" {
   type = object({
-    host    = string
-    vm_id   = number
-    address = string
-    cores   = optional(number, 2)
-    memory  = optional(number, 8192)
+    host            = string
+    vm_id           = number
+    address         = string
+    cores           = optional(number, 2)
+    memory          = optional(number, 6144)
+    memory_floating = optional(number, 4096)
   })
   default     = null
-  description = "The organisation's management plane: its host in ../nixos, VM id and static address on the VLAN, and its size (memory in MiB). null for none. Each NixOS host or ISO a plan reads is a Nix evaluation of up to about 0.75 GB; infrastructure-reusables' plan and apply actions run four at once, and 8 GiB keeps that at half the plane's memory."
+  description = "The organisation's management plane: its host in ../nixos, VM id and static address on the VLAN, and its size (memory in MiB). null for none. Each NixOS host or ISO a plan reads is a Nix evaluation of up to about 0.75 GB; infrastructure-reusables' plan and apply actions run four at once (a plan of five hosts peaked at 3.7 GiB), and zram swap absorbs bursts. Between plans the plane balloons down to memory_floating, giving the rest back to the host."
 
   validation {
     condition = var.plane == null || (
