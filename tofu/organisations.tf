@@ -60,6 +60,9 @@ module "qoax_community" {
     host    = "qoax-community-management-plane"
     vm_id   = 10015
     address = "192.168.10.15"
+    # Its plans evaluate the five qoaxhack nodes and the installer at once,
+    # more than 4 GiB holds (the OOM killer took the runner's job).
+    memory = 8192
   } : null
 
   installer_iso_id = local.plane_tools.installer_iso_id

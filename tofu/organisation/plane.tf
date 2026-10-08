@@ -19,6 +19,8 @@ module "plane" {
   pool_id          = proxmox_virtual_environment_pool.this.id
   tags             = ["nixos", "management-plane", var.id]
   vlan_id          = var.vlan
+  cores            = var.plane.cores
+  memory           = var.plane.memory
   installer_iso_id = var.installer_iso_id
   flake            = var.nixos_flake
   host             = var.plane.host
