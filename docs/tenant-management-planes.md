@@ -184,6 +184,26 @@ Without it the apply fails at `terraform_data.runner` with a message saying
 where it goes. When the token expires, nothing breaks until a runner has to
 register again.
 
+**An ephemeral runner** (`runner.ephemeral = true`, as on the Qoax Community
+plane) takes one job per registration: afterwards it de-registers, its state
+and work directories are wiped and it registers again, so no job meets what an
+earlier one left behind. A one-hour registration token can't do that, so its
+token file holds a fine-grained PAT of its own, made like the one above,
+placed by hand and readable only by root (jobs can't read it):
+
+```bash
+ssh -t root@192.168.10.15 'read -rsp "token: " t && printf %s "$t" | install -m 600 /dev/stdin /var/lib/github-runner/.token; unset t; echo'
+```
+
+`scripts/tenant-plane-runner.sh` then never writes the file. It only checks
+that a PAT is there, and fails the apply if not. Place the PAT before an
+ephemeral runner's first start, so after a reinstall too, and again before it
+expires: with an expired PAT the runner can't register and jobs queue. The
+runner doesn't restart when its configuration changes, so after the deploy
+that turns ephemeral mode on, restart it once from outside a job
+(`systemctl restart github-runner-<name>`) and remove its old, now offline,
+entry in the repository's runner settings.
+
 ## Still open
 
 - **Unsealing without a workflow run.** A plane that reboots stays sealed

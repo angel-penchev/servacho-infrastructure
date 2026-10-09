@@ -15,10 +15,13 @@
       prefixLength = 23;
       gateway = "192.168.10.1";
     };
-    # Applies qoax-community/qoax-infrastructure. Its registration token is
-    # placed by the root plane after the deploy (tofu/organisation/plane.tf).
+    # Applies qoax-community/qoax-infrastructure, one job per registration.
+    # Ephemeral, it registers before every job, so its token file holds a
+    # fine-grained PAT placed by hand (docs/tenant-management-planes.md), not
+    # the registration token the root plane would mint.
     runner = {
       enable = true;
+      ephemeral = true;
       url = "https://github.com/qoax-community/qoax-infrastructure";
       labels = [ "qoax-community-management-plane" ];
     };
