@@ -242,12 +242,16 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id    = unifi_port_profile.host_device.id
   }
 
+  # TEMPORARY (2026-10-08): Servacho-Gosho's 2.5G RJ45 NIC, while its RJ45 SFP+ transceiver
+  # on USW Aggregation port 1 is out (unstable link). BR-05 is disconnected meanwhile. Revert
+  # to `name = "BR-05"`, `setting_preference = "auto"`, `host_device` once the host is on an
+  # SFP+ DAC to Aggregation port 1 (planned 2026-10-12).
   port_override {
     index              = 21
-    name               = "BR-05"
+    name               = "Servacho-Gosho"
     poe_mode           = "auto"
-    setting_preference = "auto"
-    port_profile_id    = unifi_port_profile.host_device.id
+    setting_preference = "manual"
+    port_profile_id    = unifi_port_profile.private_servers.id
   }
 
   port_override {

@@ -8,6 +8,22 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ---
 
+## Session 2026-10-08 — Servacho-Gosho moved to USW Pro Max port 21 (temporary)
+
+The RJ45 SFP+ transceiver in USW Aggregation port 1 made Servacho-Gosho's 2.5G uplink unstable: heavy loss on every VLAN the host carries, both runners offline. Until an SFP+ DAC arrives, the host's 2.5G RJ45 NIC is cabled to the USW Pro Max 24 PoE's port 21 (a 2.5 GbE port) and BR-05 is disconnected. Made in the UniFi web UI (Port Manager → Port 21 → Apply Changes). Read back over `GET /stat/device`: link up at 2500 full duplex, and the host, the three planes and the qoaxhack nodes answer again.
+
+| Port | Attribute | Was | Now |
+|---|---|---|---|
+| USW Pro Max 24 PoE, 21 | `name` | `BR-05` | `Servacho-Gosho` |
+| | `portconf_id` | Host Device | **Private Server** (native Private Servers, tagged Allow All) |
+| | `setting_preference` | `auto` | `manual` (the UI's own choice) |
+
+On Host Device the host fell back into **Guest** through 802.1X until the profile changed. USW Aggregation port 1 keeps its Servacho-Gosho name and the Private Server profile for the DAC.
+
+**Revert (planned 2026-10-12):** once the host is on the DAC to Aggregation port 1, set port 21 back to `BR-05`, Host Device, `setting_preference auto`, and revert the matching block in `tofu/unifi/device_usw_pro_max_24_poe.tf`. Port blocks are under `ignore_changes`, so the plan is unaffected either way.
+
+---
+
 ## Session 2026-10-04 (b) — names and fixed IPs for the organisations' planes
 
 Made in the UniFi web UI (Client Devices → the client → Settings → Apply Changes) on the two planes created by the apply of #47. Both had the hostname `nixos` from their installer's DHCP request, which the controller keeps for a client with a static address. Read back over `GET /rest/user`.
