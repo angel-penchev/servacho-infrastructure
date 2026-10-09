@@ -90,13 +90,15 @@ data "external" "runner" {
     "--json",
     "${var.nixos_flake}#nixosConfigurations.${var.plane.host}.config.servacho.managementPlane.runner",
     "--apply",
-    "r: { enable = if r.enable then \"true\" else \"false\"; url = if r.enable then r.url else \"\"; name = r.name; token_file = r.tokenFile; }",
+    "r: { enable = if r.enable then \"true\" else \"false\"; url = if r.enable then r.url else \"\"; name = r.name; token_file = r.tokenFile; ephemeral = if r.ephemeral then \"true\" else \"false\"; }",
   ]
 }
 
 # Registers the runner once the deploy has enabled it, with a registration
 # token minted from the organisation's GitHub token in the root OpenBao
 # (secret/github/runners/<id>); again for a new installation or repository.
+# An ephemeral runner registers itself with the PAT in its token file, which
+# this never overwrites.
 resource "terraform_data" "runner" {
   count = var.plane != null && try(data.external.runner[0].result.enable, "false") == "true" ? 1 : 0
 
@@ -115,6 +117,7 @@ resource "terraform_data" "runner" {
       RUNNER_NAME         = data.external.runner[0].result.name
       TOKEN_FILE          = data.external.runner[0].result.token_file
       GITHUB_TOKEN_SECRET = "github/runners/${var.id}"
+      RUNNER_EPHEMERAL    = data.external.runner[0].result.ephemeral
     }
   }
 

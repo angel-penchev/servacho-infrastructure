@@ -55,6 +55,10 @@
       enable = true;
       name = "management-runner";
       url = "https://github.com/angel-penchev/servacho-infrastructure";
+      # One job per registration, so no job meets what an earlier one left
+      # behind. The token file holds a fine-grained PAT (Administration: read
+      # and write on this repository), placed by hand.
+      ephemeral = true;
       labels = [
         "servacho-management-plane"
         "self-hosted"

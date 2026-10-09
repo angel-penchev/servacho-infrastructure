@@ -8,11 +8,16 @@
 # GitHub token itself never reaches the plane. A plane whose runner has
 # registered with RUNNER_URL already is left alone.
 #
+# An ephemeral runner (RUNNER_EPHEMERAL=true) registers again before every
+# job, which a registration token can't do: its token file holds a
+# fine-grained PAT, placed by hand (docs/tenant-management-planes.md). For it
+# this only checks the PAT is there and never writes the file.
+#
 # Needs TARGET_HOST, RUNNER_URL (a repository or an organisation),
 # RUNNER_NAME, TOKEN_FILE (the runner's tokenFile) and GITHUB_TOKEN_SECRET
 # (the root OpenBao's path holding `token`, a GitHub token that may manage
 # that repository's or organisation's self-hosted runners), plus what
-# lib/tenant-plane.sh needs.
+# lib/tenant-plane.sh needs. RUNNER_EPHEMERAL is optional.
 set -euo pipefail
 
 # shellcheck source=lib/tenant-plane.sh
@@ -28,6 +33,18 @@ registered=$(echo "sed '1s/^\xEF\xBB\xBF//' $(printf %q "$state/.runner") 2>/dev
 if [[ $registered == "$RUNNER_URL" ]]; then
   echo "Runner $RUNNER_NAME on $TARGET_HOST: registered with $RUNNER_URL already"
   exit 0
+fi
+
+if [[ ${RUNNER_EPHEMERAL:-false} == true ]]; then
+  holds_pat=$(echo "head -c 11 $(printf %q "$TOKEN_FILE") 2>/dev/null | grep -qx github_pat_ && echo yes || echo no" |
+    on_plane "$TARGET_HOST")
+  if [[ $holds_pat == yes ]]; then
+    echo "Runner $RUNNER_NAME on $TARGET_HOST: ephemeral, registers itself with the PAT in $TOKEN_FILE"
+    exit 0
+  fi
+  echo "Runner $RUNNER_NAME on $TARGET_HOST is ephemeral, and $TOKEN_FILE holds no fine-grained PAT." >&2
+  echo "Place one that may manage $RUNNER_URL's runners (docs/tenant-management-planes.md)." >&2
+  exit 1
 fi
 
 case $RUNNER_URL in
