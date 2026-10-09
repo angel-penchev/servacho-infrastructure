@@ -23,7 +23,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Unseal OpenBao
-        uses: angel-penchev/infrastructure-reusables/actions/openbao-unseal@v0.7.0
+        uses: angel-penchev/infrastructure-reusables/actions/openbao-unseal@v0.8.0
         with:
           unseal_keys: ${{ secrets.OPENBAO_UNSEAL_KEY }}
           vault_addr: ${{ env.VAULT_ADDR }}
@@ -35,6 +35,6 @@ jobs:
         run: scripts/check-reusables-pins.sh
 
       - name: OpenTofu plan
-        uses: angel-penchev/infrastructure-reusables/actions/tofu-plan@v0.7.0
+        uses: angel-penchev/infrastructure-reusables/actions/tofu-plan@v0.8.0
         with:
           vault_token: ${{ secrets.OPENBAO_ROOT_TOKEN }}

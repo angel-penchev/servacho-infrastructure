@@ -11,7 +11,7 @@
 
 module "plane" {
   count  = var.plane == null ? 0 : 1
-  source = "github.com/angel-penchev/infrastructure-reusables//tofu/modules/nixos-vm?ref=v0.7.0"
+  source = "github.com/angel-penchev/infrastructure-reusables//tofu/modules/nixos-vm?ref=v0.8.0"
 
   name             = var.plane.host
   node_name        = var.node_name
