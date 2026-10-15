@@ -1,11 +1,11 @@
 # Unity Intercom on intercom.qo.ax
 
-Unity Intercom Server runs on `mac4o-mini`, a Mac mini in Main (VLAN 2) on USW Pro Max port 19, and is public as `intercom.qo.ax:20101`. Phones and PCs connect to it with the Unity Intercom client; no audio gear is wired to it yet.
+Unity Intercom Server runs on `mac4o-mini`, a Mac mini in Public Servers (VLAN 4, the `Dmz` zone) on USW Pro Max port 19 (*Public Server* profile), and is public as `intercom.qo.ax:20101`. Phones and PCs connect to it with the Unity Intercom client; no audio gear is wired to it yet.
 
 | Piece | Where | Managed by |
 |---|---|---|
-| Fixed IP `192.168.2.158` for `1c:f6:4c:47:5b:c6` | `unifi_client.mac4o_mini`, `tofu/unifi/clients.tf` | tofu (set in the UI first, `docs/unifi-browser-changes.md`) |
-| UDP 20101 on both WANs → `192.168.2.158:20101` | `unifi_port_forward.unity_intercom`, `tofu/unifi/port_forwards.tf` | tofu |
+| Fixed IP `192.168.4.24` for `1c:f6:4c:47:5b:c6` | `unifi_client.mac4o_mini`, `tofu/unifi/clients.tf` | tofu (set in the UI first, `docs/unifi-browser-changes.md`) |
+| UDP 20101 on both WANs → `192.168.4.24:20101` | `unifi_port_forward.unity_intercom`, `tofu/unifi/port_forwards.tf` | tofu |
 | `intercom.qo.ax` A, DNS only, TTL 60, comment "Unity Intercom on mac4o-mini; UDP 20101 forwarded by servacho-infrastructure. [follows-wan]" | Cloudflare, zone `qo.ax` (Quackstack account) | [qoax-infrastructure](https://github.com/qoax-community/qoax-infrastructure) (`tofu/dns/follows_wan.tf`, `docs/dns.md`), which ignores its address; the address is `wan-dns`'s |
 | `wan-dns`: the record's address follows the active WAN | `nixos/hosts/qoax-community-management-plane/wan-dns.nix` ([wan-dns.md](wan-dns.md)) | NixOS on Qoax Community's management plane (`192.168.10.15`), beside the repository that manages the zone |
 
@@ -24,10 +24,9 @@ After WAN1 fails, clients reach the intercom again within about three minutes: t
 
 ## Administration
 
-Unity Server is a menu-bar app with no web UI or API: users, passwords, channels and groups are changed in its window, over Screen Sharing (`vnc://192.168.2.158`) from Teleport or WireGuard. It runs only while a user is logged in on the Mac, so the Mac needs automatic login, Start at Login on in Unity Server, and no sleep (`sudo pmset -a sleep 0 autorestart 1`).
+Unity Server is a menu-bar app with no web UI or API: users, passwords, channels and groups are changed in its window, over Screen Sharing (`vnc://192.168.4.24`) from Main, Teleport or WireGuard. Public Servers has no mDNS reflection, so connect by address, not by Bonjour name; the Dmz zone lets Internal reach the Mac but not the other way round. It runs only while a user is logged in on the Mac, so the Mac needs automatic login, Start at Login on in Unity Server, and no sleep (`sudo pmset -a sleep 0 autorestart 1`).
 
 ## Known gaps
 
 - **The plane.** Failover depends on Qoax Community's management plane and its OpenBao being up ([wan-dns.md](wan-dns.md)); while they are not, the record keeps whichever address it last had.
-- **Zone.** The forward lands in Main, the trusted Internal zone. Public Servers (VLAN 4, Dmz) exists for this and is unused; moving the Mac there means a new fixed IP and editing both tofu resources.
 - **Audio gear (planned for March 2027).** Needs the Audio I/O licence; Unity Connect (UDP 20102) only if the gear is at another site.

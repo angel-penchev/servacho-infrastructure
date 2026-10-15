@@ -8,6 +8,25 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ---
 
+## Session 2026-10-15 — the Mac mini moves to Public Servers
+
+Made through the controller's REST API from the user's Chrome session, read-modify-write and read back after each write, so the Unity Intercom server (`docs/unity-intercom.md`) sits in the `Dmz` zone instead of Main.
+
+| Object | Attribute | Was | Now |
+|---|---|---|---|
+| Client `6a9c928883de4db1f0f1e2b5` (`mac4o-mini`, `1c:f6:4c:47:5b:c6`), `PUT /rest/user` | `fixed_ip` | `192.168.2.158` | `192.168.4.24` |
+| | `network_id` | unset | Public Servers |
+| Port forward `6ad0da0775a2b1cefaf79cfb` (`Unity Intercom`), `PUT /rest/portforward` | `fwd` | `192.168.2.158` | `192.168.4.24` (no other field changed) |
+| USW Pro Max port 19 (`BR-03`), `PUT /rest/device` with all 26 overrides | override | inline: native Main, `dot1x_ctrl auto`, `setting_preference manual` | `{name BR-03, poe_mode auto, setting_preference auto, portconf_id Public Server}` |
+
+Port 19 had drifted from code: `device_usw_pro_max_24_poe.tf` said *Host Device* profile, but live had an equivalent inline override (the Mac authenticated by 802.1X as a RADIUS user). It now follows the Public Server profile like the other profiled ports, with no 802.1X. The other 25 overrides were byte-identical before and after; the switch stayed `state 1`.
+
+The forward was changed here, not by apply, so that it moved together with the Mac; `unifi_port_forward.unity_intercom` reads the address from `unifi_client.mac4o_mini.fixed_ip`, so the plan is a no-op. Changing a port's VLAN does not drop its link, so the Mac kept its Main lease until its cable was replugged.
+
+Live zone policies at the time (predefined): Internal, Vpn and Gateway → Dmz allow all; Dmz → Internal block, with return traffic allowed; Dmz → External allow; External → Dmz block apart from return traffic and the port forward.
+
+---
+
 ## Session 2026-10-14 — fixed IP for the Mac mini running Unity Intercom
 
 Made in the UniFi web UI (Client Devices → `ma4o-mini` → Settings → Apply Changes) on client `6a9c928883de4db1f0f1e2b5`, `1c:f6:4c:47:5b:c6`, the Mac mini in Main on USW Pro Max port 19 (`BR-03`) that runs Unity Intercom Server (`docs/unity-intercom.md`). Read back over `GET /rest/user/6a9c928883de4db1f0f1e2b5`.

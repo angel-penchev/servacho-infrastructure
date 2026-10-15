@@ -95,11 +95,13 @@ resource "unifi_client" "bedroom_tv" {
   allow_existing = true
 }
 
-# The Mac mini running Unity Intercom Server, USW Pro Max port 19. The
-# intercom's port forward points at this address.
+# The Mac mini running Unity Intercom Server, USW Pro Max port 19 (Public
+# Server profile). The intercom's port forward points at this address.
 resource "unifi_client" "mac4o_mini" {
   mac            = "1c:f6:4c:47:5b:c6"
   name           = "mac4o-mini"
-  fixed_ip       = "192.168.2.158"
+  fixed_ip       = "192.168.4.24"
+  # FIXME(unifi): live is bound to Public Servers (network_id), left out for the
+  #   same reason as jetkvm_servacho_gosho: Read does not populate it.
   allow_existing = true
 }

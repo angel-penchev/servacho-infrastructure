@@ -226,12 +226,13 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id    = unifi_port_profile.private_servers.id
   }
 
+  # mac4o-mini, 1c:f6:4c:47:5b:c6, fixed 192.168.4.24 (Unity Intercom).
   port_override {
     index              = 19
     name               = "BR-03"
     poe_mode           = "auto"
     setting_preference = "auto"
-    port_profile_id    = unifi_port_profile.host_device.id
+    port_profile_id    = unifi_port_profile.public_servers.id
   }
 
   port_override {
@@ -242,6 +243,10 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id    = unifi_port_profile.host_device.id
   }
 
+  # TEMPORARY: live, Servacho-Gosho is plugged in here (name "Servacho-Gosho",
+  #   Private Server profile, setting_preference manual, 2.5 GbE) while its home
+  #   port, USW Aggregation SFP+ 1, is unused. This block keeps the intended
+  #   BR-05 / Host Device so that it is right again once Gosho goes back (#76).
   port_override {
     index              = 21
     name               = "BR-05"
