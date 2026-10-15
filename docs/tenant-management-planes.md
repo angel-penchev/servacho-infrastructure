@@ -72,7 +72,7 @@ module this repository installs the planes with.
 | The module every plane is made of | infrastructure-reusables' `nixosModules.management-plane` |
 | The VM's hardware and disk layout (disko), in place of a generated file | infrastructure-reusables' `nixosModules.proxmox-guest` |
 | The installer every plane starts from | `nixos/images/installer.nix`, built as `installer-iso` |
-| The tenant hosts | `nixos/hosts/qoax-community-management-plane.nix`, `nixos/hosts/fmicodes-management-plane.nix` |
+| The tenant hosts | `nixos/hosts/qoax-community-management-plane/`, `nixos/hosts/fmicodes-management-plane.nix` |
 | The VMs, their install, deploy and OpenBao bootstrap | `tofu/organisation/plane.tf`, with infrastructure-reusables' `installer-iso` and `nixos-vm` |
 | The OpenBao bootstrap and the unseal after a reboot | `scripts/tenant-plane-openbao.sh`, `.github/actions/unseal-tenant-planes`, `.github/workflows/tenant-planes-unseal.yaml` |
 | The runner's registration | `scripts/tenant-plane-runner.sh`, `tofu/organisation/plane.tf` |
