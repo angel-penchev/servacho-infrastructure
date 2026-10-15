@@ -6,6 +6,8 @@
 { ... }:
 
 {
+  imports = [ ./intercom-dns.nix ];
+
   # hardware-configuration.nix is the file nixos-generate-config wrote on the
   # VM; the flake imports it and refuses to evaluate without it.
 
