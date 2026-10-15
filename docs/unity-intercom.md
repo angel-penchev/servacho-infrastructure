@@ -6,10 +6,10 @@ Unity Intercom Server runs on `mac4o-mini`, a Mac mini in Main (VLAN 2) on USW P
 |---|---|---|
 | Fixed IP `192.168.2.158` for `1c:f6:4c:47:5b:c6` | `unifi_client.mac4o_mini`, `tofu/unifi/clients.tf` | tofu (set in the UI first, `docs/unifi-browser-changes.md`) |
 | UDP 20101 on both WANs → `192.168.2.158:20101` | `unifi_port_forward.unity_intercom`, `tofu/unifi/port_forwards.tf` | tofu |
-| `intercom.qo.ax` A, DNS only, TTL 60, comment "Unity Intercom on mac4o-mini; UDP 20101 forwarded by servacho-infrastructure." | Cloudflare, zone `qo.ax` (Quackstack account) | made **by hand** (no Cloudflare provider in this repo); its address kept current by `intercom-dns` |
+| `intercom.qo.ax` A, DNS only, TTL 60, comment "Unity Intercom on mac4o-mini; UDP 20101 forwarded by servacho-infrastructure." | Cloudflare, zone `qo.ax` (Quackstack account) | [qoax-infrastructure](https://github.com/qoax-community/qoax-infrastructure) (`tofu/dns_qo_ax.tf`, `docs/dns.md`), which ignores its address; the address is `intercom-dns`'s |
 | `intercom-dns`: the record's address follows the active WAN | `nixos/hosts/servacho-managment-plane/intercom-dns.nix` | NixOS on the root management plane |
 
-The record must stay DNS only: Cloudflare's proxy carries HTTP(S), not UDP.
+The record must stay DNS only: Cloudflare's proxy carries HTTP(S), not UDP. Change its TTL or comment in qoax-infrastructure, not the dashboard.
 
 ## WAN failover
 
