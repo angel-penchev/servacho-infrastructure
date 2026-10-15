@@ -243,6 +243,10 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id    = unifi_port_profile.host_device.id
   }
 
+  # TEMPORARY: live, Servacho-Gosho is plugged in here (name "Servacho-Gosho",
+  #   Private Server profile, setting_preference manual, 2.5 GbE) while its home
+  #   port, USW Aggregation SFP+ 1, is unused. This block keeps the intended
+  #   BR-05 / Host Device so that it is right again once Gosho goes back (#76).
   port_override {
     index              = 21
     name               = "BR-05"

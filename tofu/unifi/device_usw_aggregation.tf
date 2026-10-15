@@ -33,7 +33,8 @@ resource "unifi_device" "usw_aggregation" {
   # Profiled ports store exactly {name, poe_mode?, setting_preference, portconf_id};
   # everything else comes from the profile (port_profiles.tf).
 
-  # Servacho-Gosho (38:05:25:30:79:97, fixed 192.168.5.10).
+  # Servacho-Gosho (38:05:25:30:79:97, fixed 192.168.5.10). Temporarily on USW
+  # Pro Max port 21 instead, so this port is down until it returns (#76).
   # FIXME(unifi-ui-only): BPDU Guard is on via the Private Server profile; the provider
   #   cannot set it on either layer.
   port_override {
