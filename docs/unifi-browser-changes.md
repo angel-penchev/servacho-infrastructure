@@ -8,6 +8,22 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ---
 
+## Session 2026-10-14 — fixed IP for the Mac mini running Unity Intercom
+
+Made in the UniFi web UI (Client Devices → `ma4o-mini` → Settings → Apply Changes) on client `6a9c928883de4db1f0f1e2b5`, `1c:f6:4c:47:5b:c6`, the Mac mini in Main on USW Pro Max port 19 (`BR-03`) that runs Unity Intercom Server (`docs/unity-intercom.md`). Read back over `GET /rest/user/6a9c928883de4db1f0f1e2b5`.
+
+| Attribute | Was | Now |
+|---|---|---|
+| `name` (alias) | unset (hostname `ma4o-mini` only) | `mac4o-mini` |
+| `use_fixedip` | `false` | `true` |
+| `fixed_ip` | unset | `192.168.2.158` |
+
+The alias is the name the Mac is being renamed to; it was first applied as `ma4o-mini` and corrected minutes later. No network binding and no local DNS record. `.158` is the address DHCP had already given it, inside Main's pool (`.6`–`.254`), which a reservation allows. `unifi_client.mac4o_mini` mirrors it and `tofu/imports_unifi.tf` adopts it. The new `unifi_port_forward.unity_intercom` (UDP 20101) is not made here but created by the apply, so the plan is "1 to import, 1 to add".
+
+The same day, outside the controller: Cloudflare zone `qo.ax` got `intercom` A `46.10.181.183` (WAN1), DNS only, TTL Auto. No record of that name existed before.
+
+---
+
 ## Session 2026-10-04 (b) — names and fixed IPs for the organisations' planes
 
 Made in the UniFi web UI (Client Devices → the client → Settings → Apply Changes) on the two planes created by the apply of #47. Both had the hostname `nixos` from their installer's DHCP request, which the controller keeps for a client with a static address. Read back over `GET /rest/user`.

@@ -82,7 +82,7 @@
 
         # The organisations' planes, installed and deployed by
         # tofu/organisation/plane.tf.
-        qoax-community-management-plane = mkInstalledPlane ./hosts/qoax-community-management-plane.nix;
+        qoax-community-management-plane = mkInstalledPlane ./hosts/qoax-community-management-plane/configuration.nix;
         fmicodes-management-plane = mkInstalledPlane ./hosts/fmicodes-management-plane.nix;
 
         # The ISO an organisation's plane boots before it has a system of its own.

@@ -94,3 +94,12 @@ resource "unifi_client" "bedroom_tv" {
   fixed_ip       = "192.168.6.11"
   allow_existing = true
 }
+
+# The Mac mini running Unity Intercom Server, USW Pro Max port 19. The
+# intercom's port forward points at this address.
+resource "unifi_client" "mac4o_mini" {
+  mac            = "1c:f6:4c:47:5b:c6"
+  name           = "mac4o-mini"
+  fixed_ip       = "192.168.2.158"
+  allow_existing = true
+}

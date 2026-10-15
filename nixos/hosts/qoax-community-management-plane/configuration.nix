@@ -4,6 +4,8 @@
 # VM's hardware and disk layout come from infrastructure-reusables.
 { ... }:
 {
+  imports = [ ./wan-dns.nix ];
+
   networking.hostName = "qoax-community-management-plane";
 
   servacho.managementPlane = {
@@ -31,8 +33,8 @@
   # from, and the administrators' workstations. A tenant plane has no other
   # user, so administrators log in as root.
   users.users.root.openssh.authorizedKeys.keyFiles = [
-    ./servacho-managment-plane/deploy-key.pub
-    ../keys/yogacho-v2.pub
+    ../servacho-managment-plane/deploy-key.pub
+    ../../keys/yogacho-v2.pub
   ];
 
   system.stateVersion = "26.05";
