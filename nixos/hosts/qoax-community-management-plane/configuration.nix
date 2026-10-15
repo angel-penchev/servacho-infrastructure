@@ -4,7 +4,7 @@
 # VM's hardware and disk layout come from infrastructure-reusables.
 { ... }:
 {
-  imports = [ ./intercom-dns.nix ];
+  imports = [ ./wan-dns.nix ];
 
   networking.hostName = "qoax-community-management-plane";
 
