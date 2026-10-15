@@ -18,13 +18,15 @@ resource "unifi_port_forward" "nginx_proxy" {
 
 # Unity Intercom Server, public as intercom.qo.ax (docs/unity-intercom.md).
 # Its Pro encryption closes the TCP port, so clients need UDP alone; with
-# "Leave TCP Port Open" ticked this would have to be tcp_udp.
+# "Leave TCP Port Open" ticked this would have to be tcp_udp. On both WANs so
+# it still answers while the gateway has failed over to WAN2 and the record
+# has followed.
 resource "unifi_port_forward" "unity_intercom" {
   name     = "Unity Intercom"
   protocol = "udp"
 
   wan = {
-    interface  = "wan"
+    interface  = "both"
     ip_address = "any"
     port       = "20101"
   }
