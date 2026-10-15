@@ -226,12 +226,13 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id    = unifi_port_profile.private_servers.id
   }
 
+  # mac4o-mini, 1c:f6:4c:47:5b:c6, fixed 192.168.4.24 (Unity Intercom).
   port_override {
     index              = 19
     name               = "BR-03"
     poe_mode           = "auto"
     setting_preference = "auto"
-    port_profile_id    = unifi_port_profile.host_device.id
+    port_profile_id    = unifi_port_profile.public_servers.id
   }
 
   port_override {
