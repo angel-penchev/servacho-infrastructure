@@ -100,7 +100,9 @@ Tell the student the password you set; they replace it at their next login.
   - `nasm`, binutils (`ld`, `objdump`, `readelf`, `nm`), `make`
   - `gcc`, `gdb`, `valgrind`, `strace`, `ltrace`
   - `nano`, `vim`, `nvim`, and `gedit` over `ssh -X`
-  - man pages for sections 2 and 3, POSIX's (`3p`) and `man -k`
+  - man pages for sections 2 and 3, POSIX's (`3p`) and `man -k`. `man -k`
+    answers once `mandb.service` has indexed the pages, a few minutes after
+    a boot.
   - the network tools the notes use: `ping`, `traceroute`, `nslookup`,
     `nc`, `socat`
 - **Programs of their own:** `nix profile install nixpkgs#<name>`, or
