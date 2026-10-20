@@ -1,16 +1,16 @@
 # os-tues: the operating systems class's machine
 
-`os-tues` is where TUES' operating systems class (11A, 2026/2027) writes and
-runs its assembly and C. Every student has an account and logs in from
-anywhere as `<student>@os-tues.qo.ax`. It runs NixOS, like every other host
-here, so it is installed, deployed and changed by this repository. Students
-install extra programs into their own accounts without root.
+`os-tues` is where TUES' operating systems class writes and runs its assembly
+and C. Every student has an account and logs in from anywhere as
+`<student>@os-tues.qo.ax`. It runs NixOS, like every other host here, so it
+is installed, deployed and changed by this repository. Students install extra
+programs into their own accounts without root.
 
 | Piece | Where | Managed by |
 |---|---|---|
 | VM 4031 on Public Servers (VLAN 4, the `Dmz` zone), `192.168.4.31`. It has 4 cores and 12 GiB, ballooning down to 4 GiB, plus a 64 GiB system disk and a 64 GiB disk for `/home` | `tofu/os_tues.tf`, with infrastructure-reusables' `nixos-vm` | tofu |
-| The host: toolchain, accounts, per-login limits, SSH | `nixos/hosts/os-tues.nix` | tofu, deployed in place |
-| The roster: each student's user name and initial password hash | The root OpenBao, `secret/os-tues/students` | by hand (below) |
+| The host: toolchain, per-login limits, SSH | `nixos/hosts/os-tues/configuration.nix` | tofu, deployed in place |
+| The students' accounts | `os-tues-students` on the host (`nixos/hosts/os-tues/students.nix`, `students.py`), run by the `os-tues students` workflow from a sigma export | by hand, through the workflow (below) |
 | TCP 22 on both WANs → `192.168.4.31:22` | `unifi_port_forward.os_tues_ssh`, `tofu/unifi/port_forwards.tf` | tofu |
 | `os-tues.qo.ax` A record: DNS only, TTL 60, `[follows-wan]` | Cloudflare, zone `qo.ax` | [qoax-infrastructure](https://github.com/qoax-community/qoax-infrastructure)'s `tofu/dns/follows_wan.tf`. The address belongs to `wan-dns` ([wan-dns.md](wan-dns.md)) |
 
@@ -30,56 +30,84 @@ The record must stay DNS only, because Cloudflare's proxy doesn't carry SSH.
 - **First login:** sshd asks for the initial password, then for it again as
   the "current" password, then twice for a new one. The connection then
   carries on into the shell.
+- **Class:** every account is in `students`, which sshd lets in with a
+  password, and in its class's group, `class-<class>` (`class-11a-2026`).
+  A class is retired, and restored, as a whole.
 
-`os-tues-students` (`nixos/hosts/os-tues.nix`) runs at boot and whenever the
-apply hands the host a changed roster. It:
+None of this is kept anywhere but on the host. The initial password exists
+only as the hash in `/etc/shadow` until the student replaces it, and the
+names never reach this repository, which is public, or its workflow logs,
+which are public too.
 
-- creates an account for each new student on the roster. Each gets a private
-  group, a `/home/<student>` only they can enter, and an initial password
-  that has to be changed;
-- never touches the password of an account that already exists;
-- locks out students who are no longer on the roster, by expiring their
-  accounts, and keeps their homes. A student put back on the roster can log
-  in again.
+## Importing a class
 
-`journalctl -u os-tues-students` on the host lists what each run did.
+The `os-tues students` workflow runs `os-tues-students` on the host over SSH
+from the root plane's runner. It reads the export from the repository secret
+`OS_TUES_SIGMA_EXPORT`: Actions secrets can't be read back, and the only
+thing a workflow passes on is what it prints.
 
-### Writing the roster
+1. In sigma's students directory, filter the class (status, school year,
+   class) and **Export**.
+2. Put the file in the secret:
 
-The roster is a map of user name to yescrypt hash. It lives in OpenBao
-because this repository is public: the names are minors', and hashes of
-passwords this guessable would leak the passwords themselves. Starting from a
-`students.tsv` of `<user name><TAB><initial password>` lines:
+   ```bash
+   base64 -w0 ~/Downloads/<export> | gh secret set OS_TUES_SIGMA_EXPORT -R angel-penchev/servacho-infrastructure
+   ```
+
+3. Run the workflow, `import`, with the class's name:
+
+   ```bash
+   gh workflow run os-tues-students.yaml -R angel-penchev/servacho-infrastructure -f action=import -f class=11a-2027 -f grade=11А
+   ```
+
+   `grade`, which can be empty, keeps only the export's rows whose class
+   column says so, in case the export has more than the filtered class.
+   `max_students` (40) refuses an export that looks like the whole school.
+4. Delete the export:
+
+   ```bash
+   gh secret delete OS_TUES_SIGMA_EXPORT -R angel-penchev/servacho-infrastructure
+   ```
+
+The log lists which columns it read, and counts:
+
+- **Created:** students who got an account.
+- **Already had one:** students with an account, which keeps its password and
+  joins the class.
+- **Skipped:** rows with no phone number, or with no single middle name (a
+  name of four words). `journalctl -t os-tues-students` on the host names
+  them. Give them accounts by hand (below) or fix sigma and import again.
+
+The export is read by content as much as by column titles. The ELSYS address
+is the column of `@elsys-bg.org` addresses. The phone is the column titled
+like `Телефон`. The middle name is a column titled like `Презиме`, or else the
+middle of three names in the column titled like `Имена`. If sigma changes its
+export, the error lists the columns it found; the rules are in `students.py`.
+
+Importing again is safe: no one is created twice and no password is reset.
+
+### Retiring a class
+
+When a class has finished with the course:
 
 ```bash
-while IFS=$'\t' read -r user password; do
-  printf '%s\t%s\n' "$user" "$(mkpasswd -m yescrypt --stdin <<<"$password")"
-done <students.tsv |
-  jq -Rn '[inputs | split("\t") | {key: .[0], value: .[1]}] | from_entries' >students.json
-shred -u students.tsv
+gh workflow run os-tues-students.yaml -R angel-penchev/servacho-infrastructure -f action=retire -f class=11a-2026
 ```
 
-Then, on the root plane, with the root token:
+Its accounts expire and their sessions end, and the homes stay. `restore`
+lets the class back in. To remove an account and its home for good, on the
+host: `userdel -r <student>`.
+
+### A student by hand
+
+On the host:
 
 ```bash
-bao kv put -mount=secret os-tues/students @students.json
+os-tues-students import 11a-2026 < export.csv
 ```
 
-Every plan reads the roster, so any apply after a change hands it over: the
-next merge to `main`, or `OpenTofu Apply` run by hand on `main`. To add one
-student:
-
-```bash
-bao kv patch -mount=secret os-tues/students "new.student.2023=$(mkpasswd -m yescrypt)"
-```
-
-To remove one, write the map back without them:
-
-```bash
-bao kv get -mount=secret -format=json os-tues/students |
-  jq '.data.data | del(.["old.student.2023"])' |
-  bao kv put -mount=secret os-tues/students -
-```
+The CSV needs a title row and the student's row, with an address, a middle
+name (`Презиме`) and a phone (`Телефон`).
 
 ### A forgotten password
 
@@ -162,9 +190,9 @@ set with that in mind:
   above `.99` as on VLANs 10 and 12. That move has to be made in the UI first
   (the `dhcp_guarding` FIXME in `tofu/unifi/networks.tf`). Until then,
   dnsmasq's ping check is what keeps it from handing the address out.
-- **A reinstall starts over.** Replacing the VM wipes both disks. Homes are
-  lost, and passwords go back to the initial ones on the roster. The SSH host
-  key changes too, so students see a warning.
+- **A reinstall starts over.** Replacing the VM wipes both disks: the
+  accounts and homes are gone until each class is imported again, with its
+  initial passwords. The SSH host key changes too, so students see a warning.
 - **No disk quotas.** One student can fill `/home` for everyone, though not
   the system or the Nix store.
 - **WAN failover** depends on `wan-dns` and Qoax Community's plane, as for
