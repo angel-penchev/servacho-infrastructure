@@ -8,7 +8,15 @@
 # The students: user name to initial password hash, put in the root OpenBao by
 # hand (docs/os-tues.md). Not in this public repository, and never in a plan:
 # the data is sensitive, so the provisioner below logs nothing either.
+locals {
+  # Off until secret/os-tues/students is in the root OpenBao; until then the
+  # roster is copied to the host by hand (docs/os-tues.md).
+  os_tues_roster = false
+}
+
 data "vault_kv_secret_v2" "os_tues_students" {
+  count = local.os_tues_roster ? 1 : 0
+
   mount = "secret"
   name  = "os-tues/students"
 }
@@ -40,9 +48,11 @@ module "os_tues" {
 # accounts of new students and locks those taken off it. Again for every
 # change to the roster and every new installation.
 resource "terraform_data" "os_tues_students" {
+  count = local.os_tues_roster ? 1 : 0
+
   triggers_replace = [
     module.os_tues.installation_id,
-    sha256(jsonencode(data.vault_kv_secret_v2.os_tues_students.data)),
+    sha256(jsonencode(data.vault_kv_secret_v2.os_tues_students[0].data)),
   ]
 
   provisioner "local-exec" {
@@ -50,7 +60,7 @@ resource "terraform_data" "os_tues_students" {
     environment = {
       TARGET_HOST     = module.os_tues.address
       SSH_PRIVATE_KEY = data.vault_kv_secret_v2.management_plane_ssh.data["private_key"]
-      ROSTER          = jsonencode(data.vault_kv_secret_v2.os_tues_students.data)
+      ROSTER          = jsonencode(data.vault_kv_secret_v2.os_tues_students[0].data)
     }
   }
 
