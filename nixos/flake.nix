@@ -92,7 +92,7 @@
           modules = [
             reusables.nixosModules.base
             reusables.nixosModules.proxmox-guest
-            ./hosts/os-tues.nix
+            ./hosts/os-tues/configuration.nix
           ];
         };
 

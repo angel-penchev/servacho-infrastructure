@@ -9,9 +9,8 @@
 # gedit over `ssh -X`. Students install anything else into their own profile
 # with `nix profile install nixpkgs#<name>`; none of them has root.
 #
-# The accounts are not in this file: the repository is public. Their names and
-# initial password hashes are in the root OpenBao, and tofu/os_tues.tf hands
-# them to the os-tues-students service below as a roster file.
+# The students' accounts are not in this repository, which is public: they are
+# made from a sigma export by os-tues-students (students.nix).
 { lib, pkgs, ... }:
 let
   # Public Servers, VLAN 4 (tofu/unifi/networks.tf), in the Dmz zone: the
@@ -20,11 +19,6 @@ let
   address = "192.168.4.31";
   prefixLength = 24;
   gateway = "192.168.4.1";
-
-  # Every student's supplementary group; sshd lets only its members in with a
-  # password.
-  studentsGroup = "students";
-  roster = "/var/lib/os-tues/students.json";
 
   # The notes link with -lcurses and include <curses.h>, as Debian's
   # libncurses-dev allows. NixOS's ncurses has no libcurses.so and its gcc
@@ -73,78 +67,10 @@ let
       exit 1
     '';
 
-  # Creates the account of every student on the roster, a JSON object of user
-  # name to initial password hash: a home only its owner can enter, and a
-  # password that must be changed at the first login. It never touches the
-  # password of an account that exists, so a password a student has set
-  # survives every run. A student taken off the roster is locked out (the
-  # account expires) with the home kept; put back, they can log in again.
-  syncStudents = pkgs.writeShellApplication {
-    name = "os-tues-students";
-    runtimeInputs = with pkgs; [
-      coreutils
-      getent
-      gnugrep
-      jq
-      shadow
-      systemd
-    ];
-    text = ''
-      group=${studentsGroup}
-      roster=${roster}
-
-      # Made here, not declared: NixOS leaves the members of a group it
-      # doesn't manage alone.
-      getent group "$group" > /dev/null || groupadd "$group"
-
-      if [[ ! -s $roster ]]; then
-        echo "No roster at $roster; nothing to do"
-        exit 0
-      fi
-      jq -e 'type == "object" and all(.[]; type == "string")' "$roster" > /dev/null
-
-      declare -A listed=()
-      while IFS= read -r user; do
-        if ! [[ $user =~ ^[a-z][a-z0-9._-]{0,31}$ ]]; then
-          echo "Skipped '$user': not a user name" >&2
-          continue
-        fi
-        listed[$user]=1
-
-        if id -u "$user" > /dev/null 2>&1; then
-          if ! id -nG "$user" | grep -qw "$group"; then
-            echo "Skipped $user: an account that isn't a student's exists" >&2
-            continue
-          fi
-          # Back on the roster after being taken off.
-          if [[ $(getent shadow "$user" | cut -d: -f8) == 1 ]]; then
-            usermod --expiredate "" "$user"
-            echo "Unlocked $user"
-          fi
-          continue
-        fi
-
-        useradd --create-home --user-group --groups "$group" \
-          --shell /run/current-system/sw/bin/bash "$user"
-        chmod 0700 "/home/$user"
-        # The hash through stdin, so no other student sees it in ps.
-        jq -r --arg user "$user" '"\($user):\(.[$user])"' "$roster" | chpasswd --encrypted
-        chage --lastday 0 "$user"
-        echo "Created $user"
-      done < <(jq -r 'keys[]' "$roster")
-
-      IFS=, read -ra members <<< "$(getent group "$group" | cut -d: -f4)"
-      for user in "''${members[@]}"; do
-        if [[ -z ''${listed[$user]:-} && $(getent shadow "$user" | cut -d: -f8) != 1 ]]; then
-          usermod --expiredate 1 "$user"
-          loginctl terminate-user "$user" 2> /dev/null || true
-          echo "Locked $user: no longer on the roster"
-        fi
-      done
-    '';
-  };
 in
 {
+  imports = [ ./students.nix ];
+
   networking.hostName = "os-tues";
   networking.useDHCP = false;
   systemd.network = {
@@ -270,11 +196,9 @@ in
   };
   zramSwap.enable = true;
 
-  # The base module allows keys only. Students log in with their password,
-  # and must replace the initial one on the first login, which sshd asks for
-  # through keyboard-interactive PAM. root takes the deploy key and the
-  # administrators' keys from the home networks (and its WireGuard) only:
-  # this machine is on the internet.
+  # Students log in with passwords (students.nix). root takes the deploy key
+  # and the administrators' keys from the home networks (and its WireGuard)
+  # only: this machine is on the internet.
   services.openssh = {
     settings = {
       PermitRootLogin = lib.mkForce "no";
@@ -288,37 +212,14 @@ in
       ClientAliveInterval = 300;
     };
     extraConfig = ''
-      Match Group ${studentsGroup}
-        PasswordAuthentication yes
-        KbdInteractiveAuthentication yes
       Match Address 192.168.0.0/16
         PermitRootLogin prohibit-password
     '';
   };
-  # NixOS gives sshd's PAM service pam_unix only when PasswordAuthentication
-  # is on globally; here it is on in the Match above.
-  security.pam.services.sshd.unixAuth = lib.mkForce true;
-
   users.users.root.openssh.authorizedKeys.keyFiles = [
-    ./servacho-managment-plane/deploy-key.pub
-    ../keys/yogacho-v2.pub
+    ../servacho-managment-plane/deploy-key.pub
+    ../../keys/yogacho-v2.pub
   ];
-
-  # Accounts are made at run time (os-tues-students), so NixOS must keep the
-  # users and groups it doesn't declare.
-  users.mutableUsers = true;
-
-  systemd.services.os-tues-students = {
-    description = "Create the accounts of the students on the roster";
-    wantedBy = [ "multi-user.target" ];
-    after = [ "local-fs.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      ExecStart = lib.getExe syncStudents;
-      StateDirectory = "os-tues";
-      StateDirectoryMode = "0700";
-    };
-  };
 
   system.stateVersion = "26.05";
 }
