@@ -85,6 +85,17 @@
         qoax-community-management-plane = mkInstalledPlane ./hosts/qoax-community-management-plane/configuration.nix;
         fmicodes-management-plane = mkInstalledPlane ./hosts/fmicodes-management-plane.nix;
 
+        # The operating systems class's machine, installed and deployed by
+        # tofu/os_tues.tf (docs/os-tues.md).
+        os-tues = lib.nixosSystem {
+          inherit system;
+          modules = [
+            reusables.nixosModules.base
+            reusables.nixosModules.proxmox-guest
+            ./hosts/os-tues.nix
+          ];
+        };
+
         # The ISO an organisation's plane boots before it has a system of its own.
         installer = lib.nixosSystem {
           inherit system;
@@ -114,6 +125,7 @@
           self.nixosConfigurations.qoax-community-management-plane.config.system.build.toplevel;
         fmicodes-management-plane =
           self.nixosConfigurations.fmicodes-management-plane.config.system.build.toplevel;
+        os-tues = self.nixosConfigurations.os-tues.config.system.build.toplevel;
         installer = self.nixosConfigurations.installer.config.system.build.toplevel;
       };
 
