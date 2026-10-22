@@ -46,8 +46,9 @@ from the root plane's runner. It reads the export from the repository secret
 `OS_TUES_SIGMA_EXPORT`: Actions secrets can't be read back, and the only
 thing a workflow passes on is what it prints.
 
-1. In sigma's students directory, filter the class (status, school year,
-   class) and **Export**.
+1. In sigma's students directory, set **Статус** to `Записан`, the school
+   year, and **Клас** to the class (`2026/2027 - 11А`), then **Експорт**. It
+   downloads `students-directory.xlsx`.
 2. Put the file in the secret:
 
    ```bash
@@ -78,11 +79,20 @@ The log lists which columns it read, and counts:
   name of four words). `journalctl -t os-tues-students` on the host names
   them. Give them accounts by hand (below) or fix sigma and import again.
 
-The export is read by content as much as by column titles. The ELSYS address
-is the column of `@elsys-bg.org` addresses. The phone is the column titled
-like `Телефон`. The middle name is a column titled like `Презиме`, or else the
-middle of three names in the column titled like `Имена`. If sigma changes its
-export, the error lists the columns it found; the rules are in `students.py`.
+sigma's export, as of October 2026, is one sheet with one title row: `Name`,
+`Grade`, `Specialty`, `Status`, `Age`, `Elsys Email`, `Personal Email`,
+`Phone Number` and `Admission Year`. `os-tues-students` takes:
+
+- the user name from `Elsys Email`;
+- the phone from `Phone Number`;
+- the middle name as the middle of the three names in `Name`;
+- with `grade`, the class from `Grade`.
+
+The log's `Columns:` line says which columns it used. Columns are found by
+content as much as by title, so an export with Bulgarian titles (`Телефон`,
+`Имена`) or a middle name column of its own (`Презиме`) works too. If sigma
+changes its export, the error lists the columns it found; the rules are in
+`students.py`.
 
 Importing again is safe: no one is created twice and no password is reset.
 
