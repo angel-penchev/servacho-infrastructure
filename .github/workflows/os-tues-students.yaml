@@ -1,0 +1,63 @@
+# The students' accounts on os-tues (docs/os-tues.md). import gives every
+# student in a sigma export an account in a class; the export comes from the
+# OS_TUES_SIGMA_EXPORT secret (base64), never from an input or the
+# repository, both public. retire locks a class out, restore lets it back in.
+# The log shows counts and column titles only.
+name: os-tues students
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: import the export's students, retire a class, or restore one
+        required: true
+        default: import
+        type: choice
+        options: [import, retire, restore]
+      class:
+        description: The class, as 11a-2026; its group on os-tues is class-<class>
+        required: true
+        type: string
+      grade:
+        description: import only the export's rows of this class (sigma's spelling, as 11А); empty for all of them
+        required: false
+        type: string
+      max_students:
+        description: Refuse an export of more students than this (a whole-school one)
+        required: true
+        default: "40"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: os-tues-students
+  cancel-in-progress: false
+
+jobs:
+  students:
+    runs-on: [self-hosted, servacho-management-plane]
+    env:
+      VAULT_ADDR: http://127.0.0.1:8200
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      # For the deploy key, which root on os-tues accepts.
+      - name: Unseal OpenBao
+        uses: angel-penchev/infrastructure-reusables/actions/openbao-unseal@v0.8.0
+        with:
+          unseal_keys: ${{ secrets.OPENBAO_UNSEAL_KEY }}
+          vault_addr: ${{ env.VAULT_ADDR }}
+
+      - name: ${{ inputs.action }} class-${{ inputs.class }}
+        run: scripts/os-tues-students.sh
+        env:
+          VAULT_TOKEN: ${{ secrets.OPENBAO_ROOT_TOKEN }}
+          SIGMA_EXPORT: ${{ secrets.OS_TUES_SIGMA_EXPORT }}
+          ACTION: ${{ inputs.action }}
+          CLASS: ${{ inputs.class }}
+          GRADE: ${{ inputs.grade }}
+          MAX_STUDENTS: ${{ inputs.max_students }}

@@ -36,3 +36,22 @@ resource "unifi_port_forward" "unity_intercom" {
     port = "20101"
   }
 }
+
+# os-tues, the operating systems class's machine, as <student>@os-tues.qo.ax
+# (docs/os-tues.md). On both WANs, as the intercom, so SSH still answers while
+# the gateway has failed over to WAN2 and the record has followed.
+resource "unifi_port_forward" "os_tues_ssh" {
+  name     = "os-tues SSH"
+  protocol = "tcp"
+
+  wan = {
+    interface  = "both"
+    ip_address = "any"
+    port       = "22"
+  }
+
+  forward = {
+    ip   = "192.168.4.31"
+    port = "22"
+  }
+}
