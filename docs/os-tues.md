@@ -2,7 +2,7 @@
 
 `os-tues` is where TUES' operating systems class writes and runs its assembly
 and C. Every student has an account and logs in from anywhere as
-`<student>@os-tues.qo.ax`. It runs NixOS, like every other host here, so it
+`<student>@vm.os.tues.qo.ax`. It runs NixOS, like every other host here, so it
 is installed, deployed and changed by this repository. Students install extra
 programs into their own accounts without root.
 
@@ -12,7 +12,7 @@ programs into their own accounts without root.
 | The host: toolchain, per-login limits, SSH | `nixos/hosts/os-tues/configuration.nix` | tofu, deployed in place |
 | The students' accounts | `os-tues-students` on the host (`nixos/hosts/os-tues/students.nix`, `students.py`), run by the `os-tues students` workflow from a sigma export | by hand, through the workflow (below) |
 | TCP 22 on both WANs → `192.168.4.31:22` | `unifi_port_forward.os_tues_ssh`, `tofu/unifi/port_forwards.tf` | tofu |
-| `os-tues.qo.ax` A record: DNS only, TTL 60, `[follows-wan]` | Cloudflare, zone `qo.ax` | [qoax-infrastructure](https://github.com/qoax-community/qoax-infrastructure)'s `tofu/dns/follows_wan.tf`. The address belongs to `wan-dns` ([wan-dns.md](wan-dns.md)) |
+| `vm.os.tues.qo.ax` A record: DNS only, TTL 60, `[follows-wan]` | Cloudflare, zone `qo.ax` | [qoax-infrastructure](https://github.com/qoax-community/qoax-infrastructure)'s `tofu/dns/follows_wan.tf`. The address belongs to `wan-dns` ([wan-dns.md](wan-dns.md)) |
 
 The record must stay DNS only, because Cloudflare's proxy doesn't carry SSH.
 
