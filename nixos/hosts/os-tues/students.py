@@ -36,6 +36,8 @@ os.environ["PATH"] = "@path@:" + os.environ.get("PATH", "")
 
 # Every student's group, which sshd lets in with a password.
 STUDENTS = "students"
+# The teachers' class, whose group has sudo (teachers.nix).
+TEACHERS = "teachers"
 ELSYS = "@elsys-bg.org"
 SHELL = "/run/current-system/sw/bin/bash"
 USER = re.compile(r"[a-z][a-z0-9._-]{0,31}")
@@ -287,6 +289,8 @@ def main():
     group = f"class-{args.klass}"
     syslog.openlog("os-tues-students")
 
+    if args.action == "import" and args.klass == TEACHERS:
+        fail("teachers have sudo, so a password from sigma would be root's; add a teacher by hand (docs/os-tues.md)")
     if args.action == "import":
         import_class(group, sys.stdin.buffer.read(), args.grade, args.max)
     elif args.action == "retire":
