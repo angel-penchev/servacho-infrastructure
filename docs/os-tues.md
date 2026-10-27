@@ -137,7 +137,7 @@ Tell the student the password you set; they replace it at their next login.
 - **The toolchain the notes use:**
   - `nasm`, binutils (`ld`, `objdump`, `readelf`, `nm`), `make`
   - `gcc`, `gdb`, `valgrind`, `strace`, `ltrace`
-  - `nano`, `vim`, `nvim`, and `gedit` over `ssh -X`
+  - `nano`, `vim`, `nvim` as LazyVim (below), and `gedit` over `ssh -X`
   - man pages for sections 2 and 3, POSIX's (`3p`) and `man -k`. `man -k`
     answers once `mandb.service` has indexed the pages, a few minutes after
     a boot.
@@ -164,6 +164,32 @@ Tell the student the password you set; they replace it at their next login.
   - `ptrace` reaches only a student's own children.
   - `ps` still shows everyone's processes. NixOS removed `hidepid` because
     it breaks under cgroups v2.
+
+### nvim is LazyVim
+
+Every account's `nvim` starts as [LazyVim](https://www.lazyvim.org), with
+its C extra: clangd for completion and diagnostics, and treesitter for C,
+assembly, Makefiles and the rest. Its config is `/etc/xdg/nvim/init.lua`, from
+`nixos/hosts/os-tues/lazyvim.nix`.
+
+- **Nothing is downloaded.** Nix provides the plugins, the treesitter parsers
+  and the language servers (clangd, lua-language-server). Mason is off. A
+  student's home only gets LazyVim's state and cache, a few MB.
+- **Changing it:** LazyVim's starter layout works under `~/.config/nvim/lua/`.
+  - `config/options.lua`, `keymaps.lua` and `autocmds.lua` are LazyVim's
+    usual files.
+  - `plugins/*.lua` hold plugin specs. lazy.nvim clones a plugin Nix doesn't
+    provide into `~/.local/share/nvim/lazy`.
+- **Opting out:** a `~/.config/nvim/init.lua` of one's own replaces it
+  entirely.
+- **Icons:** they need a [Nerd Font](https://www.nerdfonts.com) in the
+  student's terminal; without one they show as boxes.
+- **`:Lazy update` and `:TSUpdate` don't apply.** The plugins and parsers are
+  read-only, and change only when this repository's nixpkgs does.
+
+After a nixpkgs update, `nix build ./nixos#checks.x86_64-linux.os-tues-lazyvim`
+starts LazyVim offline in the build sandbox. It fails if LazyVim asks for a
+plugin `lazyvim.nix` doesn't list, or if C loses its parser or clangd.
 
 ### What a shared machine changes in the labs
 

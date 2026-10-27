@@ -126,6 +126,8 @@
         fmicodes-management-plane =
           self.nixosConfigurations.fmicodes-management-plane.config.system.build.toplevel;
         os-tues = self.nixosConfigurations.os-tues.config.system.build.toplevel;
+        # LazyVim starting offline, in the build sandbox (hosts/os-tues/lazyvim.nix).
+        os-tues-lazyvim = self.nixosConfigurations.os-tues.config.system.build.lazyvimCheck;
         installer = self.nixosConfigurations.installer.config.system.build.toplevel;
       };
 
