@@ -72,6 +72,7 @@ in
   imports = [
     ./students.nix
     ./lazyvim.nix
+    ./teachers.nix
   ];
 
   networking.hostName = "os-tues";
