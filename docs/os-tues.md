@@ -33,6 +33,9 @@ The record must stay DNS only, because Cloudflare's proxy doesn't carry SSH.
 - **Class:** every account is in `students`, which sshd lets in with a
   password, and in its class's group, `class-<class>` (`class-11a-2026`).
   A class is retired, and restored, as a whole.
+- **Teachers** are in `class-teachers` as well, which has sudo. They get a
+  random first password rather than one from sigma, and stricter rules for
+  their own ([Teachers](#teachers)).
 
 None of this is kept anywhere but on the host. The initial password exists
 only as the hash in `/etc/shadow` until the student replaces it, and the
@@ -131,6 +134,44 @@ chage --lastday 0 <student>
 ```
 
 Tell the student the password you set; they replace it at their next login.
+For a teacher, `passwd` holds even root to the teachers' rules (below).
+
+### Teachers
+
+Teachers log in like students, with their password from anywhere, and they
+have sudo with that same password. That makes the password root's, so
+`nixos/hosts/os-tues/teachers.nix` holds the accounts in `class-teachers` to
+stricter rules:
+
+- **At least 15 characters,** with lower and upper case letters, a digit and
+  another character.
+- **Checked on every change:** at the forced change of the first SSH login,
+  with `passwd`, and when root sets one.
+- **Students are unaffected;** only pam_unix checks theirs.
+
+`os-tues-students` won't import `teachers`: a first password made from sigma
+would be root's for whoever guessed it first. Add a teacher by hand instead,
+with a random first password, and give it to them in person:
+
+```bash
+ssh root@192.168.4.31
+useradd --create-home --user-group --groups students,class-teachers --shell /run/current-system/sw/bin/bash <name>
+chmod 700 /home/<name>
+pw=$(head -c 18 /dev/urandom | base64) && echo "<name>:$pw" | chpasswd && chage --lastday 0 <name> && echo "$pw"
+```
+
+At their first login they replace it with one that meets the rules. To take
+sudo away, remove them from the group: `gpasswd -d <name> class-teachers`.
+
+What sudo does and doesn't do here:
+
+- **It reaches every home**, so a teacher can read students' work.
+- **It keeps the login's limits.** Root through sudo runs in the teacher's
+  login, so it gets that login's limits. Unlimited root is `ssh root@` from
+  the home networks.
+- **It can't protect a typed password.** A machine you don't own may record
+  keystrokes, and a password typed there is root's. One-time codes (TOTP)
+  would close that; they aren't set up.
 
 ## What students get
 
@@ -160,7 +201,8 @@ Tell the student the password you set; they replace it at their next login.
 
   root has no limits.
 - **Isolation:**
-  - Homes are `0700` and nobody has sudo.
+  - Homes are `0700` and no student has sudo. Teachers have it, so they can
+    read every home.
   - `ptrace` reaches only a student's own children.
   - `ps` still shows everyone's processes. NixOS removed `hidepid` because
     it breaks under cgroups v2.
