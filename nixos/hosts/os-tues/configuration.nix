@@ -69,7 +69,10 @@ let
 
 in
 {
-  imports = [ ./students.nix ];
+  imports = [
+    ./students.nix
+    ./lazyvim.nix
+  ];
 
   networking.hostName = "os-tues";
   networking.useDHCP = false;
@@ -145,7 +148,7 @@ in
     os-tues, the TUES operating systems class machine.
 
     gcc, nasm, ld, objdump, gdb, make, valgrind, strace and ltrace are here;
-    so are nano, vim, nvim and gedit (connect with `ssh -X` for gedit).
+    so are nano, vim, nvim (as LazyVim) and gedit (`ssh -X` for gedit).
     ${installHint}
   '';
 

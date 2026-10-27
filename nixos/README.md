@@ -12,7 +12,7 @@ repository, not here.
 | `flake.nix` | Pins nixpkgs and infrastructure-reusables; the hosts, the installer, the `openbao` CLI |
 | `hosts/servacho-managment-plane/` | The root management plane, deployed by `tofu/root-plane/`; its `hardware-configuration.nix` and `deploy-key.pub` were committed once from the VM |
 | `hosts/*-management-plane.nix`, `hosts/qoax-community-management-plane/` | The organisations' planes, installed and deployed by `tofu/organisation/plane.tf` (see [docs/tenant-management-planes.md](../docs/tenant-management-planes.md)) |
-| `hosts/os-tues/` | The operating systems class's machine, installed and deployed by `tofu/os_tues.tf`, with `os-tues-students`, which makes the students' accounts (see [docs/os-tues.md](../docs/os-tues.md)) |
+| `hosts/os-tues/` | The operating systems class's machine, installed and deployed by `tofu/os_tues.tf`, with `os-tues-students`, which makes the students' accounts, and LazyVim as everyone's `nvim` (see [docs/os-tues.md](../docs/os-tues.md)) |
 | `images/installer.nix` | The installer ISO an organisation's plane boots from an empty disk, letting the root plane in with its deploy key |
 
 ## Building
