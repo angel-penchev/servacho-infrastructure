@@ -1,5 +1,5 @@
 # os-tues: the machine TUES' operating systems class works on, one account per
-# student, reached from anywhere as <student>@os-tues.qo.ax (docs/os-tues.md).
+# student, reached over SSH as <student>@vm.os.tues.qo.ax (docs/os-tues.md).
 # A NixOS VM on Public Servers, installed and deployed like an organisation's
 # plane by infrastructure-reusables' nixos-vm; its host is
 # ../nixos/hosts/os-tues/. The port forward is in unifi/port_forwards.tf, the

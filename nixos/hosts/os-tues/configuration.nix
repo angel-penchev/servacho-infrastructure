@@ -1,5 +1,5 @@
 # os-tues: the machine TUES' operating systems class works on, one account per
-# student, reached from anywhere as <student>@os-tues.qo.ax (docs/os-tues.md).
+# student, reached over SSH as <student>@vm.os.tues.qo.ax (docs/os-tues.md).
 # Installed and deployed by tofu/os_tues.tf like an organisation's plane; the
 # VM's hardware and disk layout come from infrastructure-reusables.
 #
