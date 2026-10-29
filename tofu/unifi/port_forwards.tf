@@ -1,17 +1,23 @@
+# 80 and 443, straight to soki, Qoax Community's temporary VM on VLAN 10
+# (qoax-community/qoax-infrastructure's docs/soki.md), until the shared
+# ingress VM (#83) exists and the forward moves there. It reached
+# 192.168.5.58, Nginx Proxy Manager, which is shut down. On both WANs, since
+# soki.qo.ax follows the active one; TCP, which is all HTTP needs.
+#
 # FIXME(unifi-ui-only): enabled true, log false, src_limiting_enabled false,
 #   destination_ips [] -- all at controller defaults, no provider attribute.
 resource "unifi_port_forward" "nginx_proxy" {
-  name     = "NGINX Server"
-  protocol = "tcp_udp"
+  name     = "soki web"
+  protocol = "tcp"
 
   wan = {
-    interface  = "wan"
+    interface  = "both"
     ip_address = "any"
     port       = "80,443"
   }
 
   forward = {
-    ip   = "192.168.5.58"
+    ip   = "192.168.10.41"
     port = "80,443"
   }
 }
