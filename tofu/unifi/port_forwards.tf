@@ -55,3 +55,23 @@ resource "unifi_port_forward" "os_tues_ssh" {
     port = "22"
   }
 }
+
+# soki, Qoax Community's temporary VM on VLAN 10 until 2026-11-01, as
+# ssh -p 2241 root@soki.qo.ax (qoax-community/qoax-infrastructure's
+# docs/soki.md). 22 is os-tues's, so 2241. On both WANs, since the record
+# follows the active one.
+resource "unifi_port_forward" "soki_ssh" {
+  name     = "soki SSH"
+  protocol = "tcp"
+
+  wan = {
+    interface  = "both"
+    ip_address = "any"
+    port       = "2241"
+  }
+
+  forward = {
+    ip   = "192.168.10.41"
+    port = "22"
+  }
+}
