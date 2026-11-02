@@ -1,9 +1,9 @@
 resource "unifi_device" "usw_aggregation" {
   mac  = "1c:6a:1b:98:38:ee"
   name = "USW Aggregation"
-  # FIXME(unifi): forget_on_destroy is Optional+Computed and import sets it true; declaring
-  #   the intended `false` would plan an update PUT (#463 hazard) for a provider-only flag
-  #   that only matters on `tofu destroy`. Left at the imported default.
+  # FIXME(unifi): forget_on_destroy is left at its default, true, on purpose. Declaring
+  #   the intended `false` (a provider-only flag that only matters on `tofu destroy`)
+  #   plans an update, and every unifi_device update sends a PUT, even an empty one.
   disabled = false
 
   # Management on UniFi Devices (VLAN 99). A switch keeps "Network Override" ON although
@@ -12,9 +12,9 @@ resource "unifi_device" "usw_aggregation" {
   # native-99 uplink -- the switch goes dark. APs are the opposite, see device_u7_pro_*.tf.
   mgmt_network_id = unifi_network.unifi_devices.id
 
-  # FIXME(unifi): read-only in practice -- v0.55.0 drops config_network from the update
-  #   PUT (upstream #463). Live matches, so the plan is a no-op; changing the address
-  #   here would fail post-apply. Change it in the UI first, then mirror.
+  # Mirrors live; changes go through the UI first. An update sends it as a whole object
+  # whenever it differs from live: dns2, dnssuffix and bonding_enabled go out as "", ""
+  # and false unless declared.
   config_network = {
     type    = "static"
     ip      = "192.168.99.3"
@@ -23,9 +23,12 @@ resource "unifi_device" "usw_aggregation" {
     dns1    = "192.168.99.1"
   }
 
-  # FIXME(unifi): port_override is ignored until upstream #470 (crash on the empty MAC
-  #   allowlist of a disabled port) and #430/#438 (whole-array replacement strips
-  #   undeclared ports) land. The blocks below document live; apply does not reconcile them.
+  # FIXME(unifi): import and refresh never put port_override in state, so without this
+  #   ignore the first plan adds every block unchecked, and the apply PUTs the whole
+  #   array unless each entry already equals live. unifi_device_port (import per port)
+  #   is the way out once CI runs OpenTofu >= 1.12 or upstream sets the identity in its
+  #   Update; until then every in-place update of it fails after the PUT. The blocks
+  #   below document live; apply does not reconcile them.
   lifecycle {
     ignore_changes = [port_override]
   }
@@ -35,7 +38,8 @@ resource "unifi_device" "usw_aggregation" {
 
   # Servacho-Gosho (38:05:25:30:79:97, fixed 192.168.5.10).
   # FIXME(unifi-ui-only): BPDU Guard is on via the Private Server profile; the provider
-  #   cannot set it on either layer.
+  #   cannot set it on either layer, and any provider write to the profile turns it off
+  #   (port_profiles.tf).
   port_override {
     index              = 1
     name               = "Servacho-Gosho"

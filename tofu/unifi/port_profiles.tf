@@ -2,8 +2,7 @@
 # toggle, not the Port Mode radio.
 # Attributes left unset are optional+computed or absent on the controller.
 #
-# UI fields with no provider attribute (live value on all five unless noted; a
-# from-scratch create lands on controller defaults):
+# UI fields with no provider attribute (live value on all five unless noted):
 # FIXME(unifi-ui-only): stp_edge_state -- Port Mode. UniFi Device: "disabled"
 #   (Infrastructure); Host Device, Public Server, Private Server, IoT Device: "enabled" (Edge)
 # FIXME(unifi-ui-only): flow_control_enabled = true        (Flow Control)
@@ -16,6 +15,16 @@
 # FIXME(unifi-ui-only): link_debounce_auto = true, 300 ms  (Link Debounce)
 # FIXME(unifi-ui-only): eee_enabled = false                (Energy Efficient Ethernet)
 # FIXME(unifi-ui-only): multicast_router_mode = "NONE"     (Multicast Router Port)
+#
+# FIXME(unifi): every provider write to a profile resets the booleans above to false.
+#   Create (POST) and update (PUT) send a whole profile built from the schema alone, and
+#   go-unifi encodes flow_control_enabled, precision_time_protocol_enabled, stp_uplink,
+#   stp_bpdu_guard_enabled, link_debounce_auto and eee_enabled (plus stable_port_enabled
+#   and ld_status) without omitempty: BPDU Guard goes off on Host Device, Private Server
+#   and IoT Device, and Flow Control, PTP and Link Debounce Auto on all five. Port Mode,
+#   QoS, Multicast Router Port and the debounce time are never sent. Change profiles in
+#   the UI and mirror them here before anything else merges; never apply a plan that
+#   updates a unifi_port_profile.
 
 # Trunks between UniFi devices (UDM <-> switches, switches <-> APs): every VLAN, no
 # 802.1X, otherwise the infrastructure could not come up before RADIUS is reachable.
@@ -43,9 +52,8 @@ resource "unifi_port_profile" "unifi_devices" {
 # no VLAN.
 #
 # FIXME(unifi): the fallback VLAN (`global_switch.dot1x_fallback_networkconf_id` =
-#   Guest) has no provider attribute at v0.55.0 and is set by hand -- see the
-#   `unifi_setting_switch` block in settings.tf. Without it this profile blocks
-#   every non-802.1X client.
+#   Guest) has no provider attribute at v0.65.0 and is set by hand, see settings.tf.
+#   Without it this profile blocks every non-802.1X client.
 resource "unifi_port_profile" "host_device" {
   name                  = "Host Device"
   forward               = "customize"

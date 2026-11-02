@@ -6,9 +6,10 @@
 # peers are added as devices need them.
 
 # FIXME(unifi): Teleport is a site setting (`/get/setting` key `teleport`:
-#   enabled true, subnet_cidr 192.168.7.1/24), not a network, and `unifi_setting` has
-#   no `teleport` block at v0.55.0. It has no name either, so the "StKr <x> Server"
-#   convention cannot apply. It is the admin's current way in -- never touch it.
+#   enabled true, subnet_cidr 192.168.7.1/24), not a network. At v0.65.0 the provider
+#   can only read it (data source `unifi_teleport`); `unifi_setting` has no `teleport`
+#   block. It has no name either, so the "StKr <x> Server" convention cannot apply. It
+#   is the admin's current way in -- never touch it.
 #   Also UI-only: `magic_site_to_site_vpn` (Site Magic), enabled by default, no tunnels.
 
 # Authenticates against the built-in RADIUS profile (users in radius.tf). Certificates,
@@ -34,11 +35,9 @@ resource "unifi_vpn_server" "openvpn" {
   openvpn = {
     mode = "server"
     port = 1194 # UDP
-    # FIXME(unifi): CONCESSION. The UI sends no cipher, but the provider defaults this
-    #   computed attribute to AES_256_GCM at plan time, which the controller rejects
-    #   (api.err.InvalidValue), and `ignore_changes` cannot suppress a provider plan-time
-    #   default. Pinning the one accepted cipher makes the write succeed; it is the
-    #   controller's own default, so nothing changes on the wire.
+    # FIXME(unifi): CONCESSION for a re-create: a create defaults the cipher to
+    #   AES_256_GCM, which the controller rejects (api.err.InvalidValue). The controller
+    #   stores AES_256_CBC, so the pin changes nothing on the wire.
     encryption_cipher = "AES_256_CBC"
   }
 
@@ -49,7 +48,8 @@ resource "unifi_vpn_server" "openvpn" {
 
 # FIXME(unifi-ui-only): OpenVPN live values without a provider attribute: vpn_protocol
 #   "UDP", mss_clamp "auto", interface_mtu_enabled false, openvpn_compression_disabled
-#   true, dhcpd_start/stop 192.168.8.2-192.168.8.254, setting_preference "auto".
+#   true, dhcpd_start/stop 192.168.8.2-192.168.8.254. Updates never send them.
+#   setting_preference has no attribute either: every create and update sends "manual".
 
 # Key pair: private key in OpenBao secret/unifi/vpn/wireguard (public key
 # mmWQkf3mwfZGD0fEHOPuF/YJV6/iBz/358J/FOIEKSw=). The controller refuses to create a

@@ -1,14 +1,17 @@
 resource "unifi_device" "udm_pro_max" {
   mac  = "28:70:4e:5c:b4:b2"
   name = "UDM StKr"
-  # FIXME(unifi): forget_on_destroy is Optional+Computed and import sets it true; declaring
-  #   the intended `false` would plan an update PUT (#463 hazard) for a provider-only flag
-  #   that only matters on `tofu destroy`. Left at the imported default.
+  # FIXME(unifi): forget_on_destroy is left at its default, true, on purpose. Declaring
+  #   the intended `false` (a provider-only flag that only matters on `tofu destroy`)
+  #   plans an update, and every unifi_device update sends a PUT, even an empty one.
   disabled = false
 
-  # FIXME(unifi): port_override is ignored until upstream #470 (crash on the empty MAC
-  #   allowlist of a disabled port) and #430/#438 (whole-array replacement strips
-  #   undeclared ports) land. The blocks below document live; apply does not reconcile them.
+  # FIXME(unifi): import and refresh never put port_override in state, so without this
+  #   ignore the first plan adds every block unchecked, and the apply PUTs the whole
+  #   array unless each entry already equals live. unifi_device_port (import per port)
+  #   is the way out once CI runs OpenTofu >= 1.12 or upstream sets the identity in its
+  #   Update; until then every in-place update of it fails after the PUT. The blocks
+  #   below document live; apply does not reconcile them.
   lifecycle {
     ignore_changes = [port_override]
   }
@@ -16,9 +19,10 @@ resource "unifi_device" "udm_pro_max" {
   # Profiled ports store exactly {name, poe_mode?, setting_preference, portconf_id};
   # everything else comes from the profile (port_profiles.tf).
   #
-  # FIXME(unifi-ui-only): ports 1 (WAN2) and 9 (WAN1) have no override. WAN-to-port
-  #   binding is UniFi OS Internet configuration, outside port_overrides; the provider
-  #   has no attribute for it. The WANs themselves are in wans.tf.
+  # FIXME(unifi-ui-only): ports 1 (WAN2) and 9 (WAN1) have no override. The WAN-to-port
+  #   binding (Settings -> Internet) sits outside port_overrides, probably in the
+  #   device's ethernet_overrides that go-unifi models (unchecked on this UDM); the
+  #   provider neither exposes nor sends that key. The WANs themselves are in wans.tf.
 
   # Ports 2-8: Port State Disabled, in the gateway's shape (smaller than the switches':
   # setting_preference "auto", no dot1x/STP/PoE keys). Every exposed attribute is set.

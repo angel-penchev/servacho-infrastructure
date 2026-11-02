@@ -1,9 +1,6 @@
-# Fixed-IP reservations, attribute-exact against live. Only the port-12
-# JetKVM carries a network binding, because live does.
-#
-# FIXME(unifi): at v0.55.0 every in-place unifi_client update fails with "inconsistent
-#   result after apply: .last_ip" (upstream #428, fixed on main as #447, unreleased).
-#   Creates and no-op plans are fine, so change attributes in the UI first, then mirror.
+# Fixed-IP reservations, attribute-exact against live. A reservation cleared in the UI
+# is mirrored with fixed_ip = "": deleting the resource would make the controller forget
+# the client.
 
 # Proxmox host, USW Aggregation port 1.
 resource "unifi_client" "servacho_gosho" {
@@ -44,10 +41,12 @@ resource "unifi_client" "jetkvm_servacho_gosho" {
   mac      = "30:52:53:0a:09:87"
   name     = "JetKVM-Servacho-Gosho"
   fixed_ip = "192.168.5.20"
-  # FIXME(unifi): no network_id declared although live HAS one (Private Servers).
-  #   The provider's unifi_client Read does not populate network_id, so
-  #   declaring it plans an in-place update on every run -- which #428 cannot perform.
-  #   Re-add `network_id = unifi_network.private_servers.id` once Read maps it.
+  # FIXME(unifi): live binds this reservation to Private Servers (the client record's
+  #   network_id, set with the fixed IP), and no provider attribute maps it. The
+  #   resource's network_id is UniFi's Network Override: never declare it here, the
+  #   apply would switch the override on. Updates keep the binding; a create does not
+  #   set it, so a rebuilt reservation is re-bound by hand (PUT /rest/user with
+  #   network_id, see docs/unifi-browser-changes.md).
   allow_existing = true
 }
 
@@ -98,10 +97,10 @@ resource "unifi_client" "bedroom_tv" {
 # The Mac mini running Unity Intercom Server, USW Pro Max port 19 (Public
 # Server profile). The intercom's port forward points at this address.
 resource "unifi_client" "mac4o_mini" {
-  mac            = "1c:f6:4c:47:5b:c6"
-  name           = "mac4o-mini"
-  fixed_ip       = "192.168.4.24"
-  # FIXME(unifi): live is bound to Public Servers (network_id), left out for the
-  #   same reason as jetkvm_servacho_gosho: Read does not populate it.
+  mac      = "1c:f6:4c:47:5b:c6"
+  name     = "mac4o-mini"
+  fixed_ip = "192.168.4.24"
+  # FIXME(unifi): live binds this reservation to Public Servers the same way; never
+  #   declare network_id here either (see jetkvm_servacho_gosho).
   allow_existing = true
 }
