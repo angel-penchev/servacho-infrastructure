@@ -222,7 +222,7 @@ in
   };
   users.users.root.openssh.authorizedKeys.keyFiles = [
     ../servacho-managment-plane/deploy-key.pub
-    ../../keys/yogacho-v2.pub
+    ../../keys/servacho.pub
   ];
 
   system.stateVersion = "26.05";
