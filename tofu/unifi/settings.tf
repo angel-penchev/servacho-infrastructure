@@ -39,11 +39,13 @@ resource "unifi_setting" "default" {
   # permanent diff).
   mgmt = {
     advanced_feature_enabled = true
-    auto_upgrade             = true
-    auto_upgrade_hour        = 3 # the "weekly, Sunday" part is UniFi OS-only, see below
-    debug_tools_enabled      = false
-    unifi_idp_enabled        = true
-    wifiman_enabled          = true
+    auto_upgrade = {
+      enabled = true
+      hour    = 3 # the "weekly, Sunday" part is UniFi OS-only, see below
+    }
+    debug_tools_enabled = false
+    unifi_idp_enabled   = true
+    wifiman_enabled     = true
   }
 
   # Control Plane -> Console -> LED / Screen.
@@ -78,7 +80,7 @@ resource "unifi_setting" "default" {
 # FIXME(unifi): Analytics & Improvements = Off -- `super_mgmt.enable_analytics = false`.
 # FIXME(unifi): Support File = Full, Certificates = none, Remote Access = on, Direct
 #   Remote Connection = off, SSH = off -- UniFi OS console settings.
-# FIXME(unifi): Updates: "weekly, Sunday 4 AM" -- only `mgmt.auto_upgrade_hour = 3`
+# FIXME(unifi): Updates: "weekly, Sunday 4 AM" -- only `mgmt.auto_upgrade.hour = 3`
 #   reaches the Network app; weekday and update channels are UniFi OS only.
 # FIXME(unifi): Backups: auto backup on, `super_mgmt.autobackup_cron_expr "30 0 1 * *"`
 #   (monthly), timezone Europe/Sofia, keep 0 days.

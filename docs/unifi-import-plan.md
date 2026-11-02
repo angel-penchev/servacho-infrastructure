@@ -32,7 +32,7 @@ Everything below runs on the management plane in the repo's `tofu/` directory wi
 
 ```sh
 git pull                      # the branch that carries the import blocks
-tofu init                     # provider ~> 0.55.0 is pinned; -upgrade not needed
+tofu init                     # provider ~> 0.65.0 is pinned; -upgrade not needed
 ```
 
 ### 2. Clear the pre-reset entries from state

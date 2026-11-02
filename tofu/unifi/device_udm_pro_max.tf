@@ -24,115 +24,108 @@ resource "unifi_device" "udm_pro_max" {
   # setting_preference "auto", no dot1x/STP/PoE keys). Every exposed attribute is set.
   # FIXME(unifi-ui-only): sd_wan_underlay_port = false     (SD-WAN Underlay Port off)
   port_override {
-    index                          = 2
-    name                           = "Port 2 (Disabled)"
-    forward                        = "disabled"
-    port_security_enabled          = true
-    port_security_mac_address      = []
-    tagged_vlan_mgmt               = "block_all"
-    native_networkconf_id          = null
-    voice_networkconf_id           = null
-    setting_preference             = "auto"
-    autoneg                        = true
-    isolation                      = false
-    egress_rate_limit_kbps_enabled = false
-    port_keepalive_enabled         = false
+    index                  = 2
+    name                   = "Port 2 (Disabled)"
+    forward                = "disabled"
+    port_security          = { enabled = true }
+    tagged_vlan_mgmt       = "block_all"
+    native_networkconf_id  = null
+    voice_networkconf_id   = null
+    setting_preference     = "auto"
+    autoneg                = true
+    isolation              = false
+    egress_rate_limit      = { enabled = false }
+    port_keepalive_enabled = false
   }
 
   port_override {
-    index                          = 3
-    name                           = "Port 3 (Disabled)"
-    forward                        = "disabled"
-    port_security_enabled          = true
-    port_security_mac_address      = []
-    tagged_vlan_mgmt               = "block_all"
-    native_networkconf_id          = null
-    voice_networkconf_id           = null
-    setting_preference             = "auto"
-    autoneg                        = true
-    isolation                      = false
-    egress_rate_limit_kbps_enabled = false
-    port_keepalive_enabled         = false
+    index                  = 3
+    name                   = "Port 3 (Disabled)"
+    forward                = "disabled"
+    port_security          = { enabled = true }
+    tagged_vlan_mgmt       = "block_all"
+    native_networkconf_id  = null
+    voice_networkconf_id   = null
+    setting_preference     = "auto"
+    autoneg                = true
+    isolation              = false
+    egress_rate_limit      = { enabled = false }
+    port_keepalive_enabled = false
   }
 
   port_override {
-    index                          = 4
-    name                           = "Port 4 (Disabled)"
-    forward                        = "disabled"
-    port_security_enabled          = true
-    port_security_mac_address      = []
-    tagged_vlan_mgmt               = "block_all"
-    native_networkconf_id          = null
-    voice_networkconf_id           = null
-    setting_preference             = "auto"
-    autoneg                        = true
-    isolation                      = false
-    egress_rate_limit_kbps_enabled = false
-    port_keepalive_enabled         = false
+    index                  = 4
+    name                   = "Port 4 (Disabled)"
+    forward                = "disabled"
+    port_security          = { enabled = true }
+    tagged_vlan_mgmt       = "block_all"
+    native_networkconf_id  = null
+    voice_networkconf_id   = null
+    setting_preference     = "auto"
+    autoneg                = true
+    isolation              = false
+    egress_rate_limit      = { enabled = false }
+    port_keepalive_enabled = false
   }
 
   port_override {
-    index                          = 5
-    name                           = "Port 5 (Disabled)"
-    forward                        = "disabled"
-    port_security_enabled          = true
-    port_security_mac_address      = []
-    tagged_vlan_mgmt               = "block_all"
-    native_networkconf_id          = null
-    voice_networkconf_id           = null
-    setting_preference             = "auto"
-    autoneg                        = true
-    isolation                      = false
-    egress_rate_limit_kbps_enabled = false
-    port_keepalive_enabled         = false
+    index                  = 5
+    name                   = "Port 5 (Disabled)"
+    forward                = "disabled"
+    port_security          = { enabled = true }
+    tagged_vlan_mgmt       = "block_all"
+    native_networkconf_id  = null
+    voice_networkconf_id   = null
+    setting_preference     = "auto"
+    autoneg                = true
+    isolation              = false
+    egress_rate_limit      = { enabled = false }
+    port_keepalive_enabled = false
   }
 
   port_override {
-    index                          = 6
-    name                           = "Port 6 (Disabled)"
-    forward                        = "disabled"
-    port_security_enabled          = true
-    port_security_mac_address      = []
-    tagged_vlan_mgmt               = "block_all"
-    native_networkconf_id          = null
-    voice_networkconf_id           = null
-    setting_preference             = "auto"
-    autoneg                        = true
-    isolation                      = false
-    egress_rate_limit_kbps_enabled = false
-    port_keepalive_enabled         = false
+    index                  = 6
+    name                   = "Port 6 (Disabled)"
+    forward                = "disabled"
+    port_security          = { enabled = true }
+    tagged_vlan_mgmt       = "block_all"
+    native_networkconf_id  = null
+    voice_networkconf_id   = null
+    setting_preference     = "auto"
+    autoneg                = true
+    isolation              = false
+    egress_rate_limit      = { enabled = false }
+    port_keepalive_enabled = false
   }
 
   port_override {
-    index                          = 7
-    name                           = "Port 7 (Disabled)"
-    forward                        = "disabled"
-    port_security_enabled          = true
-    port_security_mac_address      = []
-    tagged_vlan_mgmt               = "block_all"
-    native_networkconf_id          = null
-    voice_networkconf_id           = null
-    setting_preference             = "auto"
-    autoneg                        = true
-    isolation                      = false
-    egress_rate_limit_kbps_enabled = false
-    port_keepalive_enabled         = false
+    index                  = 7
+    name                   = "Port 7 (Disabled)"
+    forward                = "disabled"
+    port_security          = { enabled = true }
+    tagged_vlan_mgmt       = "block_all"
+    native_networkconf_id  = null
+    voice_networkconf_id   = null
+    setting_preference     = "auto"
+    autoneg                = true
+    isolation              = false
+    egress_rate_limit      = { enabled = false }
+    port_keepalive_enabled = false
   }
 
   port_override {
-    index                          = 8
-    name                           = "Port 8 (Disabled)"
-    forward                        = "disabled"
-    port_security_enabled          = true
-    port_security_mac_address      = []
-    tagged_vlan_mgmt               = "block_all"
-    native_networkconf_id          = null
-    voice_networkconf_id           = null
-    setting_preference             = "auto"
-    autoneg                        = true
-    isolation                      = false
-    egress_rate_limit_kbps_enabled = false
-    port_keepalive_enabled         = false
+    index                  = 8
+    name                   = "Port 8 (Disabled)"
+    forward                = "disabled"
+    port_security          = { enabled = true }
+    tagged_vlan_mgmt       = "block_all"
+    native_networkconf_id  = null
+    voice_networkconf_id   = null
+    setting_preference     = "auto"
+    autoneg                = true
+    isolation              = false
+    egress_rate_limit      = { enabled = false }
+    port_keepalive_enabled = false
   }
 
   # SFP+ 1: 10 GbE uplink to the USW Pro Max 24 PoE.

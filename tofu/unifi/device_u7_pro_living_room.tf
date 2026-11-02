@@ -6,7 +6,7 @@ resource "unifi_device" "u7_pro_living_room" {
   #   that only matters on `tofu destroy`. Left at the imported default.
   disabled = false
 
-  led_override = "off"
+  led = { override = "off" }
 
   # Management on UniFi Devices (VLAN 99), untagged. An AP must have "Network Override"
   # OFF when its uplink port is native 99: with it on, the AP tags 99, the switch answers

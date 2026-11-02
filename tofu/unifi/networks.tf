@@ -3,9 +3,11 @@
 # mDNS Proxy scope (Main + IoT, see mdns.tf; upstream #282) -- not an independent knob.
 #
 # setting_preference = "manual" is what the controller stores for every network created
-# on the Networks page (Main came from the setup wizard and is "auto"); the provider
-# defaults to "auto". dhcp_guarding mirrors the UI, which enables DHCP Guarding with the
-# gateway as the only trusted server on every VLAN it creates.
+# on the Networks page (Main came from the setup wizard and is "auto"). Every network
+# declares it: the provider plans "manual" for a guarded corporate or guest network that
+# leaves it unset (upstream #419).
+# dhcp_guarding mirrors the UI, which enables DHCP Guarding with the gateway as the only
+# trusted server on every VLAN it creates.
 # FIXME(unifi): dhcp_guarding is declared to MIRROR live only -- it is write-broken and
 #   read-sticky at v0.55.0. The update PUT sends dhcpguard_enabled without the trusted
 #   servers (dhcpd_ip_1..3), which the controller rejects with api.err.MissingIPAddress,
@@ -55,13 +57,16 @@ resource "unifi_network" "unifi_devices" {
 }
 
 # The one network the controller stores with setting_preference "auto" (it was created
-# in the setup wizard, the others in the Networks page), so the attribute is left unset.
+# in the setup wizard, the others in the Networks page). Declared, or the provider plans
+# "manual" because dhcp_guarding is on; the explicit "auto" draws a plan warning
+# (upstream #419), so guarded changes to Main stay in the UI.
 resource "unifi_network" "main" {
-  name          = "Main"
-  purpose       = "corporate"
-  vlan          = 2
-  subnet        = "192.168.2.1/24"
-  multicast_dns = true
+  name               = "Main"
+  purpose            = "corporate"
+  vlan               = 2
+  subnet             = "192.168.2.1/24"
+  multicast_dns      = true
+  setting_preference = "auto"
 
   dhcp_server = {
     enabled = true

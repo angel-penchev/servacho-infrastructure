@@ -52,126 +52,118 @@ resource "unifi_device" "usw_aggregation" {
   # FIXME(unifi-ui-only): link_debounce_auto = true        (Link Debounce: Auto, 300 ms)
   # FIXME(unifi-ui-only): multicast_router_mode = "NONE"   (Multicast Router Port off)
   # FIXME(unifi-ui-only): sd_wan_underlay_port = false     (SD-WAN Underlay Port off)
-  # FIXME(unifi-ui-only): dot1x_idle_timeout = 300 s -- exposed, but as a Go duration
-  #   string ("5m0s"); left unset because 300 s is the provider default anyway.
   port_override {
-    index                          = 2
-    name                           = "SFP+ 2 (Disabled)"
-    forward                        = "disabled"
-    port_security_enabled          = true
-    port_security_mac_address      = []
-    tagged_vlan_mgmt               = "block_all"
-    native_networkconf_id          = null
-    voice_networkconf_id           = null
-    setting_preference             = "manual"
-    poe_mode                       = "auto"
-    autoneg                        = true
-    dot1x_ctrl                     = "auto"
-    lldpmed_enabled                = true
-    stp_port_mode                  = true
-    isolation                      = false
-    egress_rate_limit_kbps_enabled = false
-    port_keepalive_enabled         = false
+    index                  = 2
+    name                   = "SFP+ 2 (Disabled)"
+    forward                = "disabled"
+    port_security          = { enabled = true }
+    tagged_vlan_mgmt       = "block_all"
+    native_networkconf_id  = null
+    voice_networkconf_id   = null
+    setting_preference     = "manual"
+    poe_mode               = "auto"
+    autoneg                = true
+    dot1x                  = { ctrl = "auto", idle_timeout = "5m0s" }
+    lldpmed                = { enabled = true }
+    stp_port_mode          = true
+    isolation              = false
+    egress_rate_limit      = { enabled = false }
+    port_keepalive_enabled = false
   }
 
   port_override {
-    index                          = 3
-    name                           = "SFP+ 3 (Disabled)"
-    forward                        = "disabled"
-    port_security_enabled          = true
-    port_security_mac_address      = []
-    tagged_vlan_mgmt               = "block_all"
-    native_networkconf_id          = null
-    voice_networkconf_id           = null
-    setting_preference             = "manual"
-    poe_mode                       = "auto"
-    autoneg                        = true
-    dot1x_ctrl                     = "auto"
-    lldpmed_enabled                = true
-    stp_port_mode                  = true
-    isolation                      = false
-    egress_rate_limit_kbps_enabled = false
-    port_keepalive_enabled         = false
+    index                  = 3
+    name                   = "SFP+ 3 (Disabled)"
+    forward                = "disabled"
+    port_security          = { enabled = true }
+    tagged_vlan_mgmt       = "block_all"
+    native_networkconf_id  = null
+    voice_networkconf_id   = null
+    setting_preference     = "manual"
+    poe_mode               = "auto"
+    autoneg                = true
+    dot1x                  = { ctrl = "auto", idle_timeout = "5m0s" }
+    lldpmed                = { enabled = true }
+    stp_port_mode          = true
+    isolation              = false
+    egress_rate_limit      = { enabled = false }
+    port_keepalive_enabled = false
   }
 
   port_override {
-    index                          = 4
-    name                           = "SFP+ 4 (Disabled)"
-    forward                        = "disabled"
-    port_security_enabled          = true
-    port_security_mac_address      = []
-    tagged_vlan_mgmt               = "block_all"
-    native_networkconf_id          = null
-    voice_networkconf_id           = null
-    setting_preference             = "manual"
-    poe_mode                       = "auto"
-    autoneg                        = true
-    dot1x_ctrl                     = "auto"
-    lldpmed_enabled                = true
-    stp_port_mode                  = true
-    isolation                      = false
-    egress_rate_limit_kbps_enabled = false
-    port_keepalive_enabled         = false
+    index                  = 4
+    name                   = "SFP+ 4 (Disabled)"
+    forward                = "disabled"
+    port_security          = { enabled = true }
+    tagged_vlan_mgmt       = "block_all"
+    native_networkconf_id  = null
+    voice_networkconf_id   = null
+    setting_preference     = "manual"
+    poe_mode               = "auto"
+    autoneg                = true
+    dot1x                  = { ctrl = "auto", idle_timeout = "5m0s" }
+    lldpmed                = { enabled = true }
+    stp_port_mode          = true
+    isolation              = false
+    egress_rate_limit      = { enabled = false }
+    port_keepalive_enabled = false
   }
 
   port_override {
-    index                          = 5
-    name                           = "SFP+ 5 (Disabled)"
-    forward                        = "disabled"
-    port_security_enabled          = true
-    port_security_mac_address      = []
-    tagged_vlan_mgmt               = "block_all"
-    native_networkconf_id          = null
-    voice_networkconf_id           = null
-    setting_preference             = "manual"
-    poe_mode                       = "auto"
-    autoneg                        = true
-    dot1x_ctrl                     = "auto"
-    lldpmed_enabled                = true
-    stp_port_mode                  = true
-    isolation                      = false
-    egress_rate_limit_kbps_enabled = false
-    port_keepalive_enabled         = false
+    index                  = 5
+    name                   = "SFP+ 5 (Disabled)"
+    forward                = "disabled"
+    port_security          = { enabled = true }
+    tagged_vlan_mgmt       = "block_all"
+    native_networkconf_id  = null
+    voice_networkconf_id   = null
+    setting_preference     = "manual"
+    poe_mode               = "auto"
+    autoneg                = true
+    dot1x                  = { ctrl = "auto", idle_timeout = "5m0s" }
+    lldpmed                = { enabled = true }
+    stp_port_mode          = true
+    isolation              = false
+    egress_rate_limit      = { enabled = false }
+    port_keepalive_enabled = false
   }
 
   port_override {
-    index                          = 6
-    name                           = "SFP+ 6 (Disabled)"
-    forward                        = "disabled"
-    port_security_enabled          = true
-    port_security_mac_address      = []
-    tagged_vlan_mgmt               = "block_all"
-    native_networkconf_id          = null
-    voice_networkconf_id           = null
-    setting_preference             = "manual"
-    poe_mode                       = "auto"
-    autoneg                        = true
-    dot1x_ctrl                     = "auto"
-    lldpmed_enabled                = true
-    stp_port_mode                  = true
-    isolation                      = false
-    egress_rate_limit_kbps_enabled = false
-    port_keepalive_enabled         = false
+    index                  = 6
+    name                   = "SFP+ 6 (Disabled)"
+    forward                = "disabled"
+    port_security          = { enabled = true }
+    tagged_vlan_mgmt       = "block_all"
+    native_networkconf_id  = null
+    voice_networkconf_id   = null
+    setting_preference     = "manual"
+    poe_mode               = "auto"
+    autoneg                = true
+    dot1x                  = { ctrl = "auto", idle_timeout = "5m0s" }
+    lldpmed                = { enabled = true }
+    stp_port_mode          = true
+    isolation              = false
+    egress_rate_limit      = { enabled = false }
+    port_keepalive_enabled = false
   }
 
   port_override {
-    index                          = 7
-    name                           = "SFP+ 7 (Disabled)"
-    forward                        = "disabled"
-    port_security_enabled          = true
-    port_security_mac_address      = []
-    tagged_vlan_mgmt               = "block_all"
-    native_networkconf_id          = null
-    voice_networkconf_id           = null
-    setting_preference             = "manual"
-    poe_mode                       = "auto"
-    autoneg                        = true
-    dot1x_ctrl                     = "auto"
-    lldpmed_enabled                = true
-    stp_port_mode                  = true
-    isolation                      = false
-    egress_rate_limit_kbps_enabled = false
-    port_keepalive_enabled         = false
+    index                  = 7
+    name                   = "SFP+ 7 (Disabled)"
+    forward                = "disabled"
+    port_security          = { enabled = true }
+    tagged_vlan_mgmt       = "block_all"
+    native_networkconf_id  = null
+    voice_networkconf_id   = null
+    setting_preference     = "manual"
+    poe_mode               = "auto"
+    autoneg                = true
+    dot1x                  = { ctrl = "auto", idle_timeout = "5m0s" }
+    lldpmed                = { enabled = true }
+    stp_port_mode          = true
+    isolation              = false
+    egress_rate_limit      = { enabled = false }
+    port_keepalive_enabled = false
   }
 
   # SFP+ 8, uplink to the UDM.
