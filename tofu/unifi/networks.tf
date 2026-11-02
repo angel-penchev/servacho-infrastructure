@@ -1,6 +1,10 @@
 # VLAN ID = third octet for every network with clients; management sits on 99.
-# Per-network multicast_dns is derived by the controller from the site-wide Gateway
-# mDNS Proxy scope (Main + IoT, see mdns.tf; upstream #282) -- not an independent knob.
+# multicast_dns and the Gateway mDNS Proxy's network list (`mdns` in settings.tf, notes
+# in mdns.tf) are one setting seen from two sides: true on Main and IoT only. The
+# provider never writes the list, so the scope is chosen with multicast_dns. Read never
+# refreshes multicast_dns after import (upstream #282), so a UI change does not show in
+# a plan, and neither does a write the gateway ignored: change the scope in the UI, then
+# mirror it here.
 #
 # setting_preference = "manual" is what the controller stores for every network created
 # on the Networks page (Main came from the setup wizard and is "auto"). Every network

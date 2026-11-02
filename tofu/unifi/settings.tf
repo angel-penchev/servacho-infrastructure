@@ -79,6 +79,42 @@ resource "unifi_setting" "default" {
     dhcp_snoop             = true # Rogue DHCP Server Detection
     dot1x_portctrl_enabled = true # 802.1X Control; load-bearing for Host Device ports
   }
+
+  # Settings -> Networks -> Global -> Gateway mDNS Proxy; mdns.tf explains the choice of
+  # networks and services. "some" means the networks in enabled_for_network_ids, which
+  # the provider never writes, so the scope is chosen with multicast_dns in networks.tf.
+  mdns = {
+    mode        = "custom"
+    enabled_for = "some"
+
+    # Keep these in the order the controller stores them (predefined_services[].code in
+    # `/get/setting/mdns`). The list is compared element by element and sent whole, so
+    # any other order is a write that reorders the live list.
+    predefined_services = [
+      "amazon_devices",
+      "android_tv_remote",
+      "apple_airDrop",
+      "apple_airPlay",
+      "apple_file_sharing",
+      "apple_iTunes",
+      "aqara",
+      "bose",
+      "dns_service_discovery",
+      "google_chromecast",
+      "homeKit",
+      "matter_network",
+      "philips_hue",
+      "printers",
+      "roku",
+      "scanners",
+      "shelly",
+      "sonos",
+      "spotify_connect",
+    ]
+    # An empty list is never sent, so this cannot remove a custom service added in the
+    # UI (the apply fails on the read-back instead): mirror one.
+    custom_services = []
+  }
 }
 
 # Control Plane -> Console, the rest of the page: UniFi OS console settings or Network
