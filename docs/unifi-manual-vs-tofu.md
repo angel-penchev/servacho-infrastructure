@@ -2,7 +2,7 @@
 
 > **Layout note (2026-09-14).** The module was flattened: the `core/`, `devices/`, `security/`, `system/` and `wireless/` submodules are gone and every file now sits directly in `tofu/unifi/` (`networks.tf`, `device_*.tf`, `firewall.tf`, `settings.tf`, …; inputs, provider pin and shared data sources in `module.tf`). See `tofu/unifi/README.md` for the map. Text dated before 2026-09-14 may still use the old paths: `core/X.tf` → `X.tf`, `devices/X.tf` → `device_X.tf`, `security/X.tf` / `system/X.tf` / `wireless/X.tf` → `X.tf`; `system/etherlighting.tf` → `settings.tf`, `system/slas.tf` → `wans.tf`; the per-module `variables.tf` / `versions.tf` / `data.tf` / `outputs.tf` no longer exist.
 
-**Date:** 2026-09-08 (drift analysis) · **Updated:** 2026-09-08 (first remediation pass) · 2026-09-13 (RADIUS users verified in sync; mDNS scoped to Main + IoT; per-VLAN port profiles recreated; all port overrides aligned live and in code, UI-only fields marked FIXME) · **2026-09-14** (module flattened; VPN servers, console settings, admins, client names, alarm audit; **management VLAN migration finished** — all four devices on VLAN 99, trunks native 99, Default DHCP off; open items consolidated in §0.6)
+**Date:** 2026-09-08 (drift analysis) · **Updated:** 2026-09-08 (first remediation pass) · 2026-09-13 (RADIUS users verified in sync; mDNS scoped to Main + IoT; per-VLAN port profiles recreated; all port overrides aligned live and in code, UI-only fields marked FIXME) · **2026-09-14** (module flattened; VPN servers, console settings, admins, client names, alarm audit; **management VLAN migration finished** — all four devices on VLAN 99, trunks native 99, Default DHCP off; open items consolidated in §0.6) · **2026-11-02** (provider 0.65.0: statuses in §0, §0.6 B, §8 and §14; what is still not in code in §15)
 **Branch:** `feat/unifi-port-config`
 **Companion:** [`unifi-browser-changes.md`](unifi-browser-changes.md) — everything changed on the live controller
 **Sources:** the manual rebuild checklist, the live controller (`https://192.168.1.1`, read via the Network app REST API), and `tofu/unifi/**/*.tf` as of the current working tree.
@@ -19,22 +19,22 @@ State lives on the management plane, so `tofu plan` was not run. Everything belo
 |---|---|
 | Networks / VLANs | ✅ VLAN layout fixed in code; **mDNS decided and applied live 2026-09-13** (Custom, Main + IoT, 19 services) — per-network flags now match live |
 | Port profiles | ✅ All five profiles live and matching code (per-VLAN trio recreated by hand 2026-09-13); 802.1X DHCP problem **fixed live** |
-| Device names & IPs | ✅ Code matches live incl. static IPs and LEDs; `config_network` is read-only in practice until v0.56.0 (no-op plan while live matches — **not** an apply failure, correction 2026-09-13) |
-| Port overrides | ✅ **All three devices aligned 2026-09-13** — live changed to the code's intent and code rewritten to the stored shape (§3.2–§3.4); every provider-expressible field declared, every UI-only field carries a `FIXME(unifi-ui-only)`. Still 🚫 not reconcilable by apply (§14.3) |
+| Device names & IPs | ✅ Code matches live incl. static IPs and LEDs. Since provider 0.58.0 an update sends `config_network` (upstream #482), so an address changed in code reaches the controller; it is still changed in the UI first |
+| Port overrides | ✅ **All three devices aligned 2026-09-13** — live changed to the code's intent and code rewritten to the stored shape (§3.2–§3.4); every provider-expressible field declared, every UI-only field carries a `FIXME(unifi-ui-only)`. Still not reconciled by apply: the `ignore_changes` stay at provider 0.65.0 (§14.3, §15) |
 | WANs | ✅ Code now reflects live |
 | Wireless | ✅ All 3 diffs applied to the live controller from code |
-| RADIUS / 802.1X | 🔧 Secret now wired into `unifi_setting.radius`; global 802.1X 🚫 not expressible; **all 4 users ✅ live, matching code, and in Vault (2026-09-13)** |
+| RADIUS / 802.1X | 🔧 Secret now wired into `unifi_setting.radius`; global 802.1X port control expressible since provider 0.58.0 (`unifi_setting.global_switch`, not yet managed), the fallback VLAN 🚫 still not (§15); **all 4 users ✅ live, matching code, and in Vault (2026-09-13)** |
 | Firewall | ✅ Hotspot zone + `Dmz` casing in code; policy **created live** |
-| Port forwards | ✅ Code reduced to the one live rule (`NGINX Server` → `192.168.5.58`), 2026-09-13 |
-| Fixed-IP clients | ✅ `clients.tf` mirrors the 8 live reservations, attribute-exact, **all named** (2026-09-13); in-place updates still 🚫 blocked (§14.5) so keep it mirroring live |
+| Port forwards | ✅ Two rules since #85 (2026-11-02): `Unity Intercom` and `os-tues SSH`, both created by apply (§8) |
+| Fixed-IP clients | ✅ `clients.tf` mirrors the live reservations, attribute-exact, **all named** (8 on 2026-09-13, 12 since 2026-10-14). In-place updates work since provider 0.56.0, but changes still go UI first; never declare `network_id` (§14.5) |
 | VPN | ✅ Teleport (UI-only, FIXME) + OpenVPN + WireGuard live and mirrored 2026-09-13; WireGuard peers still to add (§10) |
 | Module layout | ✅ **Flattened 2026-09-14**: five submodules → one module, topic-named files, `module.tf` for inputs/provider/shared data, `README.md` map. No state existed, so no `moved` blocks were needed |
 | Site settings | ✅ `mgmt` + `lcm` blocks added from the Console page and auto speedtest set live 2026-09-13; UniFi OS-only items incl. admins and Alarm Manager carry `FIXME(unifi)` (§11) |
 | **Management VLAN** | ✅ **Finished 2026-09-14** — UDM, both switches and both APs manage on **UniFi Devices, VLAN 99** (static `.99.2–.99.5`), the UniFi Device profile is native 99, Default (Untagged) has DHCP off. Full story incl. the AP-vs-switch override rule in `unifi-mgmt-vlan-99-runbook.md` |
 | **State** | ✅ **Live controller imported 2026-09-14** — 46 resources in state on the management plane, plan **No changes** (§0.6 A1, [`unifi-import-plan.md`](unifi-import-plan.md)). Code is now the source of record for everything the provider can express |
-| **Provider bugs** | **See §14 — the binding constraint. Several diffs above cannot be fixed on the pinned version, and two things already in the tree are guaranteed apply failures** |
+| **Provider bugs** | **Pinned at 0.65.0 (§14.1).** Most of what the FIXMEs waited for has shipped; §14 keeps the 2026-09-08 analysis with a status per subsection, and **§15 lists every `FIXME`/`TODO` still in the code**. Write hazards 0.55.0 did not have: every `unifi_port_profile` write resets eight unmodelled booleans (since 0.58.0), and `unifi_device_port` (new in 0.65.0) fails every in-place update on OpenTofu 1.11 |
 
-> **Read §14 before acting on any of this.** `ubiquiti-community/unifi` v0.55.0 (2026-07-10) is still the latest release, `main` is ~88 commits and 13 unreleased fixes ahead, and the device-update code path silently drops most configured fields. That determines which of the differences below are worth fixing today.
+> **Read §14 and §15 before acting on any of this.** The module pins `ubiquiti-community/unifi` `~> 0.65.0` (released 2026-11-01). The device-update path that dropped most configured fields at v0.55.0 sends them since v0.58.0, and the rest of the 2026-09-08 bug surface is re-checked in §14. What is still not in code, and why, is §15.
 
 ---
 
@@ -149,6 +149,8 @@ Guest→TV access abandoned and rolled back, then a code-vs-live audit of everyt
 
 **The hazard worth recording.** `l2_isolation` was not declared on *any* WLAN. The provider schema makes it `Optional + Computed` with `booldefault.StaticBool(false)` (`unifi/wlan_resource.go:469`), so the next apply would have silently switched Client Device Isolation **off** on the guest SSID — undoing, without a diff anyone would notice, the isolation the rollback had just restored. This is the general shape of the risk in this repo: a Computed attribute left undeclared does not mean "leave it alone", it means "set it to the schema default".
 
+*Corrected 2026-11-02:* at v0.55.0 the default sat at `wlan_resource.go:441-446` (line 469 is `fast_roaming_enabled`), and the plan would have shown it as `l2_isolation = true -> false`, not hidden it. Provider 0.64.0 dropped the default (upstream #680): an undeclared `l2_isolation` now keeps the controller's value on an existing SSID, but a create still sends `false`, so it stays declared for a rebuild.
+
 ### Process
 
 | What | Detail |
@@ -195,20 +197,22 @@ Ordered by what unblocks what. Anything not on this list is done and mirrored.
 | A8 | ~~**`is_guest` on `StKr_Guest`**~~ ✅ restored to `true` by the first apply (2026-09-14, run 34843335300) | `wlans.tf`, Settings → WiFi | Code says `true`, the remote-branch audit of 2026-09-11 found live `false` (Application was switched away from Hotspot during the guest-TV rollback). Re-check live; if still `false`, the first apply is the safe fix — the UI needs the guest passphrase re-entered, the provider sends the whole object (§0.5c). |
 | A9 | ~~Stale local lock file~~ | `tofu/unifi/.terraform.tfstate.lock.info` + 0-byte `terraform.tfstate` | ✅ Deleted from the workstation 2026-09-14. They were git-ignored leftovers of an apply interrupted on 2026-09-04 and never affected CI, which checks out fresh. Real state is on the management plane only. |
 
-### B. Blocked on the provider (v0.55.0 is still the latest release, see §14)
+### B. Blocked on the provider at v0.55.0 — status at 0.65.0 (2026-11-02)
 
-| # | Item | Blocked by | What to do when it lands |
+The fixes these waited for shipped between v0.56.0 and v0.64.0; the last column says what that changed. What is still open is in §15.
+
+| # | Item | Blocked by (at v0.55.0) | Status at 0.65.0 |
 |---|---|---|---|
-| B1 | Three `lifecycle { ignore_changes = [port_override] }` blocks (UDM, both switches) — every port block is documentation until then | #470 (empty MAC allowlist crash) **and** unreleased #430/#438 (array stripping) | Remove the ignores one device at a time, `plan`, expect no-op because the blocks already mirror live. |
-| B2 | `config_network` (static mgmt IPs) is read-only in practice | #463 (dropped from the update PUT) | Nothing to change — values already match. Just stop treating the attribute as read-only. |
-| B3 | `unifi_client` in-place updates always fail | #428 | Keep `clients.tf` attribute-exact until then; adding or removing a reservation is fine, editing one is not. |
-| B4 | `wlans.tf` `ignore_changes = [passphrase, wlan_bands, wlan_band]` ×4 | §14.4 | Drop the `wlan_bands`/`wlan_band` part first, keep `passphrase` ignored on purpose (it lives in OpenBao). |
-| B5 | `device_u7_pro_living_room.tf` `ignore_changes = [disabled]` | precautionary, §14.2 (`disabled` is also dropped from the PUT) | Remove and `plan`. |
-| B6 | **`l2_isolation` must stay declared on `StKr_Guest`** | provider schema: Optional+Computed with a `false` default (`wlan_resource.go:469`) | Not a bug to wait for — a standing rule. An undeclared `l2_isolation` would switch Client Device Isolation **off** on the guest SSID on the first apply with no diff shown. Declared `true` in `wlans.tf` since the 2026-09-14 merge (ported from the remote branch's 2026-09-11 fix). |
+| B1 | Three `lifecycle { ignore_changes = [port_override] }` blocks (UDM, both switches) — every port block is documentation until then | #470 (empty MAC allowlist crash) **and** unreleased #430/#438 (array stripping) | 🔧 The fixes shipped (#430/#438 in v0.56.0, #652 in v0.62.0; #470, v0.57.0, was `unifi_port_profile`'s), but the ignores **stay**. Lifting one is not a no-op: import and refresh never put `port_override` in state, so the first plan adds every block, and the apply writes the whole array unless every entry equals live both ways. The way out is `unifi_device_port`, one import per port, once CI runs OpenTofu >= 1.12 (§14.3, §15). |
+| B2 | `config_network` (static mgmt IPs) is read-only in practice | #463 (dropped from the update PUT) | ✅ Sent since v0.58.0 (#482, with #520 for the other device fields), as a whole object whenever it differs from live. Changes still go through the UI first. |
+| B3 | `unifi_client` in-place updates always fail | #428 | ✅ Fixed in v0.56.0 (#447). Updates now succeed, so a client diff that reaches main is applied: name or bind a client in the UI first, then mirror. `network_id` is the Network Override, as it already was at v0.55.0 (v0.62.0 documents it so, #653): never declare it on the two network-bound reservations (§14.5). |
+| B4 | `wlans.tf` `ignore_changes = [passphrase, wlan_bands, wlan_band]` ×4 | §14.4 | ✅ `wlan_bands`/`wlan_band` dropped from the ignore (no `wlan_band` default since v0.59.0). `passphrase` stays ignored until a plan without it is clean (§15). |
+| B5 | `device_u7_pro_living_room.tf` `ignore_changes = [disabled]` | precautionary, §14.2 (`disabled` is also dropped from the PUT) | ✅ Removed. Read maps the missing key to `false`, the declared value, so nothing ever differed. |
+| B6 | **`l2_isolation` must stay declared on `StKr_Guest`** | provider schema: Optional+Computed with a `false` default (`wlan_resource.go:441-446`) | ✅ Still declared, for a different reason. v0.64.0 dropped the default (#680): an undeclared `l2_isolation` keeps the controller's value on an existing SSID, but a create sends `false`, so a rebuild would come up with isolation off. At v0.55.0 an undeclared one would have shown as `true -> false`, not without a diff (§0.5c). |
 
 ### C. Not expressible — manual runbook items, each carries a `FIXME(unifi)` / `FIXME(unifi-ui-only)` in code
 
-Global 802.1X fallback VLAN (Guest); per-profile UI fields (Port Mode Edge, BPDU Guard, Flow Control, PTP, Link Debounce, EEE, …); per-port `sd_wan_underlay_port`; WAN-to-port binding; Teleport VPN; OpenVPN protocol/cipher extras; firewall policy ordering; UniFi OS items (admins, Alarm Manager rules, update schedule, InnerSpace); WAN SLA; the APs' *Default (Untagged)* label in the device list (an AP with Network Override off is stored as the Default LAN id, the controller rejects an empty value — cosmetic, no fix).
+Global 802.1X fallback VLAN (Guest); per-profile UI fields (Port Mode Edge, BPDU Guard, Flow Control, PTP, Link Debounce, EEE, …); per-port `sd_wan_underlay_port`; WAN-to-port binding; Teleport VPN; OpenVPN protocol/cipher extras; firewall policy ordering; UniFi OS items (admins, Alarm Manager rules, update schedule, InnerSpace); WAN SLA; the APs' *Default (Untagged)* label in the device list (an AP with Network Override off is stored as the Default LAN id, the controller rejects an empty value — cosmetic, no fix). The current list, marker by marker, is §15.
 
 ### D. Decisions still open
 
@@ -328,14 +332,14 @@ Still true: **nothing on any switch references the per-VLAN profiles yet.** Aggr
 
 > **Management VLAN — 2026-09-13/14.** All four devices were re-homed from the untagged LAN to **UniFi Devices, VLAN 99** (runbook Phases 1–3) and on 2026-09-14 the trunks' native network followed (Phase 4): management is now untagged everywhere and Default DHCP is off. `mgmt_network_id` differs by device type on purpose — switches keep the override on, APs must have it off (stored as the Default LAN id) — see the runbook's Phase 4 table and the comments in `device_*.tf`.
 
-> **`config_network` — corrected 2026-09-13.** All four devices declare the static addresses live reports, field for field (verified). Because the values match, the update `PUT` dropping the field is harmless: the read-back equals the plan and nothing is flagged. What §14.2 warns about is *changing* the address in code — that write never reaches the controller and fails post-apply. The 2026-09-08 `type = "dhcp"` block that *would* have failed is long gone.
+> **`config_network` — corrected 2026-09-13.** All four devices declare the static addresses live reports, field for field (verified). Because the values match, the update `PUT` dropping the field is harmless: the read-back equals the plan and nothing is flagged. What §14.2 warns about is *changing* the address in code — that write never reaches the controller and fails post-apply. The 2026-09-08 `type = "dhcp"` block that *would* have failed is long gone. *Since provider 0.58.0 (upstream #482) the update sends `config_network` whenever it differs from live, so a change made in code now reaches the controller; it is still made in the UI first.*
 
 Also:
 
 - The controller itself is named **UDM StKr** (`super_identity.name`), hostname `UDM-StKr`. The checklist step is done; nothing in code manages it.
 - ~~**LED override:** both APs report `led_override = "on"`~~ **Resolved 2026-09-08** — set to off live (browser log, change 5) and `led_override = "off"` is in both AP files. Original note: both APs reported LED forced **on**, not disabled. The checklist says "Disable LED on the Living Room and Bedroom APs". Either that step didn't take or it was reverted. Worth re-checking in the UI. The code has no `led_override` attribute at all either way. **This one is fixable today** — upstream #337 landed in v0.54.0, so `led_override = "off"` works on both APs (§14.8).
-- `device_u7_pro_living_room.tf` still carries `lifecycle { ignore_changes = [disabled] }` with a FIXME about the AP being offline/unadopted. It is adopted and online (`state = 1`) now, so that block can go.
-- All three `lifecycle { ignore_changes = [port_override] }` blocks (UDM, USW Aggregation, USW Pro Max) are still in place for the provider port-disable crash. As long as they stay, **none of the port drift in §3.2–§3.4 will ever be reconciled by an apply** — the code is documentation only. **Keep them** until v0.56.0: upstream #430 (merged, unreleased) shows a single declared `port_override` silently strips settings from *every* port on the device, which is very likely what flattened these switches in the first place (§14.3).
+- ~~`device_u7_pro_living_room.tf` still carries `lifecycle { ignore_changes = [disabled] }` with a FIXME about the AP being offline/unadopted. It is adopted and online (`state = 1`) now, so that block can go.~~ Removed at provider 0.65.0 (§0.6 B5).
+- All three `lifecycle { ignore_changes = [port_override] }` blocks (UDM, USW Aggregation, USW Pro Max) are still in place for the provider port-disable crash. As long as they stay, **none of the port drift in §3.2–§3.4 will ever be reconciled by an apply** — the code is documentation only. **Keep them** until v0.56.0: upstream #430 (merged, unreleased) shows a single declared `port_override` silently strips settings from *every* port on the device, which is very likely what flattened these switches in the first place (§14.3). *At provider 0.65.0 they still stay, for another reason: #430 shipped, but import and refresh never put `port_override` in state (§0.6 B1, §14.3).*
 
 ### 3.2 UDM StKr — ✅ aligned 2026-09-13
 
@@ -355,12 +359,14 @@ Profile assignments now match live on every port of every device. What the UI st
 | Shape | Provider-expressible — now declared explicitly | UI-only — `FIXME(unifi-ui-only)` in the file |
 |---|---|---|
 | Profiled port (all devices) | `name`, `poe_mode` (where present), `setting_preference`, `port_profile_id` — that *is* the whole stored object | none at this layer (the profile layer has its own FIXMEs in `port_profiles.tf`) |
-| Disabled port, switches (Pro Max 9–11, Agg 2–7) | `forward`, `port_security_enabled`, `port_security_mac_address`, `tagged_vlan_mgmt`, `native_networkconf_id = null`, `voice_networkconf_id = null`, `setting_preference`, `poe_mode`, `autoneg`, `dot1x_ctrl`, `lldpmed_enabled`, `stp_port_mode`, `isolation`, `egress_rate_limit_kbps_enabled`, `port_keepalive_enabled` | `stp_edge_state "enabled"`, `stp_bpdu_guard_enabled true`, `stp_uplink false`, `eee_enabled false`, `link_debounce_auto true`, `multicast_router_mode "NONE"`, `sd_wan_underlay_port false`; `dot1x_idle_timeout 300` is expressible but left at the provider default |
+| Disabled port, switches (Pro Max 9–11, Agg 2–7; Pro Max 25 since 2026-09-14) | `forward`, `port_security_enabled`, `tagged_vlan_mgmt`, `native_networkconf_id = null`, `voice_networkconf_id = null`, `setting_preference`, `poe_mode`, `autoneg`, `dot1x_ctrl`, `dot1x_idle_timeout`, `lldpmed_enabled`, `stp_port_mode`, `isolation`, `egress_rate_limit_kbps_enabled`, `port_keepalive_enabled`; `stp_edge_state "enabled"` since provider 0.65.0 | `stp_bpdu_guard_enabled true`, `stp_uplink false`, `eee_enabled false`, `link_debounce_auto true`, `multicast_router_mode "NONE"`, `sd_wan_underlay_port false` |
 | Disabled port, gateway (UDM 2–8) | same minus dot1x/STP/PoE (the gateway doesn't store them) | `sd_wan_underlay_port false` |
-| No override (Pro Max 25, UDM 1, 9) | nothing to declare | Pro Max 25 runs on switch defaults; UDM 1/9 are WAN-bound in UniFi OS |
+| No override (UDM 1, 9; Pro Max 25 until 2026-09-14) | nothing to declare | UDM 1/9 are WAN-bound in UniFi OS; Pro Max 25 ran on switch defaults until it was disabled (§0.6 A4) |
 | Agg port 1 specifically | profile assignment | BPDU Guard now comes from the Private Server profile (on) — UI-only |
 
-`FIXME(unifi-ui-only)` count: Pro Max 9, Aggregation 9, UDM 2, `port_profiles.tf` 9.
+Attribute names as at v0.55.0; v0.60.0 nests the prefixed ones (`port_security`, `dot1x`, `lldpmed`, `egress_rate_limit`). The stored `port_security_mac_address []` is not declared since #87: it reads back as null, and on the wire `[]` and an unset list are both left out (every `DevicePortOverrides` field is `omitempty`). `dot1x_idle_timeout 300` was never a provider default: the code declares it as `dot1x.idle_timeout = "5m0s"` since #87 (on 2026-09-13 it was left undeclared). `stp_edge_state` stays UI-only on the profiles (§2): only `port_override` gained it (upstream #695). Every write of a device's array carries the UI-only keys over from the controller's entry since v0.62.0 (upstream #652).
+
+`FIXME(unifi-ui-only)` count: Pro Max 9, Aggregation 9, UDM 2, `port_profiles.tf` 9. At provider 0.65.0: Pro Max 6, Aggregation 7, UDM 2, `port_profiles.tf` 9 (§15).
 
 ### 3.3 USW Aggregation — ✅ aligned 2026-09-13
 
@@ -374,7 +380,7 @@ Written via `PUT /rest/device/<id>` with the full `port_overrides` array (8 entr
 
 ### 3.4 USW Pro Max 24 PoE — ✅ aligned 2026-09-13
 
-Live, grouped (25 overrides; port 25 has none):
+Live, grouped (25 overrides on 2026-09-13, port 25 had none; 26 since 2026-09-14, when port 25 was disabled):
 
 | Ports | Live (= code) | Names |
 |---|---|---|
@@ -387,8 +393,10 @@ Live, grouped (25 overrides; port 25 has none):
 | 12, 18 | Private Server, pref manual | `Port 12`, `Port 18` — the two JetKVMs |
 | **9, 10, 11** | **disabled** | `Port 9`…`Port 11` |
 | 23, 24 | UniFi Device, pref auto | `LR-WiFi`, `BR-WiFi` (AP uplinks) |
-| 26 | UniFi Device, pref auto | `UDM-Pro-Max` (SFP+ 2) |
-| 25 | *no override* | `SFP+ 1` — the live uplink to the UDM |
+| 26 | UniFi Device, pref auto | `UDM-Pro-Max` (SFP+ 2) — the uplink to the UDM since 2026-09-14 |
+| 25 | **disabled** since 2026-09-14 (§0.6 A4); *no override* before | `SFP+ 1 (Disabled)`; until 2026-09-14 the live uplink to the UDM |
+
+Changed on the controller since, then mirrored (change log): ports 6, 12 and 18 renamed `LR-06`, `JetKVM-Servacho-Gosho` and `JetKVM-Michelangelo` (2026-09-14); port 21 carries Servacho-Gosho on the Private Server profile while its Aggregation uplink is out (2026-10-08, temporary); port 19 is on the Public Server profile for the Mac mini (2026-10-15). `device_usw_pro_max_24_poe.tf` holds all of it.
 
 **What "disabled" actually is on the wire.** Port 9 was disabled through the UI (Port Profile toggle off → Port State: Disabled → Apply) and read back; ports 10, 11 and Aggregation 2–7 were then written as byte-identical copies. The stored override is a full manual one: `forward "disabled"`, `port_security_enabled true` + `port_security_mac_address []`, `tagged_vlan_mgmt "block_all"`, no `native_networkconf_id`, `setting_preference "manual"`, plus carried-over defaults (`dot1x_ctrl auto`, `stp_port_mode true`, `stp_edge_state enabled`, `stp_bpdu_guard_enabled true`, `lldpmed_enabled true`, `autoneg true`, `poe_mode auto`, `link_debounce_auto true`, `eee_enabled false`, `multicast_router_mode NONE`, `sd_wan_underlay_port false`, `isolation false`, `egress_rate_limit_kbps_enabled false`, `port_keepalive_enabled false`, `stp_uplink false`, `dot1x_idle_timeout 300`). The port table confirms `forward = disabled` on all three. This settles §14.3's point empirically: `forward = "disabled"` alone was never it.
 
@@ -428,7 +436,7 @@ All four SSIDs exist live with the right networks, bands, AP group and security 
 
 The `StKr_IoT_2.4GHz` diff matters: applying the code would drop WPA3 from that SSID. If it was created by cloning `StKr_IoT` in the UI, live is just the clone's inherited settings — decide which you actually want for the 2.4 GHz-only IoT gear.
 
-**Keep the `ignore_changes = [passphrase, wlan_bands, wlan_band]` blocks.** All four SSIDs declare `"6g"`, and the fix for `6g` being dropped from the create response (#406) is merged but unreleased — see §14.4, which also notes that a third of that FIXME's rationale is now stale.
+~~**Keep the `ignore_changes = [passphrase, wlan_bands, wlan_band]` blocks.** All four SSIDs declare `"6g"`, and the fix for `6g` being dropped from the create response (#406) is merged but unreleased — see §14.4, which also notes that a third of that FIXME's rationale is now stale.~~ At provider 0.65.0 the four SSIDs ignore only `passphrase`: #406 shipped in v0.56.0 and the `wlan_band` default is gone since v0.59.0, so the plan now shows band drift. Bands still change in the UI first: the write derives `wlan_band` from `wlan_bands`, so a code-first switch between dual-band and 2.4 GHz-only fails after the PUT (`wlans.tf`).
 
 ---
 
@@ -477,7 +485,18 @@ Both checklist assignments (Hotspot ← Guest, DMZ ← Public Servers) are done,
 
 ## 8. Port forwards (`port_forwards.tf`)
 
-### Live — one rule
+### Code and live since #85 (2026-11-02) — two rules
+
+| Resource | Name | Proto | WAN | Forward |
+|---|---|---|---|---|
+| `unity_intercom` | **Unity Intercom** | udp | both WANs, 20101 | `unifi_client.mac4o_mini.fixed_ip` (**192.168.4.24**):20101 (`docs/unity-intercom.md`) |
+| `os_tues_ssh` | **os-tues SSH** | tcp | both WANs, 22 | **192.168.4.31**:22 (`docs/os-tues.md`) |
+
+Both were created by apply, at provider 0.55.0, when an undeclared `enabled` still defaulted to `true`. `nginx_proxy` (the `NGINX Server` below) became `soki web` on 2026-10-29, TCP 80 and 443 to soki at `192.168.10.41`, next to `soki_ssh` (TCP 2241 to soki's 22). #85 removed both when soki was torn down, so 80 and 443 are closed until the ingress VM (#83) gets its own forward.
+
+**Adding a forward.** Since provider 0.62.0 a forward created from code without `enabled = true` is written disabled (upstream #553). Create it in the UI, read it back, mirror it and import it by `_id`. An existing rule keeps the controller's `enabled`, `logging` and `source_limiting.enabled` when they are undeclared, and since 0.65.0 a create without `protocol` is `tcp_udp` again.
+
+### Live on 2026-09-13 — one rule
 
 | Name | Proto | WAN | Forward |
 |---|---|---|---|
@@ -485,7 +504,7 @@ Both checklist assignments (Hotspot ← Guest, DMZ ← Public Servers) are done,
 
 ### Differences — ✅ resolved 2026-09-13
 
-Re-read the same day: still exactly one live rule, unchanged. The user chose to keep what is live. `port_forwards.tf` now declares only `nginx_proxy`, renamed **`NGINX Server`** and pointed at **`192.168.5.58`** (resource address unchanged). Dropped from code: `fmicodes_db` (5432), `fmicodes_ssh` (2242), `fmicodes_ssh_worker` (2243) — the `.5.200/.201` nodes are still live clients, so this is a deliberate end to their public SSH/Postgres exposure — and the two `count = 0` placeholders `minecraft_server` and `fmicodes_intercom`. Live-only fields (`enabled`, `log`, `src_limiting_enabled`, `destination_ips`) are all defaults and have no provider attribute.
+Re-read the same day: still exactly one live rule, unchanged. The user chose to keep what is live. `port_forwards.tf` now declares only `nginx_proxy`, renamed **`NGINX Server`** and pointed at **`192.168.5.58`** (resource address unchanged). Dropped from code: `fmicodes_db` (5432), `fmicodes_ssh` (2242), `fmicodes_ssh_worker` (2243) — the `.5.200/.201` nodes are still live clients, so this is a deliberate end to their public SSH/Postgres exposure — and the two `count = 0` placeholders `minecraft_server` and `fmicodes_intercom`. Live-only fields (`enabled`, `log`, `src_limiting_enabled`, `destination_ips`) are all defaults and have no provider attribute. *(Corrected 2026-11-02: they all have provider attributes, at v0.55.0 too — `enabled`, `logging`, `source_limiting`, `destination_ips` — left undeclared because live holds the defaults.)*
 
 ---
 
@@ -500,7 +519,7 @@ Re-read the same day: still exactly one live rule, unchanged. The user chose to 
 | `hackjamhub-intercom` | `bc:24:11:8a:b7:98` | 192.168.5.215 |
 | *(unnamed)* | `38:05:25:30:79:97` | 192.168.5.10 — this is Servacho-Gosho, last seen on USW Aggregation port 1, Private Servers |
 
-> **Rewritten 2026-09-13.** `clients.tf` now declares exactly the eight live reservations (`.5.10`, `.5.20`, `.5.23`, `.5.200`, `.5.201`, `.5.215`, `.6.10`, `.6.11`) with only the attributes the controller has — `name` on the two TVs, `network_id` on the port-12 JetKVM, nothing else. Because every in-place `unifi_client` update fails at v0.55.0 (#428, §14.5), the file must stay attribute-exact: name or bind a client in the UI first, then mirror. Six of the eight are unnamed on the controller.
+> **Rewritten 2026-09-13.** `clients.tf` now declares exactly the eight live reservations (`.5.10`, `.5.20`, `.5.23`, `.5.200`, `.5.201`, `.5.215`, `.6.10`, `.6.11`) with only the attributes the controller has — `name` on the two TVs, `network_id` on the port-12 JetKVM, nothing else. Because every in-place `unifi_client` update fails at v0.55.0 (#428, §14.5), the file must stay attribute-exact: name or bind a client in the UI first, then mirror. Six of the eight are unnamed on the controller. *Since provider 0.56.0 in-place updates work (§14.5). The file still mirrors live attribute for attribute, now because the controller is the source of truth rather than because an update would fail, and `network_id` stays undeclared: it is the Network Override, not the reservation's network (at v0.55.0 too; since 0.62.0 the provider documents it so and reads it only while the override is on).*
 
 ### Differences
 
@@ -560,14 +579,14 @@ Decisions needed: keep Teleport (yes, recommended — zero-config for phones, an
 | IGMP snooping | `enabled = false` | `enabled = false` | ✅ |
 | Auto speedtest | ✅ `enabled true`, `cron_expr "0 4 * * *"` — **set live 2026-09-13** (key was absent before) | same | ✅ |
 | Updates schedule | `mgmt.auto_upgrade = true`, `auto_upgrade_hour = 3`, no weekday | ✅ `mgmt` block added 2026-09-13 (`auto_upgrade`, `auto_upgrade_hour`, `advanced_feature_enabled`, `debug_tools_enabled`, `unifi_idp_enabled`, `wifiman_enabled`) | weekday stays UniFi OS-only |
-| **Console page** (Control Plane → Console, audited 2026-09-13) | Name `UDM StKr`; TZ Europe/Sofia; Screen on 80 %, idle 300 s, sync, touch; Night Mode 22:00–08:00; Email = UI Mail Server; Analytics Off; Support File Full; no certificates; Remote Access on; Direct Remote Connection off; SSH off | ✅ `lcm` block added (enabled, brightness, idle_timeout, sync, touch_event); country already managed | everything else 🚫 `FIXME(unifi)` in `settings.tf`: timezone, night mode, mail, analytics, support file, certificates, remote access, SSH, backup schedule are UniFi OS or `super_*` settings without a provider block |
+| **Console page** (Control Plane → Console, audited 2026-09-13) | Name `UDM StKr`; TZ Europe/Sofia; Screen on 80 %, idle 300 s, sync, touch; Night Mode 22:00–08:00; Email = UI Mail Server; Analytics Off; Support File Full; no certificates; Remote Access on; Direct Remote Connection off; SSH off | ✅ `lcm` block added (enabled, brightness, idle_timeout, sync, touch_event); country already managed | everything else 🚫 `FIXME(unifi)` in `settings.tf`: timezone, night mode, mail, analytics, support file, certificates, remote access, backup schedule are UniFi OS or `super_*` settings without a provider block; Direct Remote Connection and SSH map to `mgmt.direct_connect_enabled` and, unchecked, `mgmt.ssh.enabled`, and stay undeclared on purpose (§15) |
 | **Admin accounts** | Owner + local admin `servacho-managment-plane` (is_super, site admin) | 🚫 no provider resource — documented as `FIXME(unifi)` in new `admins.tf` | UI-only |
 | **Alarm Manager** (audited 2026-09-14) | 17 rules, all controller defaults from first boot, Notify → all admins, Always, push on / email off; no profiles, nothing custom | 🚫 UniFi OS alarm service (`/api/v2/alarms/…`), no provider resource — documented rule by rule as `FIXME(unifi)` in new `alarms.tf` | UI-only; defaults, so a reset reproduces them |
 | Captive portal | `guest_access.portal_enabled = false` | not managed | **unmanaged** (checklist step done by hand) |
-| mDNS | **`mode = "custom"`, `enabled_for = "some"`, Main + IoT, 19 services** (set 2026-09-13) | commented-out `unifi_setting_mdns` in `mdns.tf`, now with the verified identifier catalogue and wire format | 🚫 unmanaged (no provider resource) — **manual runbook item, live matches the documented intent** |
-| Global switch | rstp, jumbo off, flowctrl off, DHCP snooping on, auto STP edge detection off, 802.1X on, RADIUS profile bound | commented-out `unifi_setting_switch` | **unmanaged** |
-| Etherlighting | controller defaults (per-network auto colours; speed defaults `10M=#FFC105` etc.) | commented-out `unifi_setting_ether_lighting` with custom FE/GbE/2.5GbE/10GbE colours + a device-level block | **unmanaged**, and the live speed colours are *not* the ones in code |
-| WAN SLA | not checked | commented-out `unifi_wan_sla` | **unmanaged** |
+| mDNS | **`mode = "custom"`, `enabled_for = "some"`, Main + IoT, 19 services** (set 2026-09-13) | commented-out `unifi_setting_mdns` in `mdns.tf`, now with the verified identifier catalogue and wire format | **unmanaged** — **manual runbook item, live matches the documented intent**. No provider resource at v0.55.0; expressible as `unifi_setting.mdns` since 0.62.0 (§15) |
+| Global switch | rstp, jumbo off, flowctrl off, DHCP snooping on, auto STP edge detection off, 802.1X on, RADIUS profile bound | commented-out `unifi_setting_switch` | **unmanaged**. Since 0.58.0 `unifi_setting.global_switch` covers STP mode, jumbo frames, DHCP snooping, 802.1X port control and device isolation; not flow control, auto STP edge detection, the RADIUS profile, L3 network isolation or the 802.1X fallback VLAN (§15) |
+| Etherlighting | controller defaults (per-network auto colours; speed defaults `10M=#FFC105` etc.) | commented-out `unifi_setting_ether_lighting` with custom colours (FE `#ff0509`, GbE `#FFCC00`, 2.5GbE `#05ff19`, 10GbE `#054aff`, never applied) + a device-level block; removed, and `settings.tf` says why Etherlighting stays unmanaged | **unmanaged on purpose**: live runs the defaults. Expressible since 0.62.0 (`unifi_setting.etherlighting`, `unifi_device.etherlighting`) |
+| WAN SLA | not checked | commented-out `unifi_wan_sla` | **unmanaged**; no provider resource at 0.65.0 either |
 
 Notes:
 
@@ -587,6 +606,7 @@ Notes:
 4. ~~**`port_profile_public_servers_id` / `port_profile_iot_id`** each used once~~ — the profiles exist again (2026-09-13) and are referenced directly from `device_*.tf`.
 5. **Three `ignore_changes = [port_override]` blocks — still real.** Until upstream PR #470 *and* the unreleased #430/#438 land, every port assignment in `device_*.tf` is decorative: it documents live, it does not reconcile it (§14.3).
    - The FIXME text itself is worth updating: it blames "a bug parsing the empty MAC allowlist required for the new UniFi OS Port State toggles", which is #470 and correct — but omits that `forward = "disabled"` was never the right mechanism, and that #430 (whole-array replacement stripping undeclared ports) is the more dangerous of the two.
+   - *At provider 0.65.0:* still real, for another reason. #430/#438 and #470 shipped, but import and refresh never put `port_override` in state; the FIXME now says so (§0.6 B1, §15).
 6. ~~**`vpn.tf`** OpenVPN block referenced an undeclared `data.unifi_radius_profile.default`~~ — the block was rewritten 2026-09-13 and the data source is declared once, in `module.tf` (it was declared three times before, once per submodule).
 7. ~~Untracked working-tree changes~~ — committed 2026-09-13.
 8. `device_usw_pro_max_24_poe.tf` still sets `flowctrl_enabled = false` and `jumboframe_enabled = false` per device although both are site-global under `global_switch` and already match. Harmless, redundant.
@@ -609,13 +629,19 @@ Things the controller has that are on neither the checklist nor in code:
 
 Checked against upstream on **2026-09-08**. This section is the binding constraint on everything above: several "differences" in §1–§13 **cannot be fixed in code** at the pinned version, and a couple of things already in the code are guaranteed apply failures today.
 
+> **Status at provider 0.65.0 (re-checked 2026-11-02).** §14.2–§14.10 are the 2026-09-08 analysis against v0.55.0, kept as the record; each now opens with its status at 0.65.0. §14.1 is rewritten, and §14.11 and §14.12 carry a status column. Everything still not in code is listed in §15.
+
 ### 14.1 Version situation
 
-- We pin `~> 0.55.0` in five `versions.tf` files. **v0.55.0 (2026-07-10) is still the latest release.**
-- `main` is ~88 commits ahead with **13 unreleased CHANGELOG entries**, several of which are exactly our pain points. Upstream issue [#475](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/475) is an open request for a v0.56.0 cut; no maintainer response yet.
-- Net effect: **every August 2026 fix is merged but unavailable to us.** Options are wait for v0.56.0, or pin a `main` commit via a local provider build. Waiting is the sane default; just don't plan work that silently assumes those fixes.
+- We pin `~> 0.65.0` in `tofu/providers.tf` and `tofu/unifi/module.tf`, and both `.terraform.lock.hcl` files lock 0.65.0 (released 2026-11-01) for all 13 platforms (#87). On 2026-09-08 the pin was `~> 0.55.0`, and every August fix sat unreleased on upstream `main`.
+- The August fixes shipped in v0.56.0 on 2026-09-23 (upstream [#475](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/475) closed). v0.60.0 nested the prefixed attributes (upstream [#478](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/478)), so #87 migrated the configuration in the same commit as the pin.
+- The first apply under 0.65.0, on #87's merge, upgrades the state in place, and 0.55.0 cannot read it afterwards. The copy taken before it is `/var/lib/opentofu/servacho-infrastructure.tfstate.pre-unifi-0.65.0` (serial 109) on the management plane. Going back to 0.55.0 means restoring that copy, which is valid only while no other apply has run since.
+- 0.64.0 has the same state schema versions, so it reads the upgraded state (with a refresh, which CI always does). #87's configuration validates on 0.64.0 too, but `port_override.stp_edge_state`, declared since, exists only at 0.65.0: falling back means a re-pin, a re-lock and removing those lines.
+- CI runs OpenTofu 1.11.8, which stores no resource identities. That keeps `unifi_device_port` out of reach (§14.3).
 
 ### 14.2 The root cause behind most of our FIXMEs
+
+> **Status at 0.65.0: ✅ fixed.** Since v0.58.0 the update PUT carries every configurable device field: `config_network` (upstream #482), and `disabled`, the STP pair (now `stp = { version, priority }`), `lcm`, `poe_mode`, `flowctrl_enabled`, `jumboframe_enabled` and the rest (upstream #520, which closed #476); v0.62.0 added `etherlighting` (upstream #666). What remains is that every `unifi_device` update sends a PUT, even an empty one, which is why `forget_on_destroy` stays at its default (§15).
 
 `buildMinimalUpdateDevice` in `unifi/device_resource.go` (verified at tag `v0.55.0`) assembles the update `PUT` from a hand-picked subset of fields:
 
@@ -642,6 +668,8 @@ Fields we care about that are **silently dropped on update at v0.55.0**:
 
 ### 14.3 Our three `ignore_changes = [port_override]` blocks
 
+> **Status at 0.65.0: 🔧 the fixes shipped, the ignores stay.** #430, #438 and #427 shipped in v0.56.0, and #470 in v0.57.0 (for `unifi_port_profile` only). Since v0.62.0 a declared entry carries every key go-unifi models but the schema does not expose over from the controller's entry (upstream #652); a write of the array still drops keys go-unifi does not model and keys holding `[]` or `""`, such as the disabled ports' `port_security_mac_address []`. v0.65.0 exposes `port_override.stp_edge_state` (upstream #695). But import and refresh still never put `port_override` in state: lifting an ignore plans `+ port_override` for every block, and the apply writes the whole array unless every declared entry equals live, both ways. v0.65.0's `unifi_device_port` imports one port at a time, so the PR plan becomes an attribute-by-attribute check, but its Update sets no resource identity: under CI's OpenTofu 1.11.8 every in-place update fails after its PUT has reached the controller. Move to it once CI runs OpenTofu >= 1.12 or upstream sets the identity in its Update, one device per PR; until then the ignores stay. The #430 row below describes the v0.55.0 go-unifi pin, which did not model the UI-only keys.
+
 The FIXME cites PR **#470**, and it's accurate but incomplete.
 
 **[#470](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/470) — still OPEN** (`fix(port_profile): keep an explicitly empty port_security_mac_address`, last touched 2026-08-31). `portProfileToModel` collapses an empty MAC allowlist to `SetNull`, so `port_security_mac_address = []` can't be held in state and every apply errors.
@@ -664,6 +692,8 @@ We have **17 `port_override` blocks** using `forward = "disabled"` + `poe_mode =
 
 ### 14.4 `wlans.tf` — the `ignore_changes = [passphrase, wlan_bands, wlan_band]` FIXMEs
 
+> **Status at 0.65.0: ✅ bands resolved, `passphrase` still ignored.** #406 shipped in v0.56.0 and the `wlan_band` default went in v0.59.0, so the SSIDs no longer ignore `wlan_bands`/`wlan_band`. The `passphrase` row below is wrong on two counts. The reporter closed #464 on 2026-09-17 as a validation mistake in their own module, with no provider change; but the symptom it describes was a real v0.55.0 Update defect, and it does apply to us: StKr (`wpaeap`, no passphrase declared) plans `passphrase -> null` whenever its imported state holds the controller's echo, and at v0.55.0 that apply failed on the sensitive value. v0.61.0 fixed it by keeping the planned passphrase in state instead of the echo (upstream #583). `passphrase_wo` already existed at v0.55.0. The ignore now stays only until a plan without it is clean, which proves OpenBao holds the live keys if the controller returns them in clear (unchecked; §15).
+
 Three separate upstream problems sit behind that one workaround, and they have different statuses:
 
 | Attribute | Status |
@@ -676,11 +706,15 @@ So the ignore blocks are still justified, but the comment should say *why* — i
 
 ### 14.5 `clients.tf` — a fix we're missing
 
+> **Status at 0.65.0: ✅ fixed in v0.56.0 (#447), with a new rule.** In-place `unifi_client` updates work, and `fixed_ip = ""` clears a reservation (#400, same release). A client diff that reaches main is therefore applied, no longer refused: name or bind clients in the UI first, then mirror. `network_id` is UniFi's Network Override, as it already was at v0.55.0; since v0.62.0 it reads only while the override is on (upstream #653). The fixed-IP binding of `jetkvm_servacho_gosho` and `mac4o_mini` lives in the client record's own `network_id`, which no attribute maps; declaring `network_id` on them would switch the override on (§15).
+
 [#428](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/428) — **merged as #447 on `main`, unreleased.** `last_ip` and `hostname` used `UseStateForUnknown`, which pins the planned value to prior state; the controller legitimately reports a different value between plan and apply (lease renewal, re-association), so **every in-place `unifi_client` update fails** with `Provider produced inconsistent result after apply: .last_ip`.
 
 Resolution chosen 2026-09-13: **mirror live exactly** rather than delete. Creates work and a no-diff plan is a no-op, so an attribute-exact `clients.tf` is safe; only a *diff* triggers the failing update path. Also unreleased: clearing `fixed_ip` ([#400](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/400)).
 
 ### 14.6 `vpn.tf` — the OpenVPN `CustomizeDiff` FIXME
+
+> **Status at 0.65.0: 🔧 half fixed.** The `CustomizeDiff` FIXME went with the 2026-09-13 rewrite: the real cause was the `AES_256_GCM` cipher the controller rejects (§10, §14.12 #3). Since v0.64.0 `openvpn.mode` and `openvpn.encryption_cipher` default only on create, and an existing server keeps the controller's values (upstream #690), so `mode` is no longer declared. A create still sends `AES_256_GCM`, so `encryption_cipher = "AES_256_CBC"` stays pinned for a re-create; that default is to be reported upstream (§15).
 
 I could not find an upstream issue or PR matching this. The two closed `unifi_vpn_server` issues ([#255](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/255) private-key-required-on-create, [#256](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/256) private key leaked in cleartext error messages) are both about WireGuard.
 
@@ -689,6 +723,8 @@ Two things follow: the OpenVPN behaviour is **unreported upstream**, and the FIX
 ~~Separately, and independent of any provider bug: the commented OpenVPN block referenced `data.unifi_radius_profile.default`, which its module never declared.~~ Resolved: the block is live code since 2026-09-13 and the data source is declared once in `module.tf` (2026-09-14).
 
 ### 14.7 The commented-out "provider doesn't support this yet" blocks
+
+> **Status at 0.65.0: three of the four are expressible.** Etherlighting: #463 was closed for upstream #666 (v0.62.0, `unifi_setting.etherlighting` and `unifi_device.etherlighting`), and the colours stay unmanaged on purpose because live runs the defaults. mDNS: `unifi_setting.mdns` (v0.62.0, upstream #661). Global Switch: `unifi_setting.global_switch` (v0.58.0), without the 802.1X fallback VLAN, the RADIUS profile, L3 network isolation, flow control and auto STP edge detection; per-device STP is in the update PUT since v0.58.0 (§14.2). Still nothing for the WAN SLA or the default security posture (§15).
 
 | Block | Claim | Reality on 2026-09-08 |
 |---|---|---|
@@ -701,17 +737,23 @@ All four are honest. Worth adding the check date to each so they can be re-audit
 
 ### 14.8 FIXMEs that are now stale
 
+> **Status at 0.65.0: all three acted on.** The LED override and `multicast_dns` were mirrored in September; the living-room AP's `ignore_changes = [disabled]` went at 0.65.0, since Read maps the missing key to `false`, the declared value (§0.6 B5).
+
 1. **`device_u7_pro_living_room.tf`** — "the U7-Pro AP is currently physically offline or unadopted … remove this `ignore_changes` once it is plugged in". It **is** adopted and online (`state = 1`, static 192.168.1.4). *But* — `disabled` is one of the fields `buildMinimalUpdateDevice` drops (§14.2), so removing the ignore may just trade one error for another. Remove it and see, but don't be surprised.
 2. **LED override is manageable now.** [#337](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/337) (`unifi_device` LED updates fail with inconsistent result) was **fixed in v0.54.0** — `led_override*` is in the minimal PUT, and the update path re-asserts the planned values because the controller applies LED changes to APs asynchronously. So the §3.1 finding (both APs report `led_override = "on"` despite your checklist saying you disabled them) **is codifiable today**: add `led_override = "off"` to both AP resources.
 3. **`unifi_network.multicast_dns`** — [#282](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/282) fixed in v0.54.0: the corporate read path now preserves the configured value, falling back to the controller only when unset. Some UniFi OS gateways ignore per-network `mdns_enabled` entirely and always store `false`. Confirmed empirically on 2026-09-13: with the site-wide setting at `all` every network reported `true`; after scoping it to Main + IoT, exactly those two report `true`. The per-network flag is derived from the site-wide scope, so `networks.tf` should simply mirror it.
 
 ### 14.9 Things to know before touching the firewall (§7)
 
+> **Status at 0.65.0:** ordering is still not manageable (`index` is computed only, and there is no reorder call). #473 shipped in v0.57.0, so `index` refreshes after an apply. #472 was fixed in v0.58.0 (`match_mac`, upstream #521; restricted to IP sources in v0.63.0) and #461 shipped in v0.57.0; neither live policy uses either. The Hotspot zone has been in code since 2026-09-08 (§0.5).
+
 - **`unifi_firewall_policy.index` is read-only as of v0.54.0** ([#348](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/348)). Ordering **cannot** be managed: `index` is a per-zone-pair controller-assigned ordinal, the integration API rejects it as input, the v2 endpoint ignores it and appends, and the UI's drag-to-reorder uses a private `batch-reorder` endpoint that 500s under API-key auth. Our `allow_main_to_iot` policy will land wherever the controller puts it. [#473](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/473) (open) refreshes the assigned index on read.
 - **Guest purpose is coupled to the zone** ([#276](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/276), v0.54.0): on zone-based-firewall controllers a network only keeps `purpose = "guest"` while it belongs to the guest/Hotspot zone; placed elsewhere the controller rewrites it to `corporate`. Our `unifi_network.guest` declares `purpose = "guest"` but **nothing in code manages the Hotspot zone** (§7.1). That's not just a completeness gap — it's load-bearing for the network's purpose surviving an apply. Add the Hotspot zone resource.
 - [#472](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/472) (open): `match_mac` isn't exposed and updates silently reset it. [#461](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/461) (open) adds the invert toggles.
 
 ### 14.10 Suggested sequencing
+
+> **Status at 0.65.0:** superseded by §15. Of item 3, `config_network`, client updates and `wlan_bands` without the ignore are done; the `port_override` ignores stay for a different reason (§14.3). Of item 4, mDNS, Global Switch Settings and per-device STP are expressible now. Item 5 narrowed to the cipher's create default, which is still to be reported, with three other reports (§15).
 
 Given the above, the ordering that avoids wasted work:
 
@@ -725,22 +767,22 @@ Given the above, the ordering that avoids wasted work:
 
 Runs 34835272924 → 34838813522 on `feat/unifi-port-config`, after the pre-reset state was cleared on the management plane. Everything below is either a provider gap (now a `FIXME(unifi)` in the file named) or a plan-output quirk worth knowing. **Concessions** are places where the code does *not* say what we mean because the provider cannot round-trip it.
 
-| # | Finding | Kind | Where it is recorded |
-|---|---|---|---|
-| 1 | `unifi_setting` **ImportState stores only the id**; the first plan shows every declared block as an add and `usg` as unknown. The first apply re-POSTs values that are already live. | provider gap | `settings.tf` FIXME |
-| 2 | **`unifi_client` Read does not populate `network_id`** although the controller has it (JetKVM, Private Servers). Declaring it plans an in-place update on every run, and #428 makes that update fail. | provider gap → **concession**: `network_id` undeclared on the JetKVM reservation | `clients.tf` FIXME |
-| 3 | **`unifi_vpn_server` never reads `openvpn.mode` back** and **defaults `openvpn.encryption_cipher` to `AES_256_GCM`**, which the controller rejects on write. The controller stores neither field (verified live). `ignore_changes` on the two nested attributes was tried and **does not work** — the default is a provider plan modifier, injected after lifecycle rules (run 34841691079). | provider gap → **concession**: `encryption_cipher = "AES_256_CBC"` pinned (the controller's own default, so no wire change); `mode` will re-plan on every run until Read is fixed | `vpn.tf` FIXME |
-| 4 | **`unifi_wan` reads `enabled = false`** because the controller stores no `enabled` on WAN objects; the provider defaults to `true`. | provider gap → **concession**: `enabled` in `ignore_changes` on both WANs, deliberately rather than "fixed", because a WAN update PUT is the one write that can take the internet down | `wans.tf` FIXME |
-| 5 | **`unifi_device.forget_on_destroy`** is provider-only yet Optional+Computed; import sets `true`, so the intended `false` plans an update PUT on all five devices (with the #463 hazard). | provider design → **concession**: left at the imported default | `device_*.tf` FIXME |
-| 6 | **A disabled DHCP server reads back as a null `dhcp_server` block**, so "DHCP off" cannot be declared; `enabled = false` planned a perpetual update. | provider quirk → **concession**: block absent on Default (Untagged) | `networks.tf` FIXME |
-| 7 | **Device import lists no `port_override` at all** (0 blocks on the Pro Max, which has 25 live). Whether Read populates them is moot while `ignore_changes = [port_override]` is on, but a clean plan after #470/#430 also needs Read to return them. | observation, verify when the ignores go | §14.3 |
-| 8 | **Deleted objects make refresh fail** instead of dropping from state: `Error Reading network … not found` plus `Missing Resource Identity After Read` on every pre-reset entry. The only remedy is `tofu state rm` on the management plane. | provider bug (Read on 404) | `unifi-import-plan.md` step 2; worth an upstream issue |
-| 9 | `hashicorp/vault` v5 deprecates the `vault_kv_secret_v2` data source (12 warnings per plan) in favour of the ephemeral resource. | dependency deprecation | `providers.tf` TODO(vault) |
-| 10 | Plan noise: any device update lists ~20 attributes as `(known after apply)` incl. `x_baresip_password (sensitive)`; `unifi_setting.usg` is unknown until the first apply. Neither is a diff. | quirk | here |
-| 11 | **`unifi_setting` apply aborts with "inconsistent result"**: `igmp_snooping.network_ids` is null in the plan and `[]` after the write. The POST itself succeeds. | provider bug (null vs empty list, same family as #470) → **concession**: `network_ids = []` declared | `settings.tf` FIXME |
-| 12 | **`dhcp_guarding` cannot be written**: the update PUT carries `dhcpguard_enabled` but not the trusted servers (`dhcpd_ip_1..3`, which Read maps correctly), so the controller rejects it with `api.err.MissingIPAddress`. Any update to a guarded network fails. | provider bug → guarded networks are changed in the UI first, then mirrored | `networks.tf` FIXME |
-| 13 | The OpenVPN update **wrote `openvpn_mode` and `openvpn_encryption_cipher` into the controller object** — keys the UI never creates. The controller accepted them and now stores them, so #3's perpetual `mode` diff may be gone. Watch the next plan. | side effect → confirmed gone: plan 34843770282 shows no `openvpn` diff | `vpn.tf` FIXME |
-| 14 | **`dhcp_guarding` Read is sticky**: `networkToModel` fills the block only on import (when guarding is live) or when the previous state already had it. UniFi Devices was imported with guarding OFF → null in state → after guarding was enabled live (API, 2026-09-14) the plan still adds the block on every run (34843770282, the last remaining diff). Adding the empty `dhcpd_ip_2/3` keys the UI stores changed nothing. | provider bug (Read preserves null) → fix: `state rm` + re-import that one network (import block kept for it) | `networks.tf` FIXME, A1 |
+| # | Finding | Kind | Where it is recorded | Status at 0.65.0 |
+|---|---|---|---|---|
+| 1 | `unifi_setting` **ImportState stores only the id**; the first plan shows every declared block as an add and `usg` as unknown. The first apply re-POSTs values that are already live. | provider gap | `settings.tf` FIXME | ✅ Fixed in v0.62.0 (upstream #668): the import reads every section except the secrets and the opt-in blocks, so a re-import plans one sensitive `radius.secret` update. |
+| 2 | **`unifi_client` Read does not populate `network_id`** although the controller has it (JetKVM, Private Servers). Declaring it plans an in-place update on every run, and #428 makes that update fail. | provider gap → **concession**: `network_id` undeclared on the JetKVM reservation | `clients.tf` FIXME | 🔧 Not a Read bug: `network_id` has mapped to UniFi's Network Override (`virtual_network_override_id`) since v0.41.9, so at v0.55.0 too, where it read null because no override is set; v0.62.0 documents it so and reads it only while the override is on (upstream #653). The binding is the client record's own `network_id`, which no attribute maps. Updates work since v0.56.0. The concession is now a rule: never declare it (§15). |
+| 3 | **`unifi_vpn_server` never reads `openvpn.mode` back** and **defaults `openvpn.encryption_cipher` to `AES_256_GCM`**, which the controller rejects on write. The controller stores neither field (verified live). `ignore_changes` on the two nested attributes was tried and **does not work** — the default is a provider plan modifier, injected after lifecycle rules (run 34841691079). | provider gap → **concession**: `encryption_cipher = "AES_256_CBC"` pinned (the controller's own default, so no wire change); `mode` will re-plan on every run until Read is fixed | `vpn.tf` FIXME | 🔧 Half fixed in v0.64.0 (upstream #690): an existing server keeps its stored mode and cipher, so `mode` is no longer declared. A create still sends `AES_256_GCM`, so the cipher stays pinned; to report (§15). |
+| 4 | **`unifi_wan` reads `enabled = false`** because the controller stores no `enabled` on WAN objects; the provider defaults to `true`. | provider gap → **concession**: `enabled` in `ignore_changes` on both WANs, deliberately rather than "fixed", because a WAN update PUT is the one write that can take the internet down | `wans.tf` FIXME | ✅ Fixed: since v0.62.0 Read keeps a known `enabled` when the controller sends none (upstream #649), and v0.64.0 dropped the `true` default. The ignore is gone. |
+| 5 | **`unifi_device.forget_on_destroy`** is provider-only yet Optional+Computed; import sets `true`, so the intended `false` plans an update PUT on all five devices (with the #463 hazard). | provider design → **concession**: left at the imported default | `device_*.tf` FIXME | Still true. The #463 hazard is gone (§14.2), but every device update sends a PUT, even an empty one (§15). |
+| 6 | **A disabled DHCP server reads back as a null `dhcp_server` block**, so "DHCP off" cannot be declared; `enabled = false` planned a perpetual update. | provider quirk → **concession**: block absent on Default (Untagged) | `networks.tf` FIXME | Still true; since v0.62.0 an absent block sends nothing (§15). |
+| 7 | **Device import lists no `port_override` at all** (0 blocks on the Pro Max, which has 25 live). Whether Read populates them is moot while `ignore_changes = [port_override]` is on, but a clean plan after #470/#430 also needs Read to return them. | observation, verify when the ignores go | §14.3 | Still true at 0.65.0: the reason the ignores stay (§14.3). |
+| 8 | **Deleted objects make refresh fail** instead of dropping from state: `Error Reading network … not found` plus `Missing Resource Identity After Read` on every pre-reset entry. The only remedy is `tofu state rm` on the management plane. | provider bug (Read on 404) | `unifi-import-plan.md` step 2; worth an upstream issue | 🔧 Partly fixed in v0.60.0 (upstream #604): a deleted client, device, firewall zone or policy, port forward, port profile or RADIUS user drops from state and plans a re-create, which the next apply on main performs. `unifi_network`, `unifi_wan`, `unifi_wlan` and `unifi_vpn_server` still fail the refresh; to report (§15). |
+| 9 | `hashicorp/vault` v5 deprecates the `vault_kv_secret_v2` data source (12 warnings per plan) in favour of the ephemeral resource. | dependency deprecation | `providers.tf` TODO(vault) | Open (§15). |
+| 10 | Plan noise: any device update lists ~20 attributes as `(known after apply)` incl. `x_baresip_password (sensitive)`; `unifi_setting.usg` is unknown until the first apply. Neither is a diff. | quirk | here | Not re-checked at 0.65.0. |
+| 11 | **`unifi_setting` apply aborts with "inconsistent result"**: `igmp_snooping.network_ids` is null in the plan and `[]` after the write. The POST itself succeeds. | provider bug (null vs empty list, same family as #470) → **concession**: `network_ids = []` declared | `settings.tf` FIXME | ✅ Fixed in v0.62.0 (upstream #668). `network_ids = []` stays declared so that a network ticked in the UI shows in the plan. |
+| 12 | **`dhcp_guarding` cannot be written**: the update PUT carries `dhcpguard_enabled` but not the trusted servers (`dhcpd_ip_1..3`, which Read maps correctly), so the controller rejects it with `api.err.MissingIPAddress`. Any update to a guarded network fails. | provider bug → guarded networks are changed in the UI first, then mirrored | `networks.tf` FIXME | ✅ Fixed: since v0.56.0 go-unifi encodes `dhcpd_ip_1..3`, and since v0.62.0 an update sends `dhcpguard_enabled` only together with them (upstream #664). "Any update to a guarded network fails" overstated it: the only rejection seen came from turning guarding on for a network with no stored `dhcpd_ip_1`. |
+| 13 | The OpenVPN update **wrote `openvpn_mode` and `openvpn_encryption_cipher` into the controller object** — keys the UI never creates. The controller accepted them and now stores them, so #3's perpetual `mode` diff may be gone. Watch the next plan. | side effect → confirmed gone: plan 34843770282 shows no `openvpn` diff | `vpn.tf` FIXME | History. Since v0.64.0 an undeclared `mode` keeps the stored value. |
+| 14 | **`dhcp_guarding` Read is sticky**: `networkToModel` fills the block only on import (when guarding is live) or when the previous state already had it. UniFi Devices was imported with guarding OFF → null in state → after guarding was enabled live (API, 2026-09-14) the plan still adds the block on every run (34843770282, the last remaining diff). Adding the empty `dhcpd_ip_2/3` keys the UI stores changed nothing. | provider bug (Read preserves null) → fix: `state rm` + re-import that one network (import block kept for it) | `networks.tf` FIXME, A1 | Still true at 0.65.0 (§15). |
 
 **Not concessions — genuine code corrections in `e40bdb1` / `30cf2ca`** (code said one thing, the controller another): Proxmox `node_name` of the management VM (would have destroyed it); `setting_preference = "manual"` on eight networks (Main is `auto`); DHCP guarding on seven networks (the plan would have switched it *off*); `group_rekey = 0` on all SSIDs and `no2ghz_oui = false` on the 2.4 GHz IoT SSID (real live values, verified against `/rest/wlanconf`).
 
@@ -748,19 +790,114 @@ Runs 34835272924 → 34838813522 on `feat/unifi-port-config`, after the pre-rese
 
 ### 14.11 Watchlist
 
-Open items to re-check when v0.56.0 lands:
+Re-checked against v0.65.0 on 2026-11-02: every upstream entry is closed. The reports still to file are the last rows, and §15 lists them with the rest of what is open.
 
-| # | Type | Title |
-|---|---|---|
-| [#463](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/463) | PR | etherlighting + device update payload truncation *(ours)* |
-| [#470](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/470) | PR | port_profile: keep an explicitly empty `port_security_mac_address` *(ours)* |
-| [#473](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/473) | PR | firewall-policy: refresh controller-assigned index |
-| [#477](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/477) | PR | network: collapse duplicate DHCP NTP servers |
-| [#466](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/466) | PR | site_to_site_vpn: tunnel IP + dynamic subnets in update PUT |
-| — | to file | `unifi_client` Read drops `network_id`; `unifi_vpn_server` never reads `openvpn.mode`, defaults a cipher the controller rejects; `unifi_wan` reads `enabled` the controller does not store; `unifi_setting` import populates nothing; Read on 404 errors instead of removing from state (§14.12) |
-| [#461](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/461) | PR | firewall_policy: expose `match_opposite_*` |
-| [#478](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/478) | PR | attribute nesting in objects |
-| [#476](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/476) | issue | device: `stp_priority` dropped from update PUT |
-| [#475](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/475) | issue | request for a release with the August fixes |
-| [#472](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/472) | issue | firewall_policy: expose `match_mac` |
-| [#464](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/464) | issue | wlan: null passphrase on open/guest wifi |
+| # | Type | Title | Status at 0.65.0 |
+|---|---|---|---|
+| [#463](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/463) | PR | etherlighting + device update payload truncation *(ours)* | Closed unmerged on 2026-10-31 for #666 (v0.62.0: `unifi_device.etherlighting`, `unifi_setting.etherlighting`). The payload half shipped as #482 and #520 in v0.58.0. |
+| [#470](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/470) | PR | port_profile: keep an explicitly empty `port_security_mac_address` *(ours)* | Merged 2026-09-25, released in v0.57.0. `unifi_port_profile` only; `port_override` takes a separate path (§14.3). |
+| [#473](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/473) | PR | firewall-policy: refresh controller-assigned index | Merged, released in v0.57.0: `index` refreshes after an apply. Ordering is still not writable (#348). |
+| [#477](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/477) | PR | network: collapse duplicate DHCP NTP servers | Merged, released in v0.57.0. No network here sets DHCP NTP servers. |
+| [#466](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/466) | PR | site_to_site_vpn: tunnel IP + dynamic subnets in update PUT | Closed unmerged on 2026-10-31, covered by #660 (v0.62.0). The module has no `unifi_site_to_site_vpn`. |
+| [#461](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/461) | PR | firewall_policy: expose `match_opposite_*` | Merged 2026-09-29, released in v0.57.0. Neither live policy uses it. |
+| [#478](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/478) | PR | attribute nesting in objects | Released in v0.60.0, breaking; the configuration moved with #87. |
+| [#476](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/476) | issue | device: `stp_priority` dropped from update PUT | Closed 2026-10-02. The STP pair is in the update PUT since v0.58.0 (#520), as `stp = { version, priority }` since v0.60.0. |
+| [#475](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/475) | issue | request for a release with the August fixes | Closed 2026-09-23 with v0.56.0. |
+| [#472](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/472) | issue | firewall_policy: expose `match_mac` | Closed 2026-10-02: exposed in v0.58.0 (#521), restricted to IP sources in v0.63.0 (#676). Neither live policy matches MACs. |
+| [#464](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/464) | issue | wlan: null passphrase on open/guest wifi | Closed 2026-09-17 by its reporter (their own module's validation), no provider change. The symptom was a v0.55.0 Update defect, fixed in v0.61.0 (#583, §14.4). |
+| — | to file (2026-09-14) | `unifi_client` Read drops `network_id` | Not a bug: `network_id` is the Network Override, as it already was at v0.55.0; v0.62.0 documents it so and reads it only while the override is on (#653). The reservation's own network has no attribute (§14.5). |
+| — | to file (2026-09-14) | `unifi_vpn_server` never reads `openvpn.mode`, defaults a cipher the controller rejects | Half fixed in v0.64.0 (#690). The create default `AES_256_GCM` is **still to file** (§15). |
+| — | to file (2026-09-14) | `unifi_wan` reads `enabled` the controller does not store | Fixed in v0.62.0 (#649); nothing to file. |
+| — | to file (2026-09-14) | `unifi_setting` import populates nothing | Fixed in v0.62.0 (#668); nothing to file. |
+| — | to file (2026-09-14) | Read on 404 errors instead of removing from state | Fixed for seven of our types in v0.60.0 (#604); **still to file** for `unifi_network`, `unifi_wan`, `unifi_wlan` and `unifi_vpn_server` (§15). |
+| — | to file (since v0.58.0) | `unifi_port_profile` writes send eight unmodelled booleans as `false` | **To file** (§15). |
+| — | to file (since v0.65.0) | `unifi_device_port` Update sets no resource identity | **To file** (§15). |
+
+---
+
+## 15. What is still not in code at provider 0.65.0
+
+Every `FIXME` and `TODO` marker in `tofu/` on 2026-11-02, one row each, from `git grep -n -E 'FIXME|TODO' -- tofu`: 59 markers. Line numbers are those of that tree, so re-run the grep after editing a file. Paths are under `tofu/unifi/` except `tofu/providers.tf`. The grep also matches four lines that are not markers: `tofu/unifi/README.md:38` and `:40` define the two `FIXME` kinds, and `vpn.tf:2` and `vpn.tf:18` point at markers below them.
+
+Why a marker stays:
+
+- **Blocked upstream:** the provider cannot express or safely write it at 0.65.0.
+- **Deliberately unmanaged:** expressible, but declaring it costs a controller write we choose not to make.
+- **UI-only by design:** outside the provider's reach or scope; the comment is the rebuild runbook.
+- **Needs a live read first:** expressible, but the code must mirror a value nobody has read yet.
+
+Two rows are **planned** in this stack: the Global Switch block (`settings.tf:89`) and mDNS (`mdns.tf:4`).
+
+| Where | What | Why it stays | What would unblock it |
+|---|---|---|---|
+| `tofu/providers.tf:41` | `TODO(vault)`: the `vault_kv_secret_v2` data sources are deprecated by hashicorp/vault v5 in favour of the ephemeral resource | **Blocked upstream** in part (`unifi_radius_user.password` has no write-only twin), and **needs a live read first** for the WireGuard key | The ephemeral migration, below |
+| `admins.tf:3` | The two admin accounts: the owner and the tofu service account | **UI-only by design:** UniFi OS users, no admin resource; the service account must exist before any plan | An admin resource upstream; import the service account first |
+| `alarms.tf:3` | The 17 Alarm Manager rules, all controller defaults | **UI-only by design:** UniFi OS alarm service, outside the Network API; a reset reproduces the defaults | An alarm resource upstream. A custom alarm is listed in the file meanwhile |
+| `clients.tf:44` | `jetkvm_servacho_gosho` is bound to Private Servers | **Blocked upstream:** the binding is the client record's own `network_id`, which no attribute maps; the resource's `network_id` is the Network Override and must not be declared | An attribute for the reservation's network (a feature request upstream). A rebuilt reservation is re-bound by hand (`PUT /rest/user`) |
+| `clients.tf:103` | `mac4o_mini` is bound to Public Servers | **Blocked upstream**, as `clients.tf:44` | As `clients.tf:44` |
+| `device_u7_pro_bedroom.tf:4` | `forget_on_destroy` stays at its default `true`; the intent is `false` | **Deliberately unmanaged:** declaring it plans an update, and every `unifi_device` update sends a PUT, even an empty one | An upstream Update that skips an empty device PUT, or one deliberate PUT per device in a quiet window after a live read of it |
+| `device_u7_pro_living_room.tf:4` | `forget_on_destroy`, as the bedroom AP | **Deliberately unmanaged** | As `device_u7_pro_bedroom.tf:4` |
+| `device_udm_pro_max.tf:4` | `forget_on_destroy`, as the bedroom AP | **Deliberately unmanaged** | As `device_u7_pro_bedroom.tf:4` |
+| `device_udm_pro_max.tf:9` | `ignore_changes = [port_override]`: the port blocks document live, apply does not reconcile them | **Blocked upstream:** import and refresh never put `port_override` in state, and `unifi_device_port` fails every in-place update on OpenTofu 1.11 (§14.3) | CI on OpenTofu >= 1.12, or upstream setting the identity in `unifi_device_port`'s Update; then one PR per device that imports its ports as `unifi_device_port`, below |
+| `device_udm_pro_max.tf:22` | The WAN-to-port binding of ports 1 (WAN2) and 9 (WAN1) | **Blocked upstream:** the binding sits outside `port_overrides`, probably in the device's `ethernet_overrides` (unchecked on this UDM), which the provider neither exposes nor sends | A live read of which key holds the binding, then the provider exposing it |
+| `device_udm_pro_max.tf:29` | `sd_wan_underlay_port = false` on ports 2-8 | **Blocked upstream:** no attribute; every write of the array carries it over from the controller (since v0.62.0) | The attribute on `port_override` and `unifi_device_port` |
+| `device_usw_aggregation.tf:4` | `forget_on_destroy`, as the bedroom AP | **Deliberately unmanaged** | As `device_u7_pro_bedroom.tf:4` |
+| `device_usw_aggregation.tf:26` | `ignore_changes = [port_override]` | **Blocked upstream**, as `device_udm_pro_max.tf:9` | As `device_udm_pro_max.tf:9` |
+| `device_usw_aggregation.tf:40` | BPDU Guard on port 1 (Servacho-Gosho), from the Private Server profile | **Blocked upstream:** no attribute on either layer, and any profile write turns it off (`port_profiles.tf:19`) | `stp_bpdu_guard_enabled` on `unifi_port_profile`, and profile writes that keep what they do not model |
+| `device_usw_aggregation.tf:53` | `stp_bpdu_guard_enabled = true` on disabled ports 2-7 | **Blocked upstream:** no `port_override` attribute; every write of the array carries it over from the controller | The attribute on `port_override` and `unifi_device_port` |
+| `device_usw_aggregation.tf:54` | `stp_uplink = false` on ports 2-7 | **Blocked upstream**, as `:53` | As `:53` |
+| `device_usw_aggregation.tf:55` | `eee_enabled = false` on ports 2-7 | **Blocked upstream**, as `:53` | As `:53` |
+| `device_usw_aggregation.tf:56` | `link_debounce_auto = true` on ports 2-7 | **Blocked upstream**, as `:53` | As `:53` |
+| `device_usw_aggregation.tf:57` | `multicast_router_mode = "NONE"` on ports 2-7 | **Blocked upstream**, as `:53` | As `:53` |
+| `device_usw_aggregation.tf:58` | `sd_wan_underlay_port = false` on ports 2-7 | **Blocked upstream**, as `:53` | As `:53` |
+| `device_usw_pro_max_24_poe.tf:4` | `forget_on_destroy`, as the bedroom AP | **Deliberately unmanaged** | As `device_u7_pro_bedroom.tf:4` |
+| `device_usw_pro_max_24_poe.tf:25` | `ignore_changes = [port_override]` | **Blocked upstream**, as `device_udm_pro_max.tf:9` | As `device_udm_pro_max.tf:9` |
+| `device_usw_pro_max_24_poe.tf:106` | `stp_bpdu_guard_enabled = true` on disabled ports 9-11 and 25 | **Blocked upstream**, as `device_usw_aggregation.tf:53` | As `device_usw_aggregation.tf:53` |
+| `device_usw_pro_max_24_poe.tf:107` | `stp_uplink = false` on ports 9-11 and 25 | **Blocked upstream**, as `device_usw_aggregation.tf:53` | As `device_usw_aggregation.tf:53` |
+| `device_usw_pro_max_24_poe.tf:108` | `eee_enabled = false` on ports 9-11 and 25 | **Blocked upstream**, as `device_usw_aggregation.tf:53` | As `device_usw_aggregation.tf:53` |
+| `device_usw_pro_max_24_poe.tf:109` | `link_debounce_auto = true` on ports 9-11 and 25 | **Blocked upstream**, as `device_usw_aggregation.tf:53` | As `device_usw_aggregation.tf:53` |
+| `device_usw_pro_max_24_poe.tf:110` | `multicast_router_mode = "NONE"` on ports 9-11 and 25 | **Blocked upstream**, as `device_usw_aggregation.tf:53` | As `device_usw_aggregation.tf:53` |
+| `device_usw_pro_max_24_poe.tf:111` | `sd_wan_underlay_port = false` on ports 9-11 and 25 | **Blocked upstream**, as `device_usw_aggregation.tf:53` | As `device_usw_aggregation.tf:53` |
+| `firewall.tf:37` | Policy order: 10000 and 10001 in the Internal → IoT pair | **Blocked upstream:** `index` is computed only, and there is no reorder call (upstream #348) | A reorder call upstream |
+| `mdns.tf:4` | The Gateway mDNS Proxy: Custom, Main + IoT, 19 services, applied by hand. The comment still says v0.55.0 | **Needs a live read first:** expressible as `unifi_setting.mdns` since v0.62.0, which an import does not read | **Planned:** `unifi_setting.mdns` in the PR after the Global Switch one, after reading the stored service order |
+| `networks.tf:11` | `dhcp_guarding` Read is sticky: a network imported unguarded never reads its guarding back | **Blocked upstream:** Read fills the block only on an import with guarding on, or when state already has it | A Read that fills it whenever guarding is on. Meanwhile a `state rm` and re-import adopt the block with no write (`unifi-import-plan.md`); an apply would rewrite the four guard keys instead |
+| `networks.tf:29` | Default (Untagged) has DHCP off, and `dhcp_server` is not declared | **Deliberately unmanaged:** Read fills `dhcp_server` only on an import with DHCP on, so declaring `enabled = false` costs one write of every `dhcp_server` key but `boot` | A Read that fills `dhcp_server` while DHCP is off, or accepting that one write |
+| `port_profiles.tf:6` | Port Mode (`stp_edge_state`): Infrastructure on UniFi Device, Edge on the other four | **Blocked upstream:** no `unifi_port_profile` attribute; upstream #695 added it to `port_override` only | The attribute on `unifi_port_profile` |
+| `port_profiles.tf:8` | Flow Control on, all five | **Blocked upstream:** no attribute, and every profile write sends it as `false` (`:19`) | The attribute on `unifi_port_profile`, and `:19` fixed |
+| `port_profiles.tf:9` | PTP on, all five | **Blocked upstream**, as `:8` | As `:8` |
+| `port_profiles.tf:10` | QoS profile: custom, no policies (UI: Off) | **Blocked upstream:** no attribute; never sent | The attribute on `unifi_port_profile` |
+| `port_profiles.tf:11` | STP Uplink off, all five | **Blocked upstream:** no attribute; a profile write sends `false`, which is the live value | As `:8` |
+| `port_profiles.tf:12` | BPDU Guard: on for Host Device, Private Server and IoT Device | **Blocked upstream**, as `:8`; a profile write turns it off | As `:8` |
+| `port_profiles.tf:15` | Link Debounce: Auto, 300 ms | **Blocked upstream**, as `:8` (the time itself is never sent) | As `:8` |
+| `port_profiles.tf:16` | Energy Efficient Ethernet off | **Blocked upstream:** no attribute; a profile write sends `false`, which is the live value | As `:8` |
+| `port_profiles.tf:17` | Multicast Router Port: `NONE` | **Blocked upstream:** no attribute; never sent | The attribute on `unifi_port_profile` |
+| `port_profiles.tf:19` | Every profile write resets eight unmodelled booleans to `false`; never apply a plan that updates a profile | **Blocked upstream:** create and update send a profile built from the schema alone | Upstream writing a profile over the stored one, as #652 did for `port_override`; to report, below |
+| `port_profiles.tf:54` | The 802.1X fallback VLAN is Guest, set by hand | **Blocked upstream:** not in `unifi_setting.global_switch`; a `global_switch` write leaves it alone | `dot1x_fallback_networkconf_id` on `global_switch` upstream |
+| `radius.tf:3` | `unifi_radius_user` has no `allow_existing` | **Blocked upstream:** a user made by hand is imported before it is declared, or the create fails on the duplicate name | `allow_existing` upstream |
+| `settings.tf:57` | The site RADIUS server's `enabled` and `configure_whole_network`, on by hand | **Blocked upstream:** go-unifi models both, the provider does not; a `radius` write never sends them | The two attributes on `unifi_setting.radius` |
+| `settings.tf:71` | Console name "UDM StKr" | **Blocked upstream:** `unifi_setting` has no block for the console's `super_*` settings | A block for them upstream |
+| `settings.tf:73` | Time zone Europe/Sofia (`locale`) | **Blocked upstream:** no `locale` block | A `locale` block upstream |
+| `settings.tf:75` | Night Mode 22:00-08:00 | **Needs a live read first:** `unifi_device.lcm.night_mode` carries it only if the UDM's device record holds the console's schedule (unchecked) | A read of the UDM's `stat/device` record |
+| `settings.tf:78` | Email Services: UI Mail Server (`super_mail`) | **Blocked upstream:** no `super_mail` block | A `super_mail` block upstream |
+| `settings.tf:79` | Analytics & Improvements off (`super_mgmt`) | **Blocked upstream:** no `super_mgmt` block | A `super_mgmt` block upstream |
+| `settings.tf:80` | Support File Full, Certificates none, Remote Access on, Direct Remote Connection and SSH off | **UI-only by design:** Support File and Certificates are UniFi OS console settings. **Blocked upstream:** Remote Access is `super_cloudaccess.enabled`, and there is no `super_cloudaccess` block. **Deliberately unmanaged:** Direct Remote Connection and SSH map to `mgmt.direct_connect_enabled` and, unchecked, `mgmt.ssh.enabled`; both are absent from the record and stay undeclared | A `super_cloudaccess` block upstream; nothing in the Network API for Support File and Certificates |
+| `settings.tf:84` | Updates: weekly, Sunday 4 AM; only the hour reaches the Network app | **UI-only by design:** weekday and channels are UniFi OS; `mgmt.auto_upgrade.hour` is managed | Nothing in the Network API |
+| `settings.tf:86` | Backups: monthly auto backup (`super_mgmt.autobackup_cron_expr`) | **Blocked upstream:** no `super_mgmt` block | A `super_mgmt` block upstream |
+| `settings.tf:89` | Global Switch Settings and the default security posture, as commented-out blocks. The comment still says v0.55.0 | **Needs a live read first:** since v0.58.0 `unifi_setting.global_switch` covers STP mode, jumbo frames, DHCP snooping, 802.1X port control and device isolation (not flow control, auto STP edge detection, the RADIUS profile, L3 network isolation or the fallback VLAN). The security posture is **blocked upstream** | **Planned:** managed as `unifi_setting.global_switch` in the next PR, after a live read. The posture needs a setting upstream |
+| `vpn.tf:8` | Teleport (enabled, `192.168.7.1/24`) and Site Magic (on, no tunnels) | **UI-only by design:** the `unifi_teleport` data source (v0.62.0) only reads it; upstream #589, the request behind that data source, left managing Teleport out of its scope; nothing covers Site Magic | Nothing planned upstream |
+| `vpn.tf:37` | `encryption_cipher = "AES_256_CBC"` pinned, a concession for a re-create | **Blocked upstream:** a create still defaults to `AES_256_GCM`, which the controller rejects | A create default the controller accepts; to report, below. The pin changes nothing on the wire meanwhile |
+| `vpn.tf:44` | OpenVPN values without an attribute: protocol, MSS clamp, MTU, compression, DHCP range; `setting_preference` always sent as `manual` | **Blocked upstream:** no attributes; updates never send the first five, and every create and update sends `setting_preference = "manual"` | The attributes on `unifi_vpn_server` |
+| `wans.tf:36` | The intended WAN SLA monitor (live has none) | **Blocked upstream:** no WAN SLA resource | A WAN SLA resource upstream |
+| `wlans.tf:1` | `passphrase` stays in `ignore_changes` on all four SSIDs | **Needs a live read first:** whether the controller returns `x_passphrase` to the tofu account in clear or masked is unchecked. If in clear, a plan without the ignore that comes back clean proves OpenBao holds the live keys (both IoT SSIDs read one variable, so their live keys must match) | A PR that drops the ignore and shows a clean plan; StKr may show a one-time `passphrase -> null`, which sends nothing. A `~ passphrase` on a PSK SSID means OpenBao differs from live: fix OpenBao, never apply it. A diff that never clears means a masked key: move to `passphrase_wo` instead |
+
+### 15.1 Follow-ups that are not `FIXME` markers
+
+- **The `TODO(vault)` ephemeral migration** (`tofu/providers.tf:41`). Read the provider credentials through the ephemeral `vault_kv_secret_v2` (provider blocks take ephemeral values on OpenTofu 1.11), and move four of the module's five secrets to the provider's write-only twins: `passphrase_wo` with `passphrase_wo_version` for the two WLAN passphrases, `radius_secret_wo` for the site RADIUS secret, and `wireguard.private_key_wo` for the WireGuard key. Limits: `unifi_radius_user.password` has no twin, so `radius_users` stays a data source; `radius_secret_wo` leaves `radius.secret` in `unifi_setting`'s state until a `state rm` and re-import; a WireGuard update without the key sends a freshly generated one unless the controller returns `x_wireguard_private_key` to the tofu account, so read that first; and a write-only passphrase is no longer compared with live, so a key changed in the UI stops showing in the plan. `tofu/root_plane.tf` holds one more `vault_kv_secret_v2` (`management_plane_ssh`), which the TODO does not mention; the 14 deprecation warnings per plan count it.
+- **`unifi_device_port` once CI runs OpenTofu >= 1.12** (or once upstream sets the identity in its Update, report 1 below). It is the way out of the three `port_override` ignores (§14.3): one PR per device, every port that has an override entry imported by `<device_mac>/<index>` (UDM ports 1 and 9 have none; their import fails with "Port Has No Overrides"), merged only on a plan of imports alone. Before the first write after that, read back a disabled port: every `unifi_device_port` write PUTs the device's whole array, which drops the empty `port_security_mac_address []` the disabled ports store, and whether the controller still shows them as Port State Disabled is unchecked. Moving CI is safe at 0.65.0: since v0.62.0 the provider fills in the identities that state written by OpenTofu 1.11 lacks (upstream #647). Pro Max port 21 and Aggregation port 1 change again when Servacho-Gosho moves back to its DAC: import them after that, or plan a `state rm` and re-import.
+- **A feature request for the client binding.** Ask upstream to expose the reservation's own network (the user record's `network_id`, set with the fixed IP) apart from `network_id`, which is the Network Override (upstream #653), so `clients.tf:44` and `:103` can be declared and a rebuilt reservation is re-bound by apply. Not filed yet.
+- **Upstream reports to file.** None is filed yet.
+  1. `unifi_device_port`: Update sets no resource identity, so under OpenTofu < 1.12 every in-place update fails with "Missing Resource Identity After Update" after its PUT. Create already sets it; Update needs the same call.
+  2. `unifi_port_profile`: create and update send a profile built from the schema alone, so eight booleans the provider does not model go out as `false`: BPDU Guard, flow control, PTP, link debounce auto, EEE, STP uplink, stable port and `ld_status`.
+  3. `unifi_vpn_server`: a create defaults `openvpn.encryption_cipher` to `AES_256_GCM`, which the controller rejects (it accepts `AES_256_CBC` or `BF_CBC`, as go-unifi's own field definition says).
+  4. Read on 404 for `unifi_network`, `unifi_wan`, `unifi_wlan` and `unifi_vpn_server`: a deleted object fails the refresh instead of leaving state, as the other resources do since v0.60.0 (upstream #604). The remedy until then is `tofu state rm` on the management plane.
+- **Issue #83, the shared ingress VM (draft PR #88).** 80 and 443 stay closed until it exists. Its forward is made in the UI and imported, not created from code (§8).
