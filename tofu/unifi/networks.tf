@@ -8,13 +8,10 @@
 # leaves it unset (upstream #419).
 # dhcp_guarding mirrors the UI, which enables DHCP Guarding with the gateway as the only
 # trusted server on every VLAN it creates.
-# FIXME(unifi): dhcp_guarding is declared to MIRROR live only -- it is write-broken and
-#   read-sticky at v0.55.0. The update PUT sends dhcpguard_enabled without the trusted
-#   servers (dhcpd_ip_1..3), which the controller rejects with api.err.MissingIPAddress,
-#   so ANY update to a guarded network fails. Read fills the block only on import or when
-#   state already has it, so a network imported with guarding off needs `state rm` and a
-#   re-import once guarding is on (docs/unifi-import-plan.md). Change guarded networks in
-#   the UI/API first and mirror here.
+# FIXME(unifi): Read fills dhcp_guarding only on import (with guarding on) or once state
+#   holds the block, so a network imported with guarding off and guarded later in the
+#   UI plans `+ dhcp_guarding` until a `state rm` and re-import adopt it with no write
+#   (docs/unifi-import-plan.md); an apply would rewrite the four guard keys instead.
 
 # The built-in VLAN 1 network. Cannot be deleted or tagged, so it stays declared, but
 # nothing uses it: management and the trunks' native network are VLAN 99
@@ -29,10 +26,11 @@ resource "unifi_network" "default" {
   multicast_dns      = false
   setting_preference = "manual"
 
-  # DHCP is off. FIXME(unifi): the provider reads a disabled DHCP server as a *null*
-  #   dhcp_server block, so "off" cannot be declared -- `enabled = false` plans a
-  #   perpetual update. Absent means off here; the stored range .1.6-.1.254 would come
-  #   back if DHCP were re-enabled.
+  # DHCP is off. FIXME(unifi): Read fills dhcp_server only on an import with DHCP on or
+  #   once state holds the block, so "off" cannot be adopted without a write: declaring
+  #   `enabled = false` makes one apply send every dhcp_server key except boot. Left out,
+  #   the block is unmanaged and no update sends its keys. The stored range .1.6-.1.254
+  #   would come back if DHCP were re-enabled.
 }
 
 # Management network for the UDM, switches and APs (docs/unifi-mgmt-vlan-99-runbook.md).

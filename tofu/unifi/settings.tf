@@ -5,15 +5,11 @@ locals {
 }
 
 # Site settings the provider can express. Every block mirrors `/get/setting`.
-# FIXME(unifi): `unifi_setting` ImportState stores only the id, so the first plan after an
-#   import shows every block as an add and the apply re-POSTs values that are already live
-#   (harmless while they match: the RADIUS secret and passphrases come from OpenBao and
-#   must equal the controller's). Upstream: read the site settings on import.
 resource "unifi_setting" "default" {
   site = "default"
 
-  # FIXME(unifi): network_ids is declared empty on purpose -- the provider returns [] after
-  #   the write while a null plan value aborts the apply with "inconsistent result".
+  # IGMP snooping is off on every network; network_ids = [] is declared so a network
+  # ticked in the UI shows up in the plan.
   igmp_snooping = {
     enabled     = false
     network_ids = []
@@ -59,8 +55,8 @@ resource "unifi_setting" "default" {
 
   # Site RADIUS server behind the StKr WLAN and wired 802.1X.
   # FIXME(unifi): the toggles that turn it on -- `enabled` and `configure_whole_network`
-  #   (Wired / Wireless Networks support) -- have no attribute at v0.55.0; both are on,
-  #   set by hand.
+  #   (Wired / Wireless Networks support) -- have no attribute at v0.65.0; both are on,
+  #   set by hand, and a radius write never sends them.
   radius = {
     secret             = var.radius_profile_secret
     auth_port          = 1812
@@ -69,17 +65,22 @@ resource "unifi_setting" "default" {
   }
 }
 
-# Control Plane -> Console, the rest of the page: UniFi OS console
-# settings or Network `super_*` settings, none with a `unifi_setting` block. Live values:
+# Control Plane -> Console, the rest of the page: UniFi OS console settings or Network
+# `locale` / `super_*` settings (go-unifi models the latter; `unifi_setting` has no block
+# for any of them at v0.65.0), plus Direct Remote Connection and SSH. Live values:
 # FIXME(unifi): Name "UDM StKr" -- the console name (the Network device name is in
 #   device_udm_pro_max.tf).
 # FIXME(unifi): Location / Time Zone -- `locale.timezone = "Europe/Sofia"`; country IS
 #   managed above.
-# FIXME(unifi): Night Mode 10:00 PM - 8:00 AM -- UniFi OS only, not even in `lcm`.
+# FIXME(unifi): Night Mode 10:00 PM - 8:00 AM -- not in `unifi_setting.lcm`;
+#   `unifi_device.lcm.night_mode` would carry it only if the UDM's device record holds
+#   the console's schedule (unchecked).
 # FIXME(unifi): Email Services = UI Mail Server -- `super_mail.provider = "cloud"`.
 # FIXME(unifi): Analytics & Improvements = Off -- `super_mgmt.enable_analytics = false`.
-# FIXME(unifi): Support File = Full, Certificates = none, Remote Access = on, Direct
-#   Remote Connection = off, SSH = off -- UniFi OS console settings.
+# FIXME(unifi): Support File = Full, Certificates = none -- UniFi OS console settings;
+#   Remote Access = on -- `super_cloudaccess.enabled`. Direct Remote Connection = off and
+#   SSH = off stay undeclared on purpose (see the mgmt block above): they map to
+#   `mgmt.direct_connect_enabled` and, unchecked, `mgmt.ssh.enabled`.
 # FIXME(unifi): Updates: "weekly, Sunday 4 AM" -- only `mgmt.auto_upgrade.hour = 3`
 #   reaches the Network app; weekday and update channels are UniFi OS only.
 # FIXME(unifi): Backups: auto backup on, `super_mgmt.autobackup_cron_expr "30 0 1 * *"`
@@ -117,32 +118,7 @@ resource "unifi_setting_security" "posture" {
 }
 */
 
-# FIXME(unifi): no `unifi_setting_ether_lighting` resource and no device-level
-#   `ether_lighting` block at v0.55.0 (upstream PR #463). Live runs the controller
-#   default colours, NOT the ones below (docs/unifi-manual-vs-tofu.md 11) -- if the
-#   resource lands, decide first whether to keep these or mirror the defaults.
-/*
-resource "unifi_setting_ether_lighting" "site_colors" {
-  site = "default"
-
-  speed_override {
-    speed = "FE"
-    color = "#ff0509"
-  }
-
-  speed_override {
-    speed = "GbE"
-    color = "#FFCC00"
-  }
-
-  speed_override {
-    speed = "2.5GbE"
-    color = "#05ff19"
-  }
-
-  speed_override {
-    speed = "10GbE"
-    color = "#054aff"
-  }
-}
-*/
+# Etherlighting is unmanaged on purpose: live runs the controller default colours
+# (docs/unifi-manual-vs-tofu.md §11). To manage it, set the colours in the UI first, then
+# declare `etherlighting` on unifi_setting.default with both speed_overrides and
+# network_overrides exactly as stored: a declared list replaces the controller's.

@@ -1,7 +1,7 @@
 # Passwords in OpenBao secret/unifi/radius/users. VLAN 2 = Main, the network an
 # authenticated 802.1X client is placed on.
-# FIXME(unifi): unifi_radius_user has no allow_existing -- a user created by hand must be
-#   imported before it is declared, or the create 400s on the duplicate name.
+# FIXME(unifi): unifi_radius_user has no allow_existing at v0.65.0 -- a hand-made user
+#   must be imported before it is declared, or the create 400s on the duplicate name.
 locals {
   radius_users = {
     "a.penchev"  = { tunnel_type = 13, tunnel_medium_type = 6, vlan = 2 }

@@ -1,9 +1,9 @@
 resource "unifi_device" "u7_pro_bedroom" {
   mac  = "9c:05:d6:d9:af:65"
   name = "Bedroom U7-Pro"
-  # FIXME(unifi): forget_on_destroy is Optional+Computed and import sets it true; declaring
-  #   the intended `false` would plan an update PUT (#463 hazard) for a provider-only flag
-  #   that only matters on `tofu destroy`. Left at the imported default.
+  # FIXME(unifi): forget_on_destroy is left at its default, true, on purpose. Declaring
+  #   the intended `false` (a provider-only flag that only matters on `tofu destroy`)
+  #   plans an update, and every unifi_device update sends a PUT, even an empty one.
   disabled = false
 
   led = { override = "off" }
@@ -16,9 +16,9 @@ resource "unifi_device" "u7_pro_bedroom" {
   # see device_usw_*.tf.
   mgmt_network_id = unifi_network.default.id
 
-  # FIXME(unifi): read-only in practice -- v0.55.0 drops config_network from the update
-  #   PUT (upstream #463). Live matches, so the plan is a no-op; changing the address
-  #   here would fail post-apply. Change it in the UI first, then mirror.
+  # Mirrors live; changes go through the UI first. An update sends it as a whole object
+  # whenever it differs from live: dns2, dnssuffix and bonding_enabled go out as "", ""
+  # and false unless declared.
   config_network = {
     type    = "static"
     ip      = "192.168.99.5"
