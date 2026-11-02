@@ -100,9 +100,9 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id    = unifi_port_profile.host_device.id
   }
 
-  # Ports 9-11: Port State Disabled, in the switch's shape.
-  # Every exposed attribute is set; the live override also carries these UI-only keys:
-  # FIXME(unifi-ui-only): stp_edge_state = "enabled"       (Port Mode: Edge)
+  # Ports 9-11: Port State Disabled, in the switch's shape; stp_edge_state "enabled" is
+  # Port Mode: Edge. Every exposed attribute is set; the live override also carries
+  # these UI-only keys:
   # FIXME(unifi-ui-only): stp_bpdu_guard_enabled = true    (Services -> BPDU Guard)
   # FIXME(unifi-ui-only): stp_uplink = false               (Services -> STP Uplink)
   # FIXME(unifi-ui-only): eee_enabled = false              (Energy Efficient Ethernet)
@@ -123,6 +123,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     dot1x                  = { ctrl = "auto", idle_timeout = "5m0s" }
     lldpmed                = { enabled = true }
     stp_port_mode          = true
+    stp_edge_state         = "enabled"
     isolation              = false
     egress_rate_limit      = { enabled = false }
     port_keepalive_enabled = false
@@ -142,6 +143,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     dot1x                  = { ctrl = "auto", idle_timeout = "5m0s" }
     lldpmed                = { enabled = true }
     stp_port_mode          = true
+    stp_edge_state         = "enabled"
     isolation              = false
     egress_rate_limit      = { enabled = false }
     port_keepalive_enabled = false
@@ -161,6 +163,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     dot1x                  = { ctrl = "auto", idle_timeout = "5m0s" }
     lldpmed                = { enabled = true }
     stp_port_mode          = true
+    stp_edge_state         = "enabled"
     isolation              = false
     egress_rate_limit      = { enabled = false }
     port_keepalive_enabled = false
@@ -292,6 +295,7 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     dot1x                  = { ctrl = "auto", idle_timeout = "5m0s" }
     lldpmed                = { enabled = true }
     stp_port_mode          = true
+    stp_edge_state         = "enabled"
     isolation              = false
     egress_rate_limit      = { enabled = false }
     port_keepalive_enabled = false

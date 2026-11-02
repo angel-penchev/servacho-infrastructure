@@ -33,17 +33,12 @@ resource "unifi_vpn_server" "openvpn" {
   }
 
   openvpn = {
-    mode = "server"
     port = 1194 # UDP
     # FIXME(unifi): CONCESSION for a re-create: a create defaults the cipher to
     #   AES_256_GCM, which the controller rejects (api.err.InvalidValue). The controller
     #   stores AES_256_CBC, so the pin changes nothing on the wire.
     encryption_cipher = "AES_256_CBC"
   }
-
-  # FIXME(unifi): the provider never reads `openvpn.mode` back from vpn_type. The plan is
-  #   clean only because the first apply wrote an `openvpn_mode` key the UI never sets and
-  #   the controller now stores it; a server re-created by hand brings the diff back.
 }
 
 # FIXME(unifi-ui-only): OpenVPN live values without a provider attribute: vpn_protocol
