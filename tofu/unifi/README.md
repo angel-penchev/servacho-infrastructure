@@ -28,7 +28,7 @@ output → variable plumbing. One topic per file:
 | `port_forwards.tf` | NAT port forwards | Settings → Policy Engine → NAT |
 | `radius.tf` | the RADIUS user accounts | Settings → Profiles → RADIUS |
 | `vpn.tf` | Teleport (documented; the provider can only read it), OpenVPN and WireGuard servers | Settings → VPN |
-| `settings.tf` | site settings (`unifi_setting`); the Global Switch block, still commented out, partly expressible as `unifi_setting.global_switch` (not the 802.1X fallback VLAN, the RADIUS profile, L3 network isolation, flow control or auto STP edge detection); security posture (unsupported); Etherlighting (expressible, unmanaged on purpose) | Settings → System, Control Plane → Console |
+| `settings.tf` | site settings (`unifi_setting`), including the Global Switch Settings the provider covers (`global_switch`; the 802.1X fallback VLAN and four other keys stay hand-set); security posture (unsupported); Etherlighting (expressible, unmanaged on purpose) | Settings → System, Settings → Networks → Global Switch Settings, Control Plane → Console |
 | `mdns.tf` | the Gateway mDNS Proxy configuration (expressible as `unifi_setting.mdns`, not yet managed; applied by hand) | Settings → Networks → Global |
 | `admins.tf` | the two admin accounts (unsupported, documentation only) | Admins & Users |
 | `alarms.tf` | the Alarm Manager rules (unsupported, documentation only) | Alarm Manager |

@@ -2,7 +2,7 @@
 
 > **Layout note (2026-09-14).** The module was flattened: the `core/`, `devices/`, `security/`, `system/` and `wireless/` submodules are gone and every file now sits directly in `tofu/unifi/` (`networks.tf`, `device_*.tf`, `firewall.tf`, `settings.tf`, …; inputs, provider pin and shared data sources in `module.tf`). See `tofu/unifi/README.md` for the map. Text dated before 2026-09-14 may still use the old paths: `core/X.tf` → `X.tf`, `devices/X.tf` → `device_X.tf`, `security/X.tf` / `system/X.tf` / `wireless/X.tf` → `X.tf`; `system/etherlighting.tf` → `settings.tf`, `system/slas.tf` → `wans.tf`; the per-module `variables.tf` / `versions.tf` / `data.tf` / `outputs.tf` no longer exist.
 
-**Date:** 2026-09-08 (drift analysis) · **Updated:** 2026-09-08 (first remediation pass) · 2026-09-13 (RADIUS users verified in sync; mDNS scoped to Main + IoT; per-VLAN port profiles recreated; all port overrides aligned live and in code, UI-only fields marked FIXME) · **2026-09-14** (module flattened; VPN servers, console settings, admins, client names, alarm audit; **management VLAN migration finished** — all four devices on VLAN 99, trunks native 99, Default DHCP off; open items consolidated in §0.6) · **2026-11-02** (provider 0.65.0: statuses in §0, §0.6 B, §8 and §14; what is still not in code in §15)
+**Date:** 2026-09-08 (drift analysis) · **Updated:** 2026-09-08 (first remediation pass) · 2026-09-13 (RADIUS users verified in sync; mDNS scoped to Main + IoT; per-VLAN port profiles recreated; all port overrides aligned live and in code, UI-only fields marked FIXME) · **2026-09-14** (module flattened; VPN servers, console settings, admins, client names, alarm audit; **management VLAN migration finished** — all four devices on VLAN 99, trunks native 99, Default DHCP off; open items consolidated in §0.6) · **2026-11-02** (provider 0.65.0: statuses in §0, §0.6 B, §8 and §14; what is still not in code in §15; Global Switch Settings in code, §6 and §11)
 **Branch:** `feat/unifi-port-config`
 **Companion:** [`unifi-browser-changes.md`](unifi-browser-changes.md) — everything changed on the live controller
 **Sources:** the manual rebuild checklist, the live controller (`https://192.168.1.1`, read via the Network app REST API), and `tofu/unifi/**/*.tf` as of the current working tree.
@@ -23,7 +23,7 @@ State lives on the management plane, so `tofu plan` was not run. Everything belo
 | Port overrides | ✅ **All three devices aligned 2026-09-13** — live changed to the code's intent and code rewritten to the stored shape (§3.2–§3.4); every provider-expressible field declared, every UI-only field carries a `FIXME(unifi-ui-only)`. Still not reconciled by apply: the `ignore_changes` stay at provider 0.65.0 (§14.3, §15) |
 | WANs | ✅ Code now reflects live |
 | Wireless | ✅ All 3 diffs applied to the live controller from code |
-| RADIUS / 802.1X | 🔧 Secret now wired into `unifi_setting.radius`; global 802.1X port control expressible since provider 0.58.0 (`unifi_setting.global_switch`, not yet managed), the fallback VLAN 🚫 still not (§15); **all 4 users ✅ live, matching code, and in Vault (2026-09-13)** |
+| RADIUS / 802.1X | 🔧 Secret now wired into `unifi_setting.radius`; global 802.1X port control managed as `unifi_setting.global_switch` (§11), the fallback VLAN 🚫 still set by hand (§15); **all 4 users ✅ live, matching code, and in Vault (2026-09-13)** |
 | Firewall | ✅ Hotspot zone + `Dmz` casing in code; policy **created live** |
 | Port forwards | ✅ Two rules since #85 (2026-11-02): `Unity Intercom` and `os-tues SSH`, both created by apply (§8) |
 | Fixed-IP clients | ✅ `clients.tf` mirrors the live reservations, attribute-exact, **all named** (8 on 2026-09-13, 12 since 2026-10-14). In-place updates work since provider 0.56.0, but changes still go UI first; never declare `network_id` (§14.5) |
@@ -212,7 +212,7 @@ The fixes these waited for shipped between v0.56.0 and v0.64.0; the last column 
 
 ### C. Not expressible — manual runbook items, each carries a `FIXME(unifi)` / `FIXME(unifi-ui-only)` in code
 
-Global 802.1X fallback VLAN (Guest); per-profile UI fields (Port Mode Edge, BPDU Guard, Flow Control, PTP, Link Debounce, EEE, …); per-port `sd_wan_underlay_port`; WAN-to-port binding; Teleport VPN; OpenVPN protocol/cipher extras; firewall policy ordering; UniFi OS items (admins, Alarm Manager rules, update schedule, InnerSpace); WAN SLA; the APs' *Default (Untagged)* label in the device list (an AP with Network Override off is stored as the Default LAN id, the controller rejects an empty value — cosmetic, no fix). The current list, marker by marker, is §15.
+Global Switch Settings without an attribute (802.1X fallback VLAN = Guest, the 802.1X RADIUS profile, L3 network isolation, flow control, auto STP edge detection); the default security posture; per-profile UI fields (Port Mode Edge, BPDU Guard, Flow Control, PTP, Link Debounce, EEE, …); per-port `sd_wan_underlay_port`; WAN-to-port binding; Teleport VPN; OpenVPN protocol/cipher extras; firewall policy ordering; UniFi OS items (admins, Alarm Manager rules, update schedule, InnerSpace); WAN SLA; the APs' *Default (Untagged)* label in the device list (an AP with Network Override off is stored as the Default LAN id, the controller rejects an empty value — cosmetic, no fix). The current list, marker by marker, is §15.
 
 ### D. Decisions still open
 
@@ -445,16 +445,16 @@ The `StKr_IoT_2.4GHz` diff matters: applying the code would drop WPA3 from that 
 ### Live
 
 - Site RADIUS setting: `enabled = true`, `configure_whole_network = true` (wired **and** wireless), shared secret set, auth 1812 / acct 1813, tunnelled reply on.
-- `global_switch.dot1x_portctrl_enabled = true`; `dot1x_fallback_networkconf_id` is **empty**.
+- `global_switch.dot1x_portctrl_enabled = true`; `dot1x_fallback_networkconf_id` was **empty** at this read. It is **Guest** since the remediation pass the same day (§0.5, change 1 of the 2026-09-08 session in [`unifi-browser-changes.md`](unifi-browser-changes.md)).
 - RADIUS users: **`a.penchev`, `e.pencheva`, `vl.penchev`, `v.todorova`** — all four `tunnel_type 13`, `tunnel_medium_type 6`, `vlan 2`, `group_policy GLOBAL`. *(Updated 2026-09-13 — the last two were created by hand; at the original 2026-09-08 read only the first two existed.)*
 - Default RADIUS profile with `vlan_enabled = true`, `use_usg_auth_server = true`.
 
 ### Differences
 
-1. **The site RADIUS setting is unmanaged.** `tofu/unifi/variables.tf` declares `radius_profile_secret` (and `tofu/unifi_module.tf` feeds it from Vault at `secret/unifi/radius/profile`), but **nothing consumes it** — there is no `unifi_setting_radius` resource anywhere. Dead variable, and the shared secret you set by hand is not in code.
-2. **Global 802.1X port control is unmanaged.** It exists only inside the commented-out `unifi_setting_switch` block in `settings.tf`. That block also proposes `fallback_vlan_id = var.network_guest_id`; live has **no** fallback network configured. If you uncomment it later, that's a behaviour change, not a no-op.
+1. ~~**The site RADIUS setting is unmanaged.** `tofu/unifi/variables.tf` declares `radius_profile_secret` (and `tofu/unifi_module.tf` feeds it from Vault at `secret/unifi/radius/profile`), but **nothing consumes it** — there is no `unifi_setting_radius` resource anywhere. Dead variable, and the shared secret you set by hand is not in code.~~ Resolved in the 2026-09-08 remediation pass (§0.5): `unifi_setting.default` declares `radius = { secret = var.radius_profile_secret, … }` (`settings.tf`). The toggles that turn the server on, `enabled` and `configure_whole_network`, still have no attribute and stay set by hand (`settings.tf:57`, §15).
+2. ~~**Global 802.1X port control is unmanaged.** It exists only inside the commented-out `unifi_setting_switch` block in `settings.tf`. That block also proposes `fallback_vlan_id = var.network_guest_id`; live has **no** fallback network configured. If you uncomment it later, that's a behaviour change, not a no-op.~~ At provider 0.65.0 it is managed: `unifi_setting.default` declares `global_switch.dot1x_portctrl_enabled = true` (`settings.tf`). The fallback VLAN (Guest) still has no attribute. It stays set by hand, under a `FIXME(unifi)`, and a `global_switch` write sends only the declared keys, so it leaves the fallback alone (§15).
 3. **RADIUS users: ✅ in sync as of 2026-09-13.** Code declares four (`a.penchev`, `e.pencheva`, `vl.penchev`, `v.todorova`) and live now has the same four, each with exactly the attributes `unifi_radius_user` manages (`tunnel_type 13`, `tunnel_medium_type 6`, `vlan 2`). The one live-only field, `group_policy = "GLOBAL"`, is identical on the old and new pairs and is not exposed by the provider, so it is not drift. The Vault `radius_users` map carries all four keys (confirmed by the user 2026-09-13). One thing still stands between this and a clean apply:
-   - `unifi_radius_user` has no `allow_existing`, so the four live accounts need a `tofu import` first (state still holds the pre-reset `_id`s) — otherwise the create `POST` is rejected for a duplicate name. This applies to every resource on the rebuilt controller, not just these.
+   - `unifi_radius_user` has no `allow_existing`, so the four live accounts need a `tofu import` first (state still holds the pre-reset `_id`s) — otherwise the create `POST` is rejected for a duplicate name. This applies to every resource on the rebuilt controller, not just these. *(Done: the 2026-09-14 import put all 46 objects in state, §0.6 A1.)*
 
 ---
 
@@ -584,7 +584,7 @@ Decisions needed: keep Teleport (yes, recommended — zero-config for phones, an
 | **Alarm Manager** (audited 2026-09-14) | 17 rules, all controller defaults from first boot, Notify → all admins, Always, push on / email off; no profiles, nothing custom | 🚫 UniFi OS alarm service (`/api/v2/alarms/…`), no provider resource — documented rule by rule as `FIXME(unifi)` in new `alarms.tf` | UI-only; defaults, so a reset reproduces them |
 | Captive portal | `guest_access.portal_enabled = false` | not managed | **unmanaged** (checklist step done by hand) |
 | mDNS | **`mode = "custom"`, `enabled_for = "some"`, Main + IoT, 19 services** (set 2026-09-13) | commented-out `unifi_setting_mdns` in `mdns.tf`, now with the verified identifier catalogue and wire format | **unmanaged** — **manual runbook item, live matches the documented intent**. No provider resource at v0.55.0; expressible as `unifi_setting.mdns` since 0.62.0 (§15) |
-| Global switch | rstp, jumbo off, flowctrl off, DHCP snooping on, auto STP edge detection off, 802.1X on, RADIUS profile bound | commented-out `unifi_setting_switch` | **unmanaged**. Since 0.58.0 `unifi_setting.global_switch` covers STP mode, jumbo frames, DHCP snooping, 802.1X port control and device isolation; not flow control, auto STP edge detection, the RADIUS profile, L3 network isolation or the 802.1X fallback VLAN (§15) |
+| Global switch | rstp, jumbo off, flowctrl off, DHCP snooping on, auto STP edge detection off, 802.1X on, RADIUS profile bound; 802.1X fallback VLAN Guest (since 2026-09-08, §6) | `unifi_setting.default.global_switch`: `stp_version = "rstp"`, `jumboframe_enabled = false`, `dhcp_snoop = true`, `dot1x_portctrl_enabled = true`; device isolation (`acl_device_isolation`) left undeclared, read from the controller | ✅ for the four declared keys (`unifi_setting.global_switch`, provider 0.58.0+). Flow control, auto STP edge detection, the RADIUS profile, L3 network isolation and the 802.1X fallback VLAN have no attribute and stay set by hand (`FIXME(unifi)` in `settings.tf`, §15); a `global_switch` write sends only the declared keys |
 | Etherlighting | controller defaults (per-network auto colours; speed defaults `10M=#FFC105` etc.) | commented-out `unifi_setting_ether_lighting` with custom colours (FE `#ff0509`, GbE `#FFCC00`, 2.5GbE `#05ff19`, 10GbE `#054aff`, never applied) + a device-level block; removed, and `settings.tf` says why Etherlighting stays unmanaged | **unmanaged on purpose**: live runs the defaults. Expressible since 0.62.0 (`unifi_setting.etherlighting`, `unifi_device.etherlighting`) |
 | WAN SLA | not checked | commented-out `unifi_wan_sla` | **unmanaged**; no provider resource at 0.65.0 either |
 
@@ -592,7 +592,7 @@ Notes:
 
 - **Updates schedule.** The checklist says "Weekly at 4AM on Sunday". The Network app only reports `auto_upgrade_hour = 3` with no weekday, which means the weekly/Sunday/4 AM schedule is stored at the **UniFi OS** level, outside the Network application the provider talks to. Not expressible in this provider — document it as a manual step.
 - **InnerSpace** is a UniFi OS application install. Same story: out of reach of `ubiquiti-community/unifi`, document as manual.
-- `usw_pro_max_24_poe.tf` sets `flowctrl_enabled = false` and `jumboframe_enabled = false` per-device; those are now site-global under `global_switch` and already match. Harmless but redundant.
+- ~~`usw_pro_max_24_poe.tf` sets `flowctrl_enabled = false` and `jumboframe_enabled = false` per-device; those are now site-global under `global_switch` and already match. Harmless but redundant.~~ Removed 2026-09-14 (§0.6 A6). Jumbo frames are managed site-wide as `global_switch.jumboframe_enabled`; flow control is site-wide too and set by hand.
 
 ---
 
@@ -609,7 +609,7 @@ Notes:
    - *At provider 0.65.0:* still real, for another reason. #430/#438 and #470 shipped, but import and refresh never put `port_override` in state; the FIXME now says so (§0.6 B1, §15).
 6. ~~**`vpn.tf`** OpenVPN block referenced an undeclared `data.unifi_radius_profile.default`~~ — the block was rewritten 2026-09-13 and the data source is declared once, in `module.tf` (it was declared three times before, once per submodule).
 7. ~~Untracked working-tree changes~~ — committed 2026-09-13.
-8. `device_usw_pro_max_24_poe.tf` still sets `flowctrl_enabled = false` and `jumboframe_enabled = false` per device although both are site-global under `global_switch` and already match. Harmless, redundant.
+8. ~~`device_usw_pro_max_24_poe.tf` still sets `flowctrl_enabled = false` and `jumboframe_enabled = false` per device although both are site-global under `global_switch` and already match. Harmless, redundant.~~ Removed 2026-09-14 (§0.6 A6).
 
 ---
 
@@ -724,7 +724,7 @@ Two things follow: the OpenVPN behaviour is **unreported upstream**, and the FIX
 
 ### 14.7 The commented-out "provider doesn't support this yet" blocks
 
-> **Status at 0.65.0: three of the four are expressible.** Etherlighting: #463 was closed for upstream #666 (v0.62.0, `unifi_setting.etherlighting` and `unifi_device.etherlighting`), and the colours stay unmanaged on purpose because live runs the defaults. mDNS: `unifi_setting.mdns` (v0.62.0, upstream #661). Global Switch: `unifi_setting.global_switch` (v0.58.0), without the 802.1X fallback VLAN, the RADIUS profile, L3 network isolation, flow control and auto STP edge detection; per-device STP is in the update PUT since v0.58.0 (§14.2). Still nothing for the WAN SLA or the default security posture (§15).
+> **Status at 0.65.0: three of the four are expressible.** Etherlighting: #463 was closed for upstream #666 (v0.62.0, `unifi_setting.etherlighting` and `unifi_device.etherlighting`), and the colours stay unmanaged on purpose because live runs the defaults. mDNS: `unifi_setting.mdns` (v0.62.0, upstream #661). Global Switch: managed as `unifi_setting.global_switch` (v0.58.0) for STP mode, jumbo frames, DHCP snooping and 802.1X port control; the 802.1X fallback VLAN, the RADIUS profile, L3 network isolation, flow control and auto STP edge detection have no attribute and stay set by hand (§11). Per-device STP is in the update PUT since v0.58.0 (§14.2). Still nothing for the WAN SLA or the default security posture (§15).
 
 | Block | Claim | Reality on 2026-09-08 |
 |---|---|---|
@@ -753,7 +753,7 @@ All four are honest. Worth adding the check date to each so they can be re-audit
 
 ### 14.10 Suggested sequencing
 
-> **Status at 0.65.0:** superseded by §15. Of item 3, `config_network`, client updates and `wlan_bands` without the ignore are done; the `port_override` ignores stay for a different reason (§14.3). Of item 4, mDNS, Global Switch Settings and per-device STP are expressible now. Item 5 narrowed to the cipher's create default, which is still to be reported, with three other reports (§15).
+> **Status at 0.65.0:** superseded by §15. Of item 3, `config_network`, client updates and `wlan_bands` without the ignore are done; the `port_override` ignores stay for a different reason (§14.3). Of item 4, mDNS and per-device STP are expressible now, and the Global Switch Settings the provider covers are managed (§11). Item 5 narrowed to the cipher's create default, which is still to be reported, with three other reports (§15).
 
 Given the above, the ordering that avoids wasted work:
 
@@ -817,7 +817,7 @@ Re-checked against v0.65.0 on 2026-11-02: every upstream entry is closed. The re
 
 ## 15. What is still not in code at provider 0.65.0
 
-Every `FIXME` and `TODO` marker in `tofu/` on 2026-11-02, one row each, from `git grep -n -E 'FIXME|TODO' -- tofu`: 59 markers. Line numbers are those of that tree, so re-run the grep after editing a file. Paths are under `tofu/unifi/` except `tofu/providers.tf`. The grep also matches four lines that are not markers: `tofu/unifi/README.md:38` and `:40` define the two `FIXME` kinds, and `vpn.tf:2` and `vpn.tf:18` point at markers below them.
+Every `FIXME` and `TODO` marker in `tofu/` on 2026-11-02, one row each, from `git grep -n -E 'FIXME|TODO' -- tofu`: 60 markers. Line numbers are those of that tree, so re-run the grep after editing a file. Paths are under `tofu/unifi/` except `tofu/providers.tf`. The grep also matches four lines that are not markers: `tofu/unifi/README.md:38` and `:40` define the two `FIXME` kinds, and `vpn.tf:2` and `vpn.tf:18` point at markers below them.
 
 Why a marker stays:
 
@@ -826,7 +826,7 @@ Why a marker stays:
 - **UI-only by design:** outside the provider's reach or scope; the comment is the rebuild runbook.
 - **Needs a live read first:** expressible, but the code must mirror a value nobody has read yet.
 
-Two rows are **planned** in this stack: the Global Switch block (`settings.tf:89`) and mDNS (`mdns.tf:4`).
+One row is **planned** in this stack: mDNS (`mdns.tf:4`). The Global Switch Settings the provider covers are managed (§11); `settings.tf:71` lists the rest.
 
 | Where | What | Why it stays | What would unblock it |
 |---|---|---|---|
@@ -875,15 +875,16 @@ Two rows are **planned** in this stack: the Global Switch block (`settings.tf:89
 | `port_profiles.tf:54` | The 802.1X fallback VLAN is Guest, set by hand | **Blocked upstream:** not in `unifi_setting.global_switch`; a `global_switch` write leaves it alone | `dot1x_fallback_networkconf_id` on `global_switch` upstream |
 | `radius.tf:3` | `unifi_radius_user` has no `allow_existing` | **Blocked upstream:** a user made by hand is imported before it is declared, or the create fails on the duplicate name | `allow_existing` upstream |
 | `settings.tf:57` | The site RADIUS server's `enabled` and `configure_whole_network`, on by hand | **Blocked upstream:** go-unifi models both, the provider does not; a `radius` write never sends them | The two attributes on `unifi_setting.radius` |
-| `settings.tf:71` | Console name "UDM StKr" | **Blocked upstream:** `unifi_setting` has no block for the console's `super_*` settings | A block for them upstream |
-| `settings.tf:73` | Time zone Europe/Sofia (`locale`) | **Blocked upstream:** no `locale` block | A `locale` block upstream |
-| `settings.tf:75` | Night Mode 22:00-08:00 | **Needs a live read first:** `unifi_device.lcm.night_mode` carries it only if the UDM's device record holds the console's schedule (unchecked) | A read of the UDM's `stat/device` record |
-| `settings.tf:78` | Email Services: UI Mail Server (`super_mail`) | **Blocked upstream:** no `super_mail` block | A `super_mail` block upstream |
-| `settings.tf:79` | Analytics & Improvements off (`super_mgmt`) | **Blocked upstream:** no `super_mgmt` block | A `super_mgmt` block upstream |
-| `settings.tf:80` | Support File Full, Certificates none, Remote Access on, Direct Remote Connection and SSH off | **UI-only by design:** Support File and Certificates are UniFi OS console settings. **Blocked upstream:** Remote Access is `super_cloudaccess.enabled`, and there is no `super_cloudaccess` block. **Deliberately unmanaged:** Direct Remote Connection and SSH map to `mgmt.direct_connect_enabled` and, unchecked, `mgmt.ssh.enabled`; both are absent from the record and stay undeclared | A `super_cloudaccess` block upstream; nothing in the Network API for Support File and Certificates |
-| `settings.tf:84` | Updates: weekly, Sunday 4 AM; only the hour reaches the Network app | **UI-only by design:** weekday and channels are UniFi OS; `mgmt.auto_upgrade.hour` is managed | Nothing in the Network API |
-| `settings.tf:86` | Backups: monthly auto backup (`super_mgmt.autobackup_cron_expr`) | **Blocked upstream:** no `super_mgmt` block | A `super_mgmt` block upstream |
-| `settings.tf:89` | Global Switch Settings and the default security posture, as commented-out blocks. The comment still says v0.55.0 | **Needs a live read first:** since v0.58.0 `unifi_setting.global_switch` covers STP mode, jumbo frames, DHCP snooping, 802.1X port control and device isolation (not flow control, auto STP edge detection, the RADIUS profile, L3 network isolation or the fallback VLAN). The security posture is **blocked upstream** | **Planned:** managed as `unifi_setting.global_switch` in the next PR, after a live read. The posture needs a setting upstream |
+| `settings.tf:71` | The Global Switch Settings with no attribute, set by hand: 802.1X fallback VLAN Guest, the RADIUS profile 802.1X uses (one is bound), L3 network isolation off, flow control off, auto STP edge detection off | **Blocked upstream:** go-unifi models all five keys, `unifi_setting.global_switch` does not; its write sends only the declared keys and leaves these alone | `dot1x_fallback_networkconf_id`, `radiusprofile_id`, `acl_l3_isolation`, `flowctrl_enabled` and `auto_stp_edge_detection_enabled` on `global_switch` upstream. The fallback VLAN is load-bearing (`port_profiles.tf:54`) |
+| `settings.tf:87` | Console name "UDM StKr" | **Blocked upstream:** `unifi_setting` has no block for the console's `super_*` settings | A block for them upstream |
+| `settings.tf:89` | Time zone Europe/Sofia (`locale`) | **Blocked upstream:** no `locale` block | A `locale` block upstream |
+| `settings.tf:91` | Night Mode 22:00-08:00 | **Needs a live read first:** `unifi_device.lcm.night_mode` carries it only if the UDM's device record holds the console's schedule (unchecked) | A read of the UDM's `stat/device` record |
+| `settings.tf:94` | Email Services: UI Mail Server (`super_mail`) | **Blocked upstream:** no `super_mail` block | A `super_mail` block upstream |
+| `settings.tf:95` | Analytics & Improvements off (`super_mgmt`) | **Blocked upstream:** no `super_mgmt` block | A `super_mgmt` block upstream |
+| `settings.tf:96` | Support File Full, Certificates none, Remote Access on, Direct Remote Connection and SSH off | **UI-only by design:** Support File and Certificates are UniFi OS console settings. **Blocked upstream:** Remote Access is `super_cloudaccess.enabled`, and there is no `super_cloudaccess` block. **Deliberately unmanaged:** Direct Remote Connection and SSH map to `mgmt.direct_connect_enabled` and, unchecked, `mgmt.ssh.enabled`; both are absent from the record and stay undeclared | A `super_cloudaccess` block upstream; nothing in the Network API for Support File and Certificates |
+| `settings.tf:100` | Updates: weekly, Sunday 4 AM; only the hour reaches the Network app | **UI-only by design:** weekday and channels are UniFi OS; `mgmt.auto_upgrade.hour` is managed | Nothing in the Network API |
+| `settings.tf:102` | Backups: monthly auto backup (`super_mgmt.autobackup_cron_expr`) | **Blocked upstream:** no `super_mgmt` block | A `super_mgmt` block upstream |
+| `settings.tf:105` | Default security posture Allow All (`global_network.default_security_posture = "ALLOW_ALL"`) | **Blocked upstream:** no attribute, no resource and no go-unifi type | A `global_network` setting in go-unifi and the provider |
 | `vpn.tf:8` | Teleport (enabled, `192.168.7.1/24`) and Site Magic (on, no tunnels) | **UI-only by design:** the `unifi_teleport` data source (v0.62.0) only reads it; upstream #589, the request behind that data source, left managing Teleport out of its scope; nothing covers Site Magic | Nothing planned upstream |
 | `vpn.tf:37` | `encryption_cipher = "AES_256_CBC"` pinned, a concession for a re-create | **Blocked upstream:** a create still defaults to `AES_256_GCM`, which the controller rejects | A create default the controller accepts; to report, below. The pin changes nothing on the wire meanwhile |
 | `vpn.tf:44` | OpenVPN values without an attribute: protocol, MSS clamp, MTU, compression, DHCP range; `setting_preference` always sent as `manual` | **Blocked upstream:** no attributes; updates never send the first five, and every create and update sends `setting_preference = "manual"` | The attributes on `unifi_vpn_server` |
