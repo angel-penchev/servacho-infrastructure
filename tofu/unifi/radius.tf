@@ -14,9 +14,11 @@ locals {
 resource "unifi_radius_user" "users" {
   for_each = local.radius_users
 
-  name               = each.key
-  password           = var.radius_users_passwords[each.key]
-  tunnel_type        = each.value.tunnel_type
-  tunnel_medium_type = each.value.tunnel_medium_type
-  vlan               = each.value.vlan
+  name     = each.key
+  password = var.radius_users_passwords[each.key]
+  tunnel = {
+    type        = each.value.tunnel_type
+    medium_type = each.value.tunnel_medium_type
+  }
+  vlan = each.value.vlan
 }

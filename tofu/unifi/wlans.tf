@@ -17,15 +17,14 @@ resource "unifi_wlan" "stkr" {
   network_id = unifi_network.main.id
 
   wlan_bands    = ["2g", "5g", "6g"]
-  ap_group_ids  = [data.unifi_ap_group.default.id]
+  ap_group      = { ids = [data.unifi_ap_group.default.id] }
   user_group_id = data.unifi_client_qos_rate.default.id
 
-  radius_profile_id = data.unifi_radius_profile.default.id
+  radius = { profile_id = data.unifi_radius_profile.default.id }
 
-  wpa3_support    = true
-  wpa3_transition = true
-  pmf_mode        = "optional"
-  bss_transition  = true
+  wpa3           = { support = true, transition = true }
+  pmf_mode       = "optional"
+  bss_transition = true
 
   is_guest = false
 
@@ -43,13 +42,12 @@ resource "unifi_wlan" "stkr_guest" {
   network_id = unifi_network.guest.id
 
   wlan_bands    = ["2g", "5g", "6g"]
-  ap_group_ids  = [data.unifi_ap_group.default.id]
+  ap_group      = { ids = [data.unifi_ap_group.default.id] }
   user_group_id = data.unifi_client_qos_rate.default.id
 
-  wpa3_support    = true
-  wpa3_transition = true
-  pmf_mode        = "optional"
-  bss_transition  = true
+  wpa3           = { support = true, transition = true }
+  pmf_mode       = "optional"
+  bss_transition = true
 
   is_guest = true
 
@@ -72,13 +70,12 @@ resource "unifi_wlan" "stkr_iot" {
   network_id = unifi_network.iot.id
 
   wlan_bands    = ["2g", "5g", "6g"]
-  ap_group_ids  = [data.unifi_ap_group.default.id]
+  ap_group      = { ids = [data.unifi_ap_group.default.id] }
   user_group_id = data.unifi_client_qos_rate.default.id
 
-  wpa3_support    = true
-  wpa3_transition = true
-  pmf_mode        = "optional"
-  bss_transition  = true
+  wpa3           = { support = true, transition = true }
+  pmf_mode       = "optional"
+  bss_transition = true
 
   is_guest  = false
   hide_ssid = true
@@ -98,13 +95,12 @@ resource "unifi_wlan" "stkr_iot_2_4ghz" {
   network_id = unifi_network.iot.id
 
   wlan_bands    = ["2g"]
-  ap_group_ids  = [data.unifi_ap_group.default.id]
+  ap_group      = { ids = [data.unifi_ap_group.default.id] }
   user_group_id = data.unifi_client_qos_rate.default.id
 
-  wpa3_support    = false
-  wpa3_transition = false
-  pmf_mode        = "disabled"
-  bss_transition  = true
+  wpa3           = { support = false, transition = false }
+  pmf_mode       = "disabled"
+  bss_transition = true
 
   is_guest  = false
   hide_ssid = true

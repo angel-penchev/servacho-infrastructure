@@ -30,14 +30,14 @@ resource "unifi_port_profile" "unifi_devices" {
   native_networkconf_id = unifi_network.unifi_devices.id
   poe_mode              = "auto"
   autoneg               = true
-  dot1x_ctrl            = "force_authorized"
+  dot1x                 = { ctrl = "force_authorized" }
   tagged_vlan_mgmt      = "auto"
   stp_port_mode         = true
 }
 
 # Host-facing access ports. 802.1X success -> RADIUS assigns VLAN 2 (Main); failure or
 # no supplicant -> Guest. The second half is not on the profile: an unauthorized port
-# with dot1x_ctrl = "auto" drops everything including DHCP, and the "Guest instead"
+# with dot1x.ctrl = "auto" drops everything including DHCP, and the "Guest instead"
 # behaviour is the site-wide 802.1X Fallback VLAN in Global Switch Settings.
 # Native is Main because that is what an *authorized* client gets when RADIUS returns
 # no VLAN.
@@ -52,7 +52,7 @@ resource "unifi_port_profile" "host_device" {
   native_networkconf_id = unifi_network.main.id
   poe_mode              = "auto"
   autoneg               = true
-  dot1x_ctrl            = "auto"
+  dot1x                 = { ctrl = "auto" }
   tagged_vlan_mgmt      = "auto"
   setting_preference    = "manual"
   stp_port_mode         = true
@@ -66,7 +66,7 @@ resource "unifi_port_profile" "public_servers" {
   native_networkconf_id = unifi_network.public_servers.id
   poe_mode              = "auto"
   autoneg               = true
-  dot1x_ctrl            = "force_authorized"
+  dot1x                 = { ctrl = "force_authorized" }
   tagged_vlan_mgmt      = "auto"
   setting_preference    = "manual"
   stp_port_mode         = true
@@ -78,7 +78,7 @@ resource "unifi_port_profile" "private_servers" {
   native_networkconf_id = unifi_network.private_servers.id
   poe_mode              = "auto"
   autoneg               = true
-  dot1x_ctrl            = "force_authorized"
+  dot1x                 = { ctrl = "force_authorized" }
   tagged_vlan_mgmt      = "auto"
   setting_preference    = "manual"
   stp_port_mode         = true
@@ -90,7 +90,7 @@ resource "unifi_port_profile" "iot" {
   native_networkconf_id = unifi_network.iot.id
   poe_mode              = "auto"
   autoneg               = true
-  dot1x_ctrl            = "force_authorized"
+  dot1x                 = { ctrl = "force_authorized" }
   tagged_vlan_mgmt      = "auto"
   setting_preference    = "manual"
   stp_port_mode         = true
