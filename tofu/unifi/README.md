@@ -25,6 +25,7 @@ output → variable plumbing. One topic per file:
 | `clients.tf` | fixed-IP reservations | Clients |
 | `wlans.tf` | the four SSIDs | Settings → WiFi |
 | `firewall.tf` | zones (Dmz, Hotspot) and policies | Settings → Policy Engine |
+| `ingress.tf` | one policy per tenant of the ingress VM, from `nixos/hosts/ingress/tenants.json`; created by the apply, not in the UI first (`docs/ingress.md`) | Settings → Policy Engine |
 | `port_forwards.tf` | NAT port forwards | Settings → Policy Engine → NAT |
 | `radius.tf` | the RADIUS user accounts | Settings → Profiles → RADIUS |
 | `vpn.tf` | Teleport (documented), OpenVPN and WireGuard servers | Settings → VPN |
