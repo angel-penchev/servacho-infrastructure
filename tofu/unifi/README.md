@@ -27,22 +27,29 @@ output → variable plumbing. One topic per file:
 | `firewall.tf` | zones (Dmz, Hotspot) and policies | Settings → Policy Engine |
 | `port_forwards.tf` | NAT port forwards | Settings → Policy Engine → NAT |
 | `radius.tf` | the RADIUS user accounts | Settings → Profiles → RADIUS |
-| `vpn.tf` | Teleport (documented), OpenVPN and WireGuard servers | Settings → VPN |
-| `settings.tf` | site settings (`unifi_setting`), plus unsupported blocks: switch/802.1X, security posture, ether lighting | Settings → System, Control Plane → Console |
-| `mdns.tf` | the Gateway mDNS Proxy configuration (unsupported by the provider, applied by hand) | Settings → Networks → Global |
+| `vpn.tf` | Teleport (documented; the provider can only read it), OpenVPN and WireGuard servers | Settings → VPN |
+| `settings.tf` | site settings (`unifi_setting`); the Global Switch block, still commented out, partly expressible as `unifi_setting.global_switch` (not the 802.1X fallback VLAN, the RADIUS profile, L3 network isolation, flow control or auto STP edge detection); security posture (unsupported); Etherlighting (expressible, unmanaged on purpose) | Settings → System, Control Plane → Console |
+| `mdns.tf` | the Gateway mDNS Proxy configuration (expressible as `unifi_setting.mdns`, not yet managed; applied by hand) | Settings → Networks → Global |
 | `admins.tf` | the two admin accounts (unsupported, documentation only) | Admins & Users |
 | `alarms.tf` | the Alarm Manager rules (unsupported, documentation only) | Alarm Manager |
 
 ## Conventions
 
-- **`FIXME(unifi)`** — the provider (v0.55.0) cannot express this at all. The comment
-  carries the live values so a rebuild can reproduce them by hand.
+- **`FIXME(unifi)`** — not in code at v0.65.0, expressible or not; the comment carries
+  the live values so a rebuild can reproduce them (`docs/unifi-manual-vs-tofu.md` §15).
 - **`FIXME(unifi-ui-only)`** — a field the UI sets that has no attribute on an otherwise
-  managed resource. A from-scratch create would land on controller defaults.
+  managed resource. A from-scratch create would land on controller defaults, or on
+  `false` where the provider sends a field it does not model (the port profiles'
+  booleans, see `port_profiles.tf`).
 - Comments explain *why* a value is what it is; dates, CI runs and the change history
   live in `docs/`, not in the code.
-- Device `port_override` blocks carry `ignore_changes` until the upstream array-handling
-  bugs land (#430/#438/#470); they document live, they do not reconcile it.
+- Device `port_override` blocks carry `ignore_changes`: they document live, they do not
+  reconcile it. The upstream array fixes they waited for have shipped (upstream #430
+  and #438 in v0.56.0, #652 in v0.62.0; #470 was `unifi_port_profile`'s), but import
+  and refresh never put `port_override` in state, so lifting an ignore adds every block
+  unchecked. `unifi_device_port` (v0.65.0), imported one port at a time, is the way out
+  once CI runs OpenTofu >= 1.12: its Update sets no resource identity, so on 1.11 every
+  in-place update fails after the PUT (`docs/unifi-manual-vs-tofu.md` §14.3).
 
 ## Secrets
 
@@ -52,7 +59,8 @@ themselves are consumed by the provider block in `../providers.tf`.
 
 ## Related docs
 
-- `docs/unifi-manual-vs-tofu.md` — live-vs-code drift report and provider bug surface.
+- `docs/unifi-manual-vs-tofu.md` — live-vs-code drift report and provider bug surface;
+  §15 lists what is still not in code, comment by comment, and what would clear it.
 - `docs/unifi-browser-changes.md` — dated log of every change made outside code.
 - `docs/unifi-mgmt-vlan-99-runbook.md` — the management-VLAN migration.
 - `docs/unifi-import-plan.md` — how the live controller was imported into state (2026-09-14) and how to import one more resource.

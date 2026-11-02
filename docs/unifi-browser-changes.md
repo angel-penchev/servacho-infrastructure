@@ -89,6 +89,8 @@ Made in the UniFi web UI (Settings → Networks → the network → IPv4: Auto-S
 
 `dhcpd_stop`, the subnet, DHCP guarding and everything else are unchanged. The range fields are read-only in the UI while Auto-Scale Network is on, and the provider defaults `auto_scale` to `true`, so `tofu/unifi/networks.tf` sets `auto_scale = false` along with the new `start` on both networks; the plan shows no change to either.
 
+*Noted 2026-11-02:* that default was provider 0.55.0's. Since 0.58.0 an undeclared `auto_scale` keeps the controller's value; `auto_scale = false` stays declared because it mirrors live.
+
 ---
 
 ## Session 2026-10-02 — fixed IP for the management plane

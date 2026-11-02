@@ -265,8 +265,10 @@ set with that in mind:
 
 - **`.31` is inside Public Servers' DHCP range** (`.6`–`.254`). Either
   reserve it with a `unifi_client` once the VM's MAC is known, or move DHCP
-  above `.99` as on VLANs 10 and 12. That move has to be made in the UI first
-  (the `dhcp_guarding` FIXME in `tofu/unifi/networks.tf`). Until then,
+  above `.99` as on VLANs 10 and 12: `auto_scale = false` and
+  `dhcp_server.start = "192.168.4.100"` on `unifi_network.public_servers`.
+  Since provider 0.62.0 a range change from code leaves DHCP guarding alone;
+  the usual order still applies, the UI first and then the mirror. Until then,
   dnsmasq's ping check is what keeps it from handing the address out.
 - **A reinstall starts over.** Replacing the VM wipes both disks: the
   accounts and homes are gone until each class is imported again, with its

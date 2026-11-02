@@ -14,15 +14,17 @@ The five aspirational blocks in the module (`unifi_setting_switch`, `unifi_setti
 
 `import` blocks give one `tofu plan` that shows the 46 imports **and** every diff at once, without touching the controller. The `tofu import` CLI loop at the end does the same one resource at a time and never applies anything — use it if the plan shows drift you do not want to apply yet.
 
-## Id formats (provider v0.55.0, from its `ImportState` code)
+## Id formats (provider v0.65.0, from its `ImportState` code)
 
 | Type | Import id | Note |
 |---|---|---|
-| `unifi_network`, `unifi_port_profile`, `unifi_wlan`, `unifi_port_forward`, `unifi_firewall_zone`, `unifi_firewall_policy`, `unifi_vpn_server`, `unifi_radius_user` | controller `_id` (optionally `default:<_id>`) | radius user = account `_id` |
-| `unifi_wan` | `_id` if 24 hex, otherwise the WAN **name** | `networkgroup` is read from the controller on import |
+| `unifi_port_profile`, `unifi_port_forward`, `unifi_firewall_policy`, `unifi_radius_user` | controller `_id` (optionally `default:<_id>`) | radius user = account `_id` |
+| `unifi_network`, `unifi_wlan`, `unifi_vpn_server`, `unifi_wan` | `_id` if 24 hex, otherwise `name=<name>` or the plain **name** (optionally `default:` first) | `unifi_wan` reads `networkgroup` from the controller on import |
+| `unifi_firewall_zone` | `_id` or `name=<zone>` (optionally `default:` first) | the name form takes a built-in zone such as Hotspot without looking up its id |
 | `unifi_device` | **MAC** or `_id` | site is the provider's; a `site:` prefix is not parsed |
 | `unifi_client` | **MAC only** | anything without colons is rejected |
-| `unifi_setting` | `default` (the site name) | populates nothing until the first refresh — expect a full diff on this one resource |
+| `unifi_device_port` | `<device_mac>/<index>` (optionally `default/` first) | **Not usable while CI runs OpenTofu 1.11.8.** Import works, but the resource's Update sets no resource identity, so every in-place update fails after its PUT has reached the controller. Adopt it once CI runs OpenTofu >= 1.12 (drift report §14.3). The port needs an override entry on the controller, or the import fails with "Port Has No Overrides". |
+| `unifi_setting` | `default` (the site name) | reads every section the controller holds, except the secrets (`radius.secret`, `mgmt.ssh.password`) and the opt-in blocks (`mdns`, `snmp`, `radio_ai`, `etherlighting`); the configured `radius.secret` then plans one sensitive update, harmless while OpenBao and the controller agree. At v0.55.0 the import stored only the id, which is why the 2026-09-14 plan showed a full diff on this one resource. |
 
 ## Procedure
 
@@ -56,12 +58,12 @@ Expected: `46 to import`. Then read the diff line by line against this list:
 
 | Diff | Verdict |
 |---|---|
-| `module.unifi.unifi_setting.default` shows every block as an add | **Expected.** Import stores only the id; the first refresh/apply fills it. The values are the live ones, so the apply POSTs what is already there. |
+| `module.unifi.unifi_setting.default` shows every block as an add | **Expected at v0.55.0**, where the import stored only the id; the apply POSTed what was already there. Since v0.62.0 the import reads the sections, so expect only a sensitive `radius.secret` update. |
 | Nothing else | The goal. |
-| `unifi_client.*` shows `last_ip` or similar computed noise | Known #428 — an in-place update **fails** on apply. Do not apply; add the attribute to `ignore_changes` in `clients.tf` and re-plan. |
+| `unifi_client.*` shows a change | Code differs from live. In-place updates work since v0.56.0 (upstream #428), so the apply would write the code's value: mirror live instead and re-plan. Never add `network_id`: it is the Network Override (`clients.tf`). |
 | `unifi_device.*` shows `port_override` changes | Should not happen (`ignore_changes = [port_override]` is on all three switches/gateway). If it does, stop — see drift report §14.3. |
-| `unifi_device.*` shows `config_network` / `disabled` / STP changes | Known #463 / #476: those fields are dropped from the update PUT, apply would fail with "inconsistent result". Do not apply; mirror the live value in code and re-plan. |
-| `unifi_wlan.*` passphrase / bands | Should not happen (`ignore_changes` in `wlans.tf`). |
+| `unifi_device.*` shows `config_network` / `disabled` / STP changes | Code differs from live. Since v0.58.0 the update PUT carries these fields (upstream #482, #520), so the apply would write the code's value: mirror live instead and re-plan. |
+| `unifi_wlan.*` passphrase | Should not happen (`ignore_changes = [passphrase]` in `wlans.tf`). A band change is live drift: mirror it. |
 | `unifi_firewall_policy.*` `index` | Read-only, #348. Should not appear because `index` is not declared. |
 | `unifi_wan.*` `provider_capabilities` on the secondary | Not declared in code because live stores none; if the plan wants to remove something, mirror live. |
 | Anything else | A doc bug: the code is meant to mirror live. Fix the code to match live, re-plan, and record the finding in `unifi-manual-vs-tofu.md`. |
@@ -81,7 +83,7 @@ If the plan is not clean and you still want the imports in state, do **not** app
 
 - Delete `tofu/imports_unifi.tf` (or comment it out like `tofu/vms.tf` does) — a second plan with the blocks present is harmless but noisy. Commit. *(Done 2026-09-14.)*
 - Update `docs/unifi-manual-vs-tofu.md` §0.6 A1 → done, and note the first clean plan's date. *(Done; first clean plan 2026-09-14.)*
-- From here on the loop is: change in UI or API → read back → mirror → `tofu plan` must be clean. The `ignore_changes` blocks listed under §0.6 B stay until the provider ships the fixes.
+- From here on the loop is: change in UI or API → read back → mirror → `tofu plan` must be clean. The `ignore_changes` blocks still in the code, and why they stay, are listed in the drift report §15.
 
 ## CLI fallback (state only, nothing applied)
 
@@ -145,6 +147,8 @@ TSV
 ```
 
 The `unifi_radius_user` names carry their `for_each` key, e.g. `module.unifi.unifi_radius_user.users["a.penchev"]`; the quotes must reach `tofu`, which the loop preserves.
+
+The list is the 2026-09-14 set. Since then the module gained four reservations (`servacho_management_plane`, `qoax_community_management_plane`, `fmicodes_management_plane`, `mac4o_mini`), each imported by MAC, and two forwards created by apply (`unity_intercom`, `os_tues_ssh`; their import id is the controller `_id`), and `nginx_proxy` is gone (#85).
 
 ## Re-import one resource
 
