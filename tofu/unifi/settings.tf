@@ -63,6 +63,22 @@ resource "unifi_setting" "default" {
     acct_port          = 1813
     accounting_enabled = false
   }
+
+  # Settings -> Networks -> Global Switch Settings. A write sends only the keys declared
+  # here, so the hand-set keys below survive it. Device Isolation
+  # (acl_device_isolation, a list of network ids) is left undeclared: it is read from
+  # the controller and never sent.
+  # FIXME(unifi): set by hand, no attribute at v0.65.0: 802.1X Fallback VLAN = Guest
+  #   (`dot1x_fallback_networkconf_id`; load-bearing, see port_profiles.tf), the RADIUS
+  #   profile 802.1X uses (`radiusprofile_id`; a RADIUS profile is bound), L3 Network
+  #   Isolation (ACL) off (`acl_l3_isolation`), Flow Control off (`flowctrl_enabled`),
+  #   and Auto STP Edge Detection off (`auto_stp_edge_detection_enabled`).
+  global_switch = {
+    stp_version            = "rstp"
+    jumboframe_enabled     = false
+    dhcp_snoop             = true # Rogue DHCP Server Detection
+    dot1x_portctrl_enabled = true # 802.1X Control; load-bearing for Host Device ports
+  }
 }
 
 # Control Plane -> Console, the rest of the page: UniFi OS console settings or Network
@@ -86,37 +102,9 @@ resource "unifi_setting" "default" {
 # FIXME(unifi): Backups: auto backup on, `super_mgmt.autobackup_cron_expr "30 0 1 * *"`
 #   (monthly), timezone Europe/Sofia, keep 0 days.
 
-# FIXME(unifi): `unifi_setting` has no switch/dot1x block at v0.55.0 and there is no
-#   `unifi_setting_switch` / `unifi_setting_security` resource; the blocks below are
-#   aspirational. Two values in them are live and load-bearing, set by hand:
-#   dot1x_portctrl_enabled = true and dot1x_fallback_networkconf_id = Guest -- without
-#   the fallback an unauthenticated client on a Host Device port never gets DHCP
-#   (port_profiles.tf). Upstream #476 also drops per-device stp_version/stp_priority
-#   from the update PUT, so STP is unmanageable from either side.
-/*
-resource "unifi_setting_switch" "global" {
-  site = "default"
-
-  spanning_tree               = "rstp"
-  jumbo_frames                = false
-  rogue_dhcp_server_detection = true
-  
-  l3_network_isolation = false
-  device_isolation     = false
-
-  dot1x_control {
-    enabled           = true
-    credential_source = "local"
-    fallback_vlan_id  = unifi_network.guest.id # currently set by hand in the UI
-  }
-}
-
-resource "unifi_setting_security" "posture" {
-  site = "default"
-
-  default_security_posture = "allow_all"
-}
-*/
+# FIXME(unifi): Default Security Posture = Allow All
+#   (`global_network.default_security_posture = "ALLOW_ALL"`) -- no attribute, no
+#   resource and no go-unifi type at v0.65.0.
 
 # Etherlighting is unmanaged on purpose: live runs the controller default colours
 # (docs/unifi-manual-vs-tofu.md §11). To manage it, set the colours in the UI first, then
