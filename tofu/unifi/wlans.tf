@@ -1,6 +1,18 @@
-# FIXME(unifi): every WLAN ignores passphrase, wlan_bands and wlan_band -- the
-#   provider reads them back in a different shape (redacted passphrase, reordered
-#   bands) and would otherwise fail with "inconsistent result after apply".
+# FIXME(unifi): every WLAN keeps passphrase in ignore_changes until a plan without it
+#   is clean. Refresh copies the controller's x_passphrase into state; whether the
+#   tofu account gets it in clear or masked is unchecked. If in clear, that plan
+#   compares OpenBao with live on the three PSK SSIDs (both IoT SSIDs read
+#   var.wlan_iot_passphrase, so their live keys must match too): no diff means OpenBao
+#   holds the live keys, and a `~ passphrase` must not be applied, since it would PUT
+#   OpenBao's key over the live one. A diff that never clears means a masked key: move
+#   to passphrase_wo instead. StKr declares no passphrase and may show a one-time
+#   `passphrase -> null`, which sends nothing.
+#
+# Change WLAN bands in the UI first, then mirror wlan_bands. The provider plans wlan_band
+# from state but writes the value it derives from wlan_bands (2g with 5g: both; 2g
+# alone: 2g; 5g alone: 5g), so a code-first change of that value, such as dual-band <->
+# 2.4 GHz-only or dropping 5g, PUTs and then fails with "inconsistent result after
+# apply". Adding or dropping only 6g is safe.
 
 data "unifi_ap_group" "default" {
   name = "All APs"
@@ -28,10 +40,10 @@ resource "unifi_wlan" "stkr" {
 
   is_guest = false
 
-  group_rekey = 0 # live: GTK rekey disabled on every SSID (provider default 3600)
+  group_rekey = 0 # live: GTK rekey disabled on every SSID
 
   lifecycle {
-    ignore_changes = [passphrase, wlan_bands, wlan_band]
+    ignore_changes = [passphrase]
   }
 }
 
@@ -51,15 +63,14 @@ resource "unifi_wlan" "stkr_guest" {
 
   is_guest = true
 
-  # Must stay declared. The attribute is Optional+Computed with a false default
-  # (provider wlan_resource.go:469), so leaving it out makes an apply switch Client
-  # Device Isolation OFF on the guest SSID without showing a diff. Live is on.
+  # Must stay declared: a create sends false when it is unset, so a rebuilt guest SSID
+  # would come up with Client Device Isolation off. Live is on.
   l2_isolation = true
 
-  group_rekey = 0 # live: GTK rekey disabled on every SSID (provider default 3600)
+  group_rekey = 0 # live: GTK rekey disabled on every SSID
 
   lifecycle {
-    ignore_changes = [passphrase, wlan_bands, wlan_band]
+    ignore_changes = [passphrase]
   }
 }
 
@@ -80,10 +91,10 @@ resource "unifi_wlan" "stkr_iot" {
   is_guest  = false
   hide_ssid = true
 
-  group_rekey = 0 # live: GTK rekey disabled on every SSID (provider default 3600)
+  group_rekey = 0 # live: GTK rekey disabled on every SSID
 
   lifecycle {
-    ignore_changes = [passphrase, wlan_bands, wlan_band]
+    ignore_changes = [passphrase]
   }
 }
 
@@ -105,10 +116,10 @@ resource "unifi_wlan" "stkr_iot_2_4ghz" {
   is_guest  = false
   hide_ssid = true
 
-  group_rekey = 0     # live: GTK rekey disabled on every SSID (provider default 3600)
-  no2ghz_oui  = false # live: 2.4 GHz-only clients are not steered away (default true)
+  group_rekey = 0     # live: GTK rekey disabled on every SSID
+  no2ghz_oui  = false # live: 2.4 GHz-only clients are not steered away
 
   lifecycle {
-    ignore_changes = [passphrase, wlan_bands, wlan_band]
+    ignore_changes = [passphrase]
   }
 }

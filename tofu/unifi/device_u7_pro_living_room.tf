@@ -26,11 +26,4 @@ resource "unifi_device" "u7_pro_living_room" {
     gateway = "192.168.99.1"
     dns1    = "192.168.99.1"
   }
-
-  # FIXME(unifi): precautionary -- v0.55.0 also drops `disabled` from the update PUT and
-  #   the controller does not report it for APs, so null-vs-false could surface as
-  #   "inconsistent result after apply". Drop this ignore after v0.56.0 and see.
-  lifecycle {
-    ignore_changes = [disabled]
-  }
 }
