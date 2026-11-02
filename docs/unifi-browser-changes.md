@@ -351,7 +351,7 @@ A second pass walked every field of the profile editor side panel (Settings → 
 | **Endpoint** | `POST /api/s/default/set/setting/mdns` (plus one UI-driven apply, see below) |
 | **Before** | `mode: all`, `enabled_for: all`, no VLAN scope, no service list — the factory default |
 | **After** | `mode: custom`, `enabled_for: some`, `enabled_for_network_ids: [Main, IoT]`, 19 `predefined_services` |
-| **Codifiable?** | **No.** No `unifi_setting_mdns` resource at v0.55.0. Runbook lives in `tofu/unifi/system/mdns.tf`, now with the full 25-entry identifier catalogue and the wire format. |
+| **Codifiable?** | **No.** No `unifi_setting_mdns` resource at v0.55.0. Runbook lives in `tofu/unifi/system/mdns.tf`, now with the full 25-entry identifier catalogue and the wire format. *(Since provider 0.62.0 it is: the `mdns` block of `unifi_setting` (upstream #661), managed in `settings.tf` at 0.65.0; `mdns.tf` keeps the notes.)* |
 
 Decided by the user: services = casting/media/smart-home plus Apple File Sharing and iTunes; VLAN scope = **Main + IoT only** (Guest deliberately excluded). Dropped from the 25-service default: `apple_iChat`, `ftp_servers`, `ssh_servers`, `time_capsule`, `web_servers`, `windows_file_sharing_samba`.
 
@@ -365,7 +365,7 @@ How it actually went, for the record:
 4. From that read-back the wire format was clear: `enabled_for: "some"`, `predefined_services: [{"code": …}]`. A second API write filtered the list to the 19 above: `200`.
 5. Verified after a page reload: `mode custom | enabled_for some | vlans IoT+Main | services 19 | custom 0`.
 
-**Side effect worth knowing:** per-network `mdns_enabled` flipped from `true` on all eight networks to `true` on exactly Main and IoT. The flag is derived from the site-wide scope — `core/networks.tf` was updated to mirror it (`guest` `true → false`; all `TODO(mdns)` markers removed).
+**Side effect worth knowing:** per-network `mdns_enabled` flipped from `true` on all eight networks to `true` on exactly Main and IoT. The flag is derived from the site-wide scope — `core/networks.tf` was updated to mirror it (`guest` `true → false`; all `TODO(mdns)` markers removed). *(Since then: "derived from" is stronger than the evidence. The scope change was the UI write of step 3, which may have written both, so which side drives the other on an API write is not established; drift report §1 difference 4.)*
 
 ### RADIUS users `vl.penchev` and `v.todorova` — created by the user, verified against code (read-only)
 
@@ -561,6 +561,8 @@ Re-read and left exactly as found: `mode: "all"`, `enabled_for: "all"`, `predefi
 > **Vindicated 2026-09-11.** Leaving mDNS alone was the right call — measured hit counters later proved the reflector was working the whole time (337,966 Hotspot→Gateway, 127,493 IoT→Gateway). The half of the sentence above that did *not* hold up is "what was missing was only the unicast permission": the unicast permission was correct and still never matched a packet, because guest traffic is dropped at the AP. See the 2026-09-11 session.
 
 **Codifiable? No, at any level.** The provider exposes no mdns block on `unifi_setting` (v0.55.0 *or* `main`), and go-unifi's `settings.Mdns` carries only `mode` / `predefined_services` / `custom_services` — it is missing `enabled_for` and `enabled_for_network_ids`, which is what per-network scoping actually uses. **Needs a PR in both repos**; recorded as a `FIXME(unifi)` in `system/mdns.tf`, which replaced a fictional `unifi_setting_mdns` block that could never have planned.
+
+> **Since then:** both repos got it. go-unifi v1.39.0 added `enabled_for` and `enabled_for_network_ids`, and provider 0.62.0 added the `mdns` block of `unifi_setting` (upstream #661), which treats the network list as read-only. The proxy is managed in `settings.tf` at provider 0.65.0 (drift report §11).
 
 ### Outstanding — needs a physical action
 

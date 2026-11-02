@@ -24,7 +24,7 @@ The five aspirational blocks in the module (`unifi_setting_switch`, `unifi_setti
 | `unifi_device` | **MAC** or `_id` | site is the provider's; a `site:` prefix is not parsed |
 | `unifi_client` | **MAC only** | anything without colons is rejected |
 | `unifi_device_port` | `<device_mac>/<index>` (optionally `default/` first) | **Not usable while CI runs OpenTofu 1.11.8.** Import works, but the resource's Update sets no resource identity, so every in-place update fails after its PUT has reached the controller. Adopt it once CI runs OpenTofu >= 1.12 (drift report §14.3). The port needs an override entry on the controller, or the import fails with "Port Has No Overrides". |
-| `unifi_setting` | `default` (the site name) | reads every section the controller holds, except the secrets (`radius.secret`, `mgmt.ssh.password`) and the opt-in blocks (`mdns`, `snmp`, `radio_ai`, `etherlighting`); the configured `radius.secret` then plans one sensitive update, harmless while OpenBao and the controller agree. At v0.55.0 the import stored only the id, which is why the 2026-09-14 plan showed a full diff on this one resource. |
+| `unifi_setting` | `default` (the site name) | reads every section the controller holds, except the secrets (`radius.secret`, `mgmt.ssh.password`) and the opt-in blocks (`mdns`, `snmp`, `radio_ai`, `etherlighting`); the configured `radius.secret` then plans one sensitive update, and the declared `mdns` block an add. Neither sends anything while OpenBao and live match the code. At v0.55.0 the import stored only the id, which is why the 2026-09-14 plan showed a full diff on this one resource. |
 
 ## Procedure
 
@@ -58,7 +58,7 @@ Expected: `46 to import`. Then read the diff line by line against this list:
 
 | Diff | Verdict |
 |---|---|
-| `module.unifi.unifi_setting.default` shows every block as an add | **Expected at v0.55.0**, where the import stored only the id; the apply POSTed what was already there. Since v0.62.0 the import reads the sections, so expect only a sensitive `radius.secret` update. |
+| `module.unifi.unifi_setting.default` shows every block as an add | **Expected at v0.55.0**, where the import stored only the id; the apply POSTed what was already there. Since v0.62.0 the import reads the sections, so expect only a sensitive `radius.secret` update and `mdns` as an add (the import does not read it). |
 | Nothing else | The goal. |
 | `unifi_client.*` shows a change | Code differs from live. In-place updates work since v0.56.0 (upstream #428), so the apply would write the code's value: mirror live instead and re-plan. Never add `network_id`: it is the Network Override (`clients.tf`). |
 | `unifi_device.*` shows `port_override` changes | Should not happen (`ignore_changes = [port_override]` is on all three switches/gateway). If it does, stop — see drift report §14.3. |
