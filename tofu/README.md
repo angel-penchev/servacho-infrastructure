@@ -10,12 +10,13 @@ What the root management plane applies. The state is local to the plane
 | `root_plane.tf`, `root-plane/` | The root management plane: its VM and the NixOS deployed onto it ([docs/management-plane-nixos.md](../docs/management-plane-nixos.md)) |
 | `organisations.tf`, `organisation/` | One `organisation` per organisation: its pool, OpenTofu user and token, the token's copy in the root OpenBao, and its management plane ([docs/tenant-management-planes.md](../docs/tenant-management-planes.md)) |
 | `os_tues.tf` | The operating systems class's machine: its VM and its NixOS; the students' accounts are the `os-tues students` workflow's ([docs/os-tues.md](../docs/os-tues.md)) |
+| `ingress.tf`, `ingress/` | The ingress VM and its NixOS, which route the internet's 80 and 443 to each tenant by name; the gateway's policies for its tenants are in `unifi/ingress.tf` ([docs/ingress.md](../docs/ingress.md)) |
 | `unifi_module.tf`, `unifi/` | The UniFi controller ([unifi/README.md](unifi/README.md)) |
 
 `organisation/` is instantiated once per organisation, so its resources are
 written once and named generically (`proxmox_virtual_environment_pool.this`);
-`root-plane/` and `unifi/` are single instances kept in their own directory to
-group them.
+`root-plane/`, `ingress/` and `unifi/` are single instances kept in their own
+directory to group them.
 
 Adding an organisation is one more `module "<id>"` call in `organisations.tf`,
 plus its VLAN in `unifi/networks.tf` and, for a plane, its host in
