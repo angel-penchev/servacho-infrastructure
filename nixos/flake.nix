@@ -96,6 +96,17 @@
           ];
         };
 
+        # The VM that routes the internet's 80 and 443 to each tenant by
+        # name, installed and deployed by tofu/ingress/ (docs/ingress.md).
+        ingress = lib.nixosSystem {
+          inherit system;
+          modules = [
+            reusables.nixosModules.base
+            reusables.nixosModules.proxmox-guest
+            ./hosts/ingress/configuration.nix
+          ];
+        };
+
         # The ISO an organisation's plane boots before it has a system of its own.
         installer = lib.nixosSystem {
           inherit system;
@@ -128,6 +139,11 @@
         os-tues = self.nixosConfigurations.os-tues.config.system.build.toplevel;
         # LazyVim starting offline, in the build sandbox (hosts/os-tues/lazyvim.nix).
         os-tues-lazyvim = self.nixosConfigurations.os-tues.config.system.build.lazyvimCheck;
+        ingress = self.nixosConfigurations.ingress.config.system.build.toplevel;
+        # The tenant file: no name claimed twice or covered by another
+        # tenant's suffix, and a configuration haproxy -c accepts
+        # (hosts/ingress/haproxy.nix). The system's build runs it too.
+        ingress-haproxy = self.nixosConfigurations.ingress.config.system.build.haproxyCheck;
         installer = self.nixosConfigurations.installer.config.system.build.toplevel;
       };
 
