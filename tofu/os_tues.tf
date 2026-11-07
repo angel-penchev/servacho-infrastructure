@@ -11,7 +11,7 @@
 # Sized for a class of about 25 logged in at once, each held to 2 GiB and two
 # cores by the host's per-login limits; /home is a disk of its own.
 module "os_tues" {
-  source = "github.com/angel-penchev/infrastructure-reusables//tofu/modules/nixos-vm?ref=v0.8.0"
+  source = "github.com/angel-penchev/infrastructure-reusables//tofu/modules/nixos-vm?ref=v0.9.1"
 
   name             = "os-tues"
   node_name        = "Servacho-Gosho"

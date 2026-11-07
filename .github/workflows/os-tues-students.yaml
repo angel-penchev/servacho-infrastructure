@@ -47,7 +47,7 @@ jobs:
 
       # For the deploy key, which root on os-tues accepts.
       - name: Unseal OpenBao
-        uses: angel-penchev/infrastructure-reusables/actions/openbao-unseal@v0.8.0
+        uses: angel-penchev/infrastructure-reusables/actions/openbao-unseal@v0.9.1
         with:
           unseal_keys: ${{ secrets.OPENBAO_UNSEAL_KEY }}
           vault_addr: ${{ env.VAULT_ADDR }}
