@@ -419,6 +419,8 @@ Live write: two `PUT /rest/device/<id>` calls with the full array; all overrides
 | **Secondary: provider capabilities** | **not set** | **150000 / 40000** |
 | **Secondary: load balance weight** | not set | 50 |
 
+*Updated 2026-11-07:* the secondary has stored `wan_load_balance_weight = 50` since the UI saved a WAN SLA assignment, and `wans.tf` declares it. Both WANs use the `ICMP Probes` SLA through `wan_sla`, which `unifi_wan` does not model; an update PATCHes only changed keys and leaves it alone (`unifi-browser-changes.md`, §15).
+
 Physical port assignment (WAN1 → UDM port 9, WAN2 → UDM port 1) is a UniFi OS concern and is not represented in the live Network config — see §3.2.
 
 ---
@@ -586,7 +588,7 @@ Decisions needed: keep Teleport (yes, recommended — zero-config for phones, an
 | mDNS | **`mode = "custom"`, `enabled_for = "some"`, Main + IoT, 19 services** (set 2026-09-13) | `unifi_setting.default.mdns`: `mode = "custom"`, `enabled_for = "some"`, the 19 `predefined_services` (compared in order, so they must keep the order `/get/setting/mdns` stores), `custom_services = []`. The network list (`enabled_for_network_ids`) is read-only in the provider, so the scope is chosen with `multicast_dns`, true on Main and IoT in `networks.tf`. Notes (why Main + IoT, the excluded services) and the 25-service catalogue in `mdns.tf` | ✅ (`unifi_setting.mdns`, provider 0.62.0+). A write sends only the keys that differ from the stored document; the service list is compared in order. An import does not read the block, so a re-import plans it as an add |
 | Global switch | rstp, jumbo off, flowctrl off, DHCP snooping on, auto STP edge detection off, 802.1X on, RADIUS profile bound; 802.1X fallback VLAN Guest (since 2026-09-08, §6) | `unifi_setting.default.global_switch`: `stp_version = "rstp"`, `jumboframe_enabled = false`, `dhcp_snoop = true`, `dot1x_portctrl_enabled = true`; device isolation (`acl_device_isolation`) left undeclared, read from the controller | ✅ for the four declared keys (`unifi_setting.global_switch`, provider 0.58.0+). Flow control, auto STP edge detection, the RADIUS profile, L3 network isolation and the 802.1X fallback VLAN have no attribute and stay set by hand (`FIXME(unifi)` in `settings.tf`, §15); a `global_switch` write sends only the declared keys |
 | Etherlighting | controller defaults (per-network auto colours; speed defaults `10M=#FFC105` etc.) | commented-out `unifi_setting_ether_lighting` with custom colours (FE `#ff0509`, GbE `#FFCC00`, 2.5GbE `#05ff19`, 10GbE `#054aff`, never applied) + a device-level block; removed, and `settings.tf` says why Etherlighting stays unmanaged | **unmanaged on purpose**: live runs the defaults. Expressible since 0.62.0 (`unifi_setting.etherlighting`, `unifi_device.etherlighting`) |
-| WAN SLA | not checked | commented-out `unifi_wan_sla` | **unmanaged**; no provider resource at 0.65.0 either |
+| WAN SLA | `ICMP Probes` on both WANs, set by hand on 2026-11-07 (`unifi-browser-changes.md`) | commented-out `unifi_wan_sla.icmp_probes`, matching live | **unmanaged**; no provider resource at 0.65.0 either |
 
 Notes:
 
@@ -817,7 +819,7 @@ Re-checked against v0.65.0 on 2026-11-02: every upstream entry is closed. The re
 
 ## 15. What is still not in code at provider 0.65.0
 
-Every `FIXME` and `TODO` marker in `tofu/` on 2026-11-02, one row each, from `git grep -n -E 'FIXME|TODO' -- tofu`: 59 markers. Line numbers are those of that tree, so re-run the grep after editing a file. Paths are under `tofu/unifi/` except `tofu/providers.tf`. The grep also matches four lines that are not markers: `tofu/unifi/README.md:38` and `:40` define the two `FIXME` kinds, and `vpn.tf:2` and `vpn.tf:18` point at markers below them.
+Every `FIXME` and `TODO` marker in `tofu/` on 2026-11-07, one row each, from `git grep -n -E 'FIXME|TODO' -- tofu`: 59 markers. Line numbers are those of that tree, so re-run the grep after editing a file. Paths are under `tofu/unifi/` except `tofu/providers.tf`. The grep also matches four lines that are not markers: `tofu/unifi/README.md:38` and `:40` define the two `FIXME` kinds, and `vpn.tf:2` and `vpn.tf:18` point at markers below them.
 
 Why a marker stays:
 
@@ -887,7 +889,7 @@ The Global Switch Settings the provider covers and the Gateway mDNS Proxy are ma
 | `vpn.tf:8` | Teleport (enabled, `192.168.7.1/24`) and Site Magic (on, no tunnels) | **UI-only by design:** the `unifi_teleport` data source (v0.62.0) only reads it; upstream #589, the request behind that data source, left managing Teleport out of its scope; nothing covers Site Magic | Nothing planned upstream |
 | `vpn.tf:37` | `encryption_cipher = "AES_256_CBC"` pinned, a concession for a re-create | **Blocked upstream:** a create still defaults to `AES_256_GCM`, which the controller rejects | A create default the controller accepts; to report, below. The pin changes nothing on the wire meanwhile |
 | `vpn.tf:44` | OpenVPN values without an attribute: protocol, MSS clamp, MTU, compression, DHCP range; `setting_preference` always sent as `manual` | **Blocked upstream:** no attributes; updates never send the first five, and every create and update sends `setting_preference = "manual"` | The attributes on `unifi_vpn_server` |
-| `wans.tf:36` | The intended WAN SLA monitor (live has none) | **Blocked upstream:** no WAN SLA resource | A WAN SLA resource upstream |
+| `wans.tf:38` | The WAN SLA, `ICMP Probes` on both WANs, set by hand | **Blocked upstream:** no WAN SLA resource, and no `unifi_wan` attribute for the SLA a WAN uses | A WAN SLA resource and a `wan_sla` attribute on `unifi_wan` upstream |
 | `wlans.tf:1` | `passphrase` stays in `ignore_changes` on all four SSIDs | **Needs a live read first:** whether the controller returns `x_passphrase` to the tofu account in clear or masked is unchecked. If in clear, a plan without the ignore that comes back clean proves OpenBao holds the live keys (both IoT SSIDs read one variable, so their live keys must match) | A PR that drops the ignore and shows a clean plan; StKr may show a one-time `passphrase -> null`, which sends nothing. A `~ passphrase` on a PSK SSID means OpenBao differs from live: fix OpenBao, never apply it. A diff that never clears means a masked key: move to `passphrase_wo` instead |
 
 ### 15.1 Follow-ups that are not `FIXME` markers
