@@ -79,6 +79,8 @@ On Host Device the host fell back into **Guest** through 802.1X until the profil
 
 **Still in place on 2026-10-15** (read back over `GET /stat/sta` and `GET /stat/device`): Servacho-Gosho on port 21 at 2.5 GbE, Aggregation port 1 down. The DAC has not arrived yet.
 
+*Noted 2026-11-02:* still in place (read back over `GET /stat/sta` and `GET /stat/device`: port 21, Aggregation port 1 down). The DAC is postponed to December 2026. Reverting also means changing the comment over `unifi_client.servacho_gosho` in `tofu/unifi/clients.tf` back to Aggregation port 1.
+
 **Revert, once the DAC arrives:** move the host to the DAC on Aggregation port 1, set port 21 back to `BR-05`, Host Device, `setting_preference auto`, and revert the matching block in `tofu/unifi/device_usw_pro_max_24_poe.tf`. Every VM on the host loses its network while the cable moves (the planes, so `wan-dns`, Teleport and OpenBao, and the qoaxhack nodes). Port blocks are under `ignore_changes`, so the plan is unaffected either way.
 
 ---

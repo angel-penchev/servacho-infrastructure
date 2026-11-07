@@ -233,12 +233,14 @@ Global Switch Settings without an attribute (802.1X fallback VLAN = Guest, the 8
 | **Default (Untagged)** *(was UniFi Devices until 2026-09-13; DHCP **off** since 2026-09-14)* | corporate | untagged | 192.168.1.1/24 | — | off |
 | **UniFi Devices** *(new 2026-09-13, runbook Phase 0)* | corporate | **99** | 192.168.99.1/24 | .6–.254 | off |
 | Main | corporate | 2 | 192.168.2.1/24 | .6–.254 | on |
-| Guest | guest | 3 | 192.168.3.1/24 | .6–.254 | on |
-| Public Servers | corporate | 4 | 192.168.4.1/24 | .6–.254 | on |
-| Private Servers | corporate | 5 | 192.168.5.1/24 | .6–.254 | on |
+| Guest | guest | 3 | 192.168.3.1/24 | .6–.254 | off |
+| Public Servers | corporate | 4 | 192.168.4.1/24 | .6–.254 | off |
+| Private Servers | corporate | 5 | 192.168.5.1/24 | .6–.254 | off |
 | IoT | corporate | 6 | 192.168.6.1/24 | .6–.254 | on |
-| **Qoax VPS** | corporate | 10 | **192.168.10.1/23** | **.10.11–.11.254** | on |
-| FMI{Codes} VPS | corporate | 12 | 192.168.12.1/24 | .6–.254 | on |
+| **Qoax VPS** | corporate | 10 | **192.168.10.1/23** | **.10.100–.11.254** | off |
+| FMI{Codes} VPS | corporate | 12 | 192.168.12.1/24 | .100–.254 | off |
+
+*Updated 2026-11-02:* mDNS has been off everywhere but Main and IoT since 2026-09-13 (difference 4 below), and the Qoax VPS and FMI{Codes} VPS pools have started at .100 since 2026-10-04 (`unifi-browser-changes.md`). Read back live on 2026-11-02.
 
 ### Differences vs. `tofu/unifi/networks.tf`
 
@@ -637,7 +639,7 @@ Checked against upstream on **2026-09-08**. This section is the binding constrai
 
 - We pin `~> 0.65.0` in `tofu/providers.tf` and `tofu/unifi/module.tf`, and both `.terraform.lock.hcl` files lock 0.65.0 (released 2026-11-01) for all 13 platforms (#87). On 2026-09-08 the pin was `~> 0.55.0`, and every August fix sat unreleased on upstream `main`.
 - The August fixes shipped in v0.56.0 on 2026-09-23 (upstream [#475](https://github.com/ubiquiti-community/terraform-provider-unifi/issues/475) closed). v0.60.0 nested the prefixed attributes (upstream [#478](https://github.com/ubiquiti-community/terraform-provider-unifi/pull/478)), so #87 migrated the configuration in the same commit as the pin.
-- The first apply under 0.65.0, on #87's merge, upgrades the state in place, and 0.55.0 cannot read it afterwards. The copy taken before it is `/var/lib/opentofu/servacho-infrastructure.tfstate.pre-unifi-0.65.0` (serial 109) on the management plane. Going back to 0.55.0 means restoring that copy, which is valid only while no other apply has run since.
+- #87's apply on 2026-11-02 upgraded the state in place, and 0.55.0 cannot read it afterwards. The copy taken before it, `/var/lib/opentofu/servacho-infrastructure.tfstate.pre-unifi-0.65.0` (serial 109) on the management plane, has been stale since #92 and #93 changed `unifi_setting.default` the same day: do not restore it. The fallback left is 0.64.0, below.
 - 0.64.0 has the same state schema versions, so it reads the upgraded state (with a refresh, which CI always does). #87's configuration validates on 0.64.0 too, but `port_override.stp_edge_state`, declared since, exists only at 0.65.0: falling back means a re-pin, a re-lock and removing those lines.
 - CI runs OpenTofu 1.11.8, which stores no resource identities. That keeps `unifi_device_port` out of reach (§14.3).
 
@@ -780,7 +782,7 @@ Runs 34835272924 → 34838813522 on `feat/unifi-port-config`, after the pre-rese
 | 7 | **Device import lists no `port_override` at all** (0 blocks on the Pro Max, which has 25 live). Whether Read populates them is moot while `ignore_changes = [port_override]` is on, but a clean plan after #470/#430 also needs Read to return them. | observation, verify when the ignores go | §14.3 | Still true at 0.65.0: the reason the ignores stay (§14.3). |
 | 8 | **Deleted objects make refresh fail** instead of dropping from state: `Error Reading network … not found` plus `Missing Resource Identity After Read` on every pre-reset entry. The only remedy is `tofu state rm` on the management plane. | provider bug (Read on 404) | `unifi-import-plan.md` step 2; worth an upstream issue | 🔧 Partly fixed in v0.60.0 (upstream #604): a deleted client, device, firewall zone or policy, port forward, port profile or RADIUS user drops from state and plans a re-create, which the next apply on main performs. `unifi_network`, `unifi_wan`, `unifi_wlan` and `unifi_vpn_server` still fail the refresh; to report (§15). |
 | 9 | `hashicorp/vault` v5 deprecates the `vault_kv_secret_v2` data source (12 warnings per plan) in favour of the ephemeral resource. | dependency deprecation | `providers.tf` TODO(vault) | Open (§15). |
-| 10 | Plan noise: any device update lists ~20 attributes as `(known after apply)` incl. `x_baresip_password (sensitive)`; `unifi_setting.usg` is unknown until the first apply. Neither is a diff. | quirk | here | Not re-checked at 0.65.0. |
+| 10 | Plan noise: any device update lists ~20 attributes as `(known after apply)` incl. `x_baresip_password (sensitive)`; `unifi_setting.usg` is unknown until the first apply. Neither is a diff. | quirk | here | At 0.65.0 an update of `unifi_setting.default` also lists `~ radius_secret_wo = (write-only attribute)`, although nothing sets it. It sends nothing: the provider writes `radius` only when `radius` or `radius_secret_wo_version` changes (`setting_resource.go:3247-3249`). The device-update half is not re-checked. |
 | 11 | **`unifi_setting` apply aborts with "inconsistent result"**: `igmp_snooping.network_ids` is null in the plan and `[]` after the write. The POST itself succeeds. | provider bug (null vs empty list, same family as #470) → **concession**: `network_ids = []` declared | `settings.tf` FIXME | ✅ Fixed in v0.62.0 (upstream #668). `network_ids = []` stays declared so that a network ticked in the UI shows in the plan. |
 | 12 | **`dhcp_guarding` cannot be written**: the update PUT carries `dhcpguard_enabled` but not the trusted servers (`dhcpd_ip_1..3`, which Read maps correctly), so the controller rejects it with `api.err.MissingIPAddress`. Any update to a guarded network fails. | provider bug → guarded networks are changed in the UI first, then mirrored | `networks.tf` FIXME | ✅ Fixed: since v0.56.0 go-unifi encodes `dhcpd_ip_1..3`, and since v0.62.0 an update sends `dhcpguard_enabled` only together with them (upstream #664). "Any update to a guarded network fails" overstated it: the only rejection seen came from turning guarding on for a network with no stored `dhcpd_ip_1`. |
 | 13 | The OpenVPN update **wrote `openvpn_mode` and `openvpn_encryption_cipher` into the controller object** — keys the UI never creates. The controller accepted them and now stores them, so #3's perpetual `mode` diff may be gone. Watch the next plan. | side effect → confirmed gone: plan 34843770282 shows no `openvpn` diff | `vpn.tf` FIXME | History. Since v0.64.0 an undeclared `mode` keeps the stored value. |

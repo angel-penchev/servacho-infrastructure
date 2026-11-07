@@ -2,7 +2,7 @@
 # is mirrored with fixed_ip = "": deleting the resource would make the controller forget
 # the client.
 
-# Proxmox host, USW Aggregation port 1.
+# Proxmox host: USW Pro Max port 21 while its Aggregation port 1 link is out.
 resource "unifi_client" "servacho_gosho" {
   mac            = "38:05:25:30:79:97"
   name           = "Servacho-Gosho"
