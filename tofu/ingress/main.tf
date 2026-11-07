@@ -10,7 +10,7 @@
 # 1 GiB carry its 4,096 connections (about 135 MB) with room to spare; when
 # the host runs short, the VM gives memory back down to 512 MiB.
 module "vm" {
-  source = "github.com/angel-penchev/infrastructure-reusables//tofu/modules/nixos-vm?ref=v0.8.0"
+  source = "github.com/angel-penchev/infrastructure-reusables//tofu/modules/nixos-vm?ref=v0.9.1"
 
   name             = "ingress"
   node_name        = "Servacho-Gosho"
