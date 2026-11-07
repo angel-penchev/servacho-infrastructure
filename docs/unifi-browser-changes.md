@@ -8,6 +8,28 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ---
 
+## Session 2026-11-07 — a WAN SLA that fails over a captive WAN1
+
+WAN1's bill was left unpaid on purpose, to test failover. Vivacom put the line behind its captive portal (`captivation.vivacom.bg`), and the gateway never failed over. Both WANs ran the **Auto** SLA, which is down only when two of three probes fail: a ping to `ping.ui.com`, and DNS lookups of `ui.com` through 1.1.1.1 and 8.8.8.8. Through the captive line DNS reached the real resolvers (Cloudflare saw `46.10.181.183`), while ICMP was dropped past the gateway, plain HTTP was redirected with a 302 to the portal, and HTTPS timed out. Only the ping failed, so WAN1 stayed Online and active. The `www` health subsystem showed `warning`, but it does not drive failover.
+
+Made in the UniFi web UI (Settings → Internet), read back over `GET /v2/api/site/default/wan-slas`, `GET /v2/api/site/default/wan/load-balancing/configuration` and `GET /rest/networkconf`:
+
+| Object | Attribute | Was | Now |
+|---|---|---|---|
+| WAN SLA `6aeebeaf613437b4f2151319`, `POST /v2/api/site/default/wan-slas` | whole object | none existed | `ICMP Probes`: `monitor_health_type MAJORITY`; three `ICMP` monitors, 1.1.1.1, 8.8.8.8 and 9.9.9.9, each `interval 5`, `time_period 60`, `alert {loss_threshold 20, latency_threshold 1500, threshold_policy any}` |
+| `PUT /v2/api/site/default/wan/load-balancing/configuration` | `wan_sla` on WAN and WAN2 | unset (Auto) | `6aeebeaf613437b4f2151319` |
+| | WAN2 `weight` | unset | `50`, written by the UI with the save |
+| Vivacom Primary and Vivacom Secondary (`rest/networkconf`) | `wan_sla` | unset | `6aeebeaf613437b4f2151319`, the controller's copy of the assignment |
+| | Vivacom Secondary `wan_load_balance_weight` | unset | `50` |
+
+No other networkconf key changed on either WAN. The controller defaults the form to a ping every 5 s, a 60 s period, 20 % loss and 1500 ms latency, and those were kept. The form's own default for **Threshold Condition**, `all`, was changed to `any`: a target then fails on loss alone, whatever latency a lost probe reports. **Majority** is offered only with three or more targets.
+
+**Result.** Within a minute WAN1 read `offline` in `last_wan_status`, all three ICMP monitors at 0 %, and the uplink was `eth0` (`87.126.144.74`). LAN clients reached HTTPS again and Cloudflare saw `87.126.144.74`. `wan-dns` moved `intercom.qo.ax` to `87.126.144.74` on its own.
+
+**Code.** There is no `unifi_wan_sla` resource at 0.65.0, and `unifi_wan` has no attribute for `wan_sla`, so the SLA stays out of state. `wans.tf` mirrors it as the commented-out `unifi_wan_sla.icmp_probes` and declares WAN2's `weight = 50`. That attribute is Optional and Computed, and `unifi_wan` updates PATCH only the keys that change, so neither shows in a plan and an apply leaves `wan_sla` alone.
+
+---
+
 ## Session 2026-10-15 — the Mac mini moves to Public Servers
 
 Made through the controller's REST API from the user's Chrome session, read-modify-write and read back after each write, so the Unity Intercom server (`docs/unity-intercom.md`) sits in the `Dmz` zone instead of Main.
