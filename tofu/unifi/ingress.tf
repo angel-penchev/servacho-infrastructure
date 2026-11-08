@@ -6,9 +6,11 @@
 # created the intercom's forward. An empty file plans none.
 
 locals {
-  # The VM's static address (../ingress.tf, ../../nixos/hosts/ingress/);
-  # unifi_client.ingress.fixed_ip once clients.tf reserves it.
-  ingress_address = "192.168.4.16"
+  # The VM's address, prefix and gateway: ../../nixos/hosts/ingress/vm.json,
+  # their one copy, from which the host sets its address and ../ingress.tf
+  # deploys to it. The policies name the address as their source, and the
+  # VM's reservation in clients.tf will take its fixed_ip from here too.
+  ingress_vm = jsondecode(file("${path.module}/../../nixos/hosts/ingress/vm.json"))
 
   ingress_tenants = jsondecode(file("${path.module}/../../nixos/hosts/ingress/tenants.json"))
 
@@ -23,6 +25,25 @@ locals {
       }
       if !cidrcontains(unifi_network.public_servers.subnet, split(":", server)[0])
     ]
+  }
+}
+
+# Fails the plan when vm.json and networks.tf disagree. The conditions sit on
+# a terraform_data of their own, which is nothing on the controller: a
+# precondition on the policies below would run once per policy, so never
+# with no tenants, and a check block would only warn.
+resource "terraform_data" "ingress_checks" {
+  lifecycle {
+    # The VM is on Public Servers, the network in the Dmz zone that the
+    # policies name as their source: its gateway and prefix are the
+    # network's, and its address is in it.
+    precondition {
+      condition = (
+        "${local.ingress_vm.gateway}/${local.ingress_vm.prefix_length}" == unifi_network.public_servers.subnet &&
+        cidrcontains(unifi_network.public_servers.subnet, local.ingress_vm.address)
+      )
+      error_message = "nixos/hosts/ingress/vm.json puts the VM at ${local.ingress_vm.address}/${local.ingress_vm.prefix_length} through ${local.ingress_vm.gateway}: it belongs on Public Servers (${unifi_network.public_servers.subnet}), the Dmz network the ingress policies name as their source."
+    }
   }
 }
 
@@ -44,7 +65,7 @@ resource "unifi_firewall_policy" "ingress" {
   source = {
     zone_id         = unifi_firewall_zone.dmz.id
     matching_target = "IP"
-    ips             = [local.ingress_address]
+    ips             = [local.ingress_vm.address]
   }
 
   destination = {

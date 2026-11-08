@@ -16,6 +16,7 @@ adding one is a pull request.
 |---|---|---|
 | VM 4016 on Public Servers (VLAN 4, the `Dmz` zone), `192.168.4.16`. It has 1 core, 1 GiB ballooning down to 512 MiB, and a 16 GiB disk, and is in no organisation's pool | `tofu/ingress.tf`, with infrastructure-reusables' `nixos-vm` | tofu |
 | The host: HAProxy, the firewall, SSH | `nixos/hosts/ingress/configuration.nix`, `haproxy.nix` | tofu, deployed in place |
+| The VM's address, prefix and gateway, their one copy | `nixos/hosts/ingress/vm.json`, which the host, `tofu/ingress.tf` and `tofu/unifi/ingress.tf` read; the plan fails if it leaves Public Servers | a pull request; moving the VM takes more ([Known gaps](#known-gaps)) |
 | The tenants | `nixos/hosts/ingress/tenants.json` | a pull request ([Adding a tenant](#adding-a-tenant)) |
 | One `Dmz → Internal` policy per tenant, from the VM to its servers' addresses and ports | `unifi_firewall_policy.ingress`, `tofu/unifi/ingress.tf`, from the same file | tofu |
 | The reservation of `192.168.4.16` | not yet ([The reservation](#the-reservation)) | the UI, then tofu |
@@ -81,7 +82,9 @@ Nothing has served the home's 80 and 443 since `192.168.5.58` was shut down
      on both ports. Left out, it is `false`.
 2. **Open the tenant's own firewall** to 80 and 443 (or the ports above)
    from `192.168.4.16` alone. With `proxy_protocol`, trust the header from
-   that address alone.
+   that address alone, for example in Traefik's `proxyProtocol.trustedIPs`.
+   The address is `address` in `nixos/hosts/ingress/vm.json`; should it
+   change, these must change with it.
 3. **Open a pull request.** Its plan builds the VM's system, which fails if:
    - two tenants claim the same name;
    - one tenant's suffix covers another tenant's name;
@@ -180,19 +183,21 @@ are:
 1. Read the VM's MAC: Proxmox → VM 4016 → Hardware → Network Device, or
    `qm config 4016 | grep net0` on Servacho-Gosho.
 2. In the UniFi UI, set the client's name to `ingress` and its fixed IP to
-   `192.168.4.16`, then read it back. Log it in
-   [unifi-browser-changes.md](unifi-browser-changes.md).
-3. Mirror it in `tofu/unifi/clients.tf`, and adopt it with an `import` block
+   `192.168.4.16`, the address in `nixos/hosts/ingress/vm.json`, then read
+   it back. Log it in [unifi-browser-changes.md](unifi-browser-changes.md).
+3. Mirror it in `tofu/unifi/clients.tf`, taking the address from `vm.json`
+   as `tofu/unifi/ingress.tf` reads it, and adopt it with an `import` block
    in `tofu/imports_unifi.tf`, as for the Mac mini:
 
    ```hcl
    # The ingress VM, VM 4016 (docs/ingress.md). Its address is static in the
-   # host configuration; the reservation keeps DHCP from handing .16 to
-   # anything else.
+   # host configuration, from nixos/hosts/ingress/vm.json (local.ingress_vm,
+   # ingress.tf); the reservation keeps DHCP from handing it to anything
+   # else.
    resource "unifi_client" "ingress" {
      mac            = "<mac>"
      name           = "ingress"
-     fixed_ip       = "192.168.4.16"
+     fixed_ip       = local.ingress_vm.address
      allow_existing = true
    }
    ```
@@ -203,9 +208,6 @@ are:
      to = module.unifi.unifi_client.ingress
    }
    ```
-
-4. In `tofu/unifi/ingress.tf`, set `ingress_address` to
-   `unifi_client.ingress.fixed_ip`.
 
 The plan imports one client and changes nothing. Remove the `import` block in
 a later change.
@@ -285,6 +287,22 @@ In a pull request of its own that updates this file:
   check is what keeps it from handing the address out.
 - **One VM on one host.** It fails with the host, as everything else here
   does.
+- **Moving the VM is more than an edit of `vm.json`.** A pull request that
+  changes only `address` fails its apply.
+  `module.ingress.module.deploy.null_resource.nixos-rebuild` looks for the
+  VM at the new address, where nothing answers yet, and gives up after 11
+  tries. The same apply moves the tenants' policies, and once they are
+  code, the reservation and the forward, to that empty address. Change
+  `vm_id` in `tofu/ingress.tf` with it, as the VM id rule says, so that the
+  apply replaces the VM and installs it at the new address. The VM keeps
+  no state. Every tenant is down until the install ends, and the
+  reservation's MAC then changes in a later pull request. To keep VM 4016
+  instead, switch it by hand from the root plane before the merge
+  (`nixos-rebuild switch --flake ./nixos#ingress --target-host root@192.168.4.16`);
+  every tenant is cut off from that switch until the apply ends. Either
+  way, the tenants' firewalls and PROXY trust
+  ([Adding a tenant](#adding-a-tenant), step 2) must first admit the new
+  address.
 - **Each tenant's records name one line at a time** (#70), even with the
   forward on both lines.
 - **No source limits.** Every tenant's names are open to the whole internet.
