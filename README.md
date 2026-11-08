@@ -4,8 +4,8 @@ Infrastructure-as-code for my home server.
 This repository owns what every organisation on the server shares: the Proxmox
 host, UniFi and the VLANs, each organisation's pool, Proxmox user and token,
 the root management plane, every organisation's management plane, and the
-ingress VM that routes the internet's 80 and 443 to them by name. It is
-applied from the root plane.
+ingress VM that routes the internet's 80 and 443 to each tenant by name
+([docs/ingress.md](docs/ingress.md)). It is applied from the root plane.
 
 | Repository | Owns | Applied from |
 |---|---|---|
