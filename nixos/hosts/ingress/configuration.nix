@@ -1,7 +1,7 @@
 # ingress: the VM the gateway forwards the internet's 80 and 443 to. HAProxy
 # on it sends each connection to its tenant's servers by name, without ending
-# TLS (haproxy.nix, docs/ingress.md). Installed and deployed by tofu/ingress/
-# like os-tues; the VM's hardware and disk layout come from
+# TLS (haproxy.nix, docs/ingress.md). Installed and deployed by
+# tofu/ingress.tf like os-tues; the VM's hardware and disk layout come from
 # infrastructure-reusables.
 { ... }:
 let

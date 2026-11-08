@@ -14,7 +14,7 @@ adding one is a pull request.
 
 | Piece | Where | Managed by |
 |---|---|---|
-| VM 4016 on Public Servers (VLAN 4, the `Dmz` zone), `192.168.4.16`. It has 1 core, 1 GiB ballooning down to 512 MiB, and a 16 GiB disk, and is in no organisation's pool | `tofu/ingress.tf`, `tofu/ingress/`, with infrastructure-reusables' `nixos-vm` | tofu |
+| VM 4016 on Public Servers (VLAN 4, the `Dmz` zone), `192.168.4.16`. It has 1 core, 1 GiB ballooning down to 512 MiB, and a 16 GiB disk, and is in no organisation's pool | `tofu/ingress.tf`, with infrastructure-reusables' `nixos-vm` | tofu |
 | The host: HAProxy, the firewall, SSH | `nixos/hosts/ingress/configuration.nix`, `haproxy.nix` | tofu, deployed in place |
 | The tenants | `nixos/hosts/ingress/tenants.json` | a pull request ([Adding a tenant](#adding-a-tenant)) |
 | One `Dmz → Internal` policy per tenant, from the VM to its servers' addresses and ports | `unifi_firewall_policy.ingress`, `tofu/unifi/ingress.tf`, from the same file | tofu |
@@ -96,7 +96,7 @@ Nothing has served the home's 80 and 443 since `192.168.5.58` was shut down
    ```
 
    A good plan replaces
-   `module.ingress.module.vm.module.deploy.null_resource.nixos-rebuild`,
+   `module.ingress.module.deploy.null_resource.nixos-rebuild`,
    which redeploys the VM, and adds
    `module.unifi.unifi_firewall_policy.ingress["yourorg"]`. A tenant whose
    servers are all on Public Servers gets no policy: the VM reaches them on

@@ -97,7 +97,7 @@
         };
 
         # The VM that routes the internet's 80 and 443 to each tenant by
-        # name, installed and deployed by tofu/ingress/ (docs/ingress.md).
+        # name, installed and deployed by tofu/ingress.tf (docs/ingress.md).
         ingress = lib.nixosSystem {
           inherit system;
           modules = [

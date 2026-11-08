@@ -6,7 +6,7 @@
 # created the intercom's forward. An empty file plans none.
 
 locals {
-  # The VM's static address (../ingress/main.tf, ../../nixos/hosts/ingress/);
+  # The VM's static address (../ingress.tf, ../../nixos/hosts/ingress/);
   # unifi_client.ingress.fixed_ip once clients.tf reserves it.
   ingress_address = "192.168.4.16"
 
