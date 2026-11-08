@@ -13,6 +13,7 @@ repository, not here.
 | `hosts/servacho-managment-plane/` | The root management plane, deployed by `tofu/root-plane/`; its `hardware-configuration.nix` and `deploy-key.pub` were committed once from the VM |
 | `hosts/*-management-plane.nix`, `hosts/qoax-community-management-plane/` | The organisations' planes, installed and deployed by `tofu/organisation/plane.tf` (see [docs/tenant-management-planes.md](../docs/tenant-management-planes.md)) |
 | `hosts/os-tues/` | The operating systems class's machine, installed and deployed by `tofu/os_tues.tf`, with `os-tues-students`, which makes the students' accounts, sudo for its teachers, and LazyVim as everyone's `nvim` (see [docs/os-tues.md](../docs/os-tues.md)) |
+| `hosts/ingress/` | The VM that routes the internet's 80 and 443 to each tenant by name, installed and deployed by `tofu/ingress.tf` at the address in `vm.json`: HAProxy built from `tenants.json`, which the flake's `ingress-haproxy` check validates (see [docs/ingress.md](../docs/ingress.md)) |
 | `images/installer.nix` | The installer ISO an organisation's plane boots from an empty disk, letting the root plane in with its deploy key |
 
 ## Building
@@ -34,8 +35,10 @@ builds what it deploys.
 
 ## Updating infrastructure-reusables
 
-Change the tag in `flake.nix`, run `nix flake lock ./nixos`, and change the
-`?ref=` of the OpenTofu modules in `tofu/organisations.tf` and
-`tofu/organisation/plane.tf` to the same tag; `scripts/check-reusables-pins.sh`
-fails the plan while they differ. The pull request's plan shows which hosts
-the new version changes, and a new installer ISO if the release changes it.
+Change the tag in `flake.nix`, run `nix flake lock ./nixos`, and change every
+other pin to the same tag: the `?ref=` of each OpenTofu module under `tofu/`
+(`organisations.tf`, `organisation/plane.tf`, `os_tues.tf` and `ingress.tf`)
+and the `@` of each infrastructure-reusables action in `.github/workflows/`.
+`scripts/check-reusables-pins.sh` fails the plan while they differ, and names
+each one. The pull request's plan shows which hosts the new version changes,
+and a new installer ISO if the release changes it.
