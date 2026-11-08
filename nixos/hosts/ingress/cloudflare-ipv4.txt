@@ -1,10 +1,6 @@
-# Cloudflare's IPv4 ranges, from https://www.cloudflare.com/ips-v4, fetched
-# 2026-11-08. haproxy.nix lets each address in them hold more connections
-# than an ordinary one (perAddressLimits), since one Cloudflare address
-# carries many visitors. Kept by hand: update it in a pull request when
-# Cloudflare changes the list. An address in a range missing from here gets
-# the ordinary limit, so a busy tenant's visitors through it can be turned
-# away.
+# Cloudflare's IPv4 ranges, from https://www.cloudflare.com/ips-v4 on
+# 2026-11-08: perAddressLimits (haproxy.nix) lets their addresses hold more
+# connections. Kept by hand: update it when Cloudflare changes the list.
 173.245.48.0/20
 103.21.244.0/22
 103.22.200.0/22

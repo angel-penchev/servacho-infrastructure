@@ -1,18 +1,10 @@
-# ingress: the VM the gateway forwards the internet's 80 and 443 to. Its
-# HAProxy sends each connection to its tenant's servers by name, without
-# ending TLS (docs/ingress.md). A NixOS VM on Public Servers, in the Dmz zone,
-# installed and deployed like os-tues by infrastructure-reusables' nixos-vm;
-# its host is ../nixos/hosts/ingress/. The tenants are that host's
-# tenants.json: adding one redeploys the VM in place, and unifi/ingress.tf
-# reads the same file to open the gateway to each tenant's servers. The
-# VM's address is that host's vm.json, its one copy: the host gives itself
-# that address, nixos-vm deploys to it, and unifi/ingress.tf names it as the
-# policies' source. The VM belongs to no organisation, so it is in no pool.
+# ingress: the VM whose HAProxy routes the internet's 80 and 443 to each
+# tenant by name (docs/ingress.md). Its host is ../nixos/hosts/ingress/, its
+# policies unifi/ingress.tf. It belongs to no organisation, so to no pool.
 
 # VM id rule as for the planes: VLAN 4 followed by the zero-padded last octet.
-# HAProxy passes connections on without opening them, so one core and 1 GiB
-# carry its 4,096 connections (about 135 MB) with room to spare; when the
-# host runs short, the VM gives memory back down to 512 MiB.
+# HAProxy passes connections on unopened, so one core and 1 GiB carry its
+# connection limits with room to spare (docs/ingress.md).
 module "ingress" {
   source = "github.com/angel-penchev/infrastructure-reusables//tofu/modules/nixos-vm?ref=v0.9.1"
 

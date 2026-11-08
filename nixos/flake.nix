@@ -96,8 +96,8 @@
           ];
         };
 
-        # The VM that routes the internet's 80 and 443 to each tenant by
-        # name, installed and deployed by tofu/ingress.tf (docs/ingress.md).
+        # The VM that routes 80 and 443 to the tenants by name, installed and
+        # deployed by tofu/ingress.tf (docs/ingress.md).
         ingress = lib.nixosSystem {
           inherit system;
           modules = [
@@ -140,12 +140,8 @@
         # LazyVim starting offline, in the build sandbox (hosts/os-tues/lazyvim.nix).
         os-tues-lazyvim = self.nixosConfigurations.os-tues.config.system.build.lazyvimCheck;
         ingress = self.nixosConfigurations.ingress.config.system.build.toplevel;
-        # The tenant file: no name claimed twice or covered by another
-        # tenant's suffix, no server at the VM's own address or its gateway,
-        # and a configuration haproxy -c accepts (hosts/ingress/haproxy.nix).
-        # The system's build, checks.ingress, runs it too, and also tries the
-        # checks on files they must refuse (rejectedFiles). Which networks a
-        # server may be on is the plan's to check (tofu/unifi/ingress.tf).
+        # The tenant file's checks and haproxy -c; the assertions on
+        # rejectedFiles run only in checks.ingress (hosts/ingress/haproxy.nix).
         ingress-haproxy = self.nixosConfigurations.ingress.config.system.build.haproxyCheck;
         installer = self.nixosConfigurations.installer.config.system.build.toplevel;
       };

@@ -1,26 +1,15 @@
-# The ingress VM's way to its tenants (docs/ingress.md): one policy per
-# tenant, from the VM to its servers' addresses on their ports, read from the
-# same tenant file as the VM's HAProxy. Dmz -> Internal is blocked otherwise.
-# Unlike the rest of this module, these are not made in the UI first: the
-# tenant file is their source of truth and the apply creates them, as it
-# created the intercom's forward. An empty file plans none.
+# The ingress VM's Dmz -> Internal policies (docs/ingress.md). Unlike the
+# rest of this module, they are not made in the UI first: the apply creates
+# them from nixos/hosts/ingress/tenants.json.
 
 locals {
-  # The VM's address, prefix and gateway: ../../nixos/hosts/ingress/vm.json,
-  # their one copy, from which the host sets its address and ../ingress.tf
-  # deploys to it. The policies name the address as their source, and the
-  # VM's reservation in clients.tf will take its fixed_ip from here too.
   ingress_vm = jsondecode(file("${path.module}/../../nixos/hosts/ingress/vm.json"))
 
   ingress_tenants = jsondecode(file("${path.module}/../../nixos/hosts/ingress/tenants.json"))
 
-  # The networks a tenant's servers may be on. Public Servers is the VM's own
-  # and needs no policy; the others are in Internal, which the policies below
-  # open. Main, Default and UniFi Devices are in Internal too, but hold
-  # workstations and the network's own devices; Guest, IoT and the VPNs'
-  # pools are in zones nothing opens from Dmz. A network added here for a new
-  # organisation needs that organisation's plane reservation in the
-  # infrastructure hosts below.
+  # The networks a tenant's servers may be on: the VM's own, and Internal's
+  # but for Main, Default and UniFi Devices. One added here must be in
+  # Internal, and needs its plane's reservation in ingress_not_servers.
   ingress_server_networks = [
     unifi_network.public_servers,
     unifi_network.private_servers,
@@ -28,13 +17,8 @@ locals {
     unifi_network.fmicodes_vps,
   ]
 
-  # Never a tenant's server, whatever its network: the VM itself, which
-  # would take its own connections back; every network's gateway, whose 80
-  # and 443 are the UniFi console, the server networks' taken from the list
-  # above, so that a network added to it brings its own; and the
-  # infrastructure hosts reserved in clients.tf (the Proxmox host, the
-  # management planes, the JetKVMs), which a tenant's entry would open to
-  # the VM and publish by name.
+  # Never a tenant's server: the VM, any gateway (the UniFi console) and the
+  # infrastructure hosts in clients.tf, which an entry would publish by name.
   ingress_not_servers = concat(
     [local.ingress_vm.address],
     [
@@ -57,8 +41,6 @@ locals {
     ]),
   )
 
-  # Each tenant's servers, 443's and 80's, that are on none of the server
-  # networks or are never servers, as "<tenant>: <address:port>".
   ingress_misplaced = distinct(flatten([
     for tenant, t in local.ingress_tenants : [
       for server in concat(t.https, try(t.http, [])) : "${tenant}: ${server}"
@@ -68,9 +50,7 @@ locals {
     ]
   ]))
 
-  # Each tenant's servers, 443's and 80's, as address and port. Servers on
-  # Public Servers share the VM's network and are reached without the
-  # gateway, so they need no policy.
+  # Servers on Public Servers share the VM's network, so need no policy.
   ingress_servers = {
     for tenant, t in local.ingress_tenants : tenant => [
       for server in concat(t.https, try(t.http, [])) : {
@@ -82,17 +62,12 @@ locals {
   }
 }
 
-# Fails the plan when vm.json and networks.tf disagree, or when a tenant's
-# server is somewhere the VM may not reach. The conditions sit on a
-# terraform_data of their own, which is nothing on the controller: a
-# precondition on the policies below would run once per policy, so never for
-# a server they leave out or with no tenants, and a check block would only
-# warn.
+# Only this module knows the networks and reserved hosts, so haproxy.nix
+# refuses just the VM and its gateway. Preconditions on the policies would
+# skip the servers they leave out and an empty tenants.json, and a check
+# block would only warn.
 resource "terraform_data" "ingress_checks" {
   lifecycle {
-    # The VM is on Public Servers, the network in the Dmz zone that the
-    # policies name as their source: its gateway and prefix are the
-    # network's, and its address is in it.
     precondition {
       condition = (
         "${local.ingress_vm.gateway}/${local.ingress_vm.prefix_length}" == unifi_network.public_servers.subnet &&
@@ -101,9 +76,6 @@ resource "terraform_data" "ingress_checks" {
       error_message = "nixos/hosts/ingress/vm.json puts the VM at ${local.ingress_vm.address}/${local.ingress_vm.prefix_length} through ${local.ingress_vm.gateway}: it belongs on Public Servers (${unifi_network.public_servers.subnet}), the Dmz network the ingress policies name as their source."
     }
 
-    # Every tenant's server is on one of the server networks, and is not the
-    # VM, a gateway or an infrastructure host. HAProxy's own check refuses
-    # only the VM and its gateway.
     precondition {
       condition     = length(local.ingress_misplaced) == 0
       error_message = "nixos/hosts/ingress/tenants.json (docs/ingress.md): a tenant's servers may be on ${join(", ", local.ingress_server_networks[*].name)}, but not at the VM's own address, a network's gateway or an infrastructure host reserved in tofu/unifi/clients.tf. Refused: ${join("; ", local.ingress_misplaced)}."
@@ -111,8 +83,7 @@ resource "terraform_data" "ingress_checks" {
   }
 }
 
-# A tenant's ports are opened on each of its addresses: one policy per
-# tenant, rather than one per server.
+# Each of a tenant's ports is open on each of its addresses.
 resource "unifi_firewall_policy" "ingress" {
   for_each = {
     for tenant, servers in local.ingress_servers : tenant => servers
