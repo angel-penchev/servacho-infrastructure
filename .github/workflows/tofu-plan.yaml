@@ -9,9 +9,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  # One run at a time on the state, and every waiting run keeps its place:
-  # with the default queue: single, each new run cancelled the one already
-  # waiting, so a plan could cancel an apply waiting on main.
+  # Why queue: max (tofu-apply.yaml).
   group: tofu-state
   cancel-in-progress: false
   queue: max
