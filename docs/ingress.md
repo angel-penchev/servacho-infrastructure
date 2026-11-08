@@ -172,8 +172,10 @@ whose own rules then admit only the sources above.
 ## Logs
 
 HAProxy writes one line per connection on 443, and one per request on 80, to
-the journal: `journalctl -u haproxy` on the VM, as root from Main or a VPN.
-A line on 443 reads:
+a journal of its own: `journalctl --namespace=haproxy` on the VM, as root
+from Main or a VPN. `journalctl --namespace=+haproxy -u haproxy` adds
+systemd's lines about starting and reloading it, which stay in the system's
+journal. A line on 443 reads:
 
 ```text
 203.0.113.7:51234 https yourorg.example https-yourorg/192.168.12.40:443 1/0/2 2302 -- 1/1/0/0/0 0/0
@@ -182,7 +184,19 @@ A line on 443 reads:
 That is the visitor's address, the frontend, the server name, the tenant's
 backend and server, then HAProxy's timers, bytes, termination state and
 counters. A closed connection shows `<NOSRV>` for the server. Lines on 80 add
-the status and the request line. The `base` module caps the journal at 1 GiB.
+the status and the request line.
+
+Two kinds of connection leave no line: one that sends nothing, such as a
+port probe, and one over a per-address [limit](#how-it-routes), which the
+exporter counts. HAProxy's journal keeps 256 MB, so a flood rotates out only
+its own older lines; the system's, SSH's among them, stay in the `base`
+module's 1 GiB. During a flood, journald still drops HAProxy's lines beyond a
+few hundred a second. It lets 10,000 through in 30 s, times a factor from the
+room left in the namespace's 256 MB: under 3 (about 900 a second) while the
+namespace is nearly empty, and 1 to 2 (333 to 667 a second) once it is full,
+as ordinary traffic makes it in time. The exporter's counts stay complete. A
+log shipper, such as the monitoring VM of #68, has to read the `haproxy`
+namespace: the system's journal doesn't have these lines.
 
 ## Still to do by hand
 

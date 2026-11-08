@@ -278,11 +278,16 @@ in
         # After a reload, old workers keep their connections until those
         # close, for 30 minutes at most.
         hard-stop-after 30m
-        # One line per connection, to the journal.
+        # One line per connection on 443, and per request on 80, to HAProxy's
+        # own journal (LogNamespace, below).
         log stdout format short daemon
 
       defaults
         log global
+        # A connection that sends nothing, a port probe or one held open
+        # idle, leaves no line, and neither does one over perAddressLimits;
+        # the exporter still counts both.
+        option dontlognull
         timeout connect 2s
         # 443's: 5 minutes of silence, so that held streams and WebSockets
         # stay open. Port 80 sets its own. Once the tenant's server has closed
@@ -370,6 +375,23 @@ in
   # alone would: the new workers take the listeners over, and the old ones
   # keep their connections.
   systemd.services.haproxy.reloadIfChanged = true;
+
+  # HAProxy's lines go to a journal of their own, up to 256 MB, so that a
+  # flood of them rotates out only HAProxy's older lines, never SSH's or the
+  # system's in the base module's 1 GiB. journalctl --namespace=haproxy
+  # reads it. A reload, which is what reloadIfChanged makes of a deploy,
+  # keeps the old stdout, so a change to LogNamespace takes effect on a full
+  # restart; this one lands before the VM's first deploy.
+  systemd.services.haproxy.serviceConfig.LogNamespace = "haproxy";
+  environment.etc."systemd/journald@haproxy.conf".text = ''
+    [Journal]
+    SystemMaxUse=256M
+  '';
+  # The namespace's journald restarts when that file changes, as NixOS's
+  # journald module does for journald.conf.
+  systemd.services."systemd-journald@".restartTriggers = [
+    config.environment.etc."systemd/journald@haproxy.conf".source
+  ];
 
   # haproxy -c, warnings included, on the configuration the VM runs, maps and
   # all: part of the system's build, and the flake's checks.ingress-haproxy.
