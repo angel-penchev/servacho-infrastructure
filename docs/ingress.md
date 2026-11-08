@@ -32,7 +32,9 @@ Nothing has served the home's 80 and 443 since `192.168.5.58` was shut down
   server name in it. An exact name in a tenant's `names` wins over a suffix.
   The connection then goes, unopened, to one of the tenant's `https` servers.
   A connection with no name, or with a name no tenant claims, is closed:
-  there is no default backend.
+  there is no default backend. Every later request on the connection goes
+  to the same tenant, whatever name it carries
+  ([A tenant's certificates](#a-tenants-certificates)).
 - **80:** the `Host` header, without its port, picks the tenant the same way.
   - The tenant's `http` servers answer ACME HTTP-01 challenges and redirect
     to HTTPS.
@@ -74,7 +76,12 @@ Nothing has served the home's 80 and 443 since `192.168.5.58` was shut down
   - a request on 80 has 10 s to send its headers.
 - **Changes:** a deploy that changes the configuration reloads HAProxy rather
   than restarting it. New workers take the listeners over, and the old ones
-  keep their connections until those close, for 30 minutes at most.
+  keep their connections until those close, for 30 minutes at most
+  (`hard-stop-after 30m`). So a deploy during a tenant's live event, for a
+  tenant added, changed or removed or for a nixpkgs bump, cuts every
+  tenant's connections still open 30 minutes later, all at once, and their
+  WebSocket clients reconnect together. Avoid deploying the VM during an
+  event.
 
 ## Adding a tenant
 
@@ -104,11 +111,16 @@ Nothing has served the home's 80 and 443 since `192.168.5.58` was shut down
      and HAProxy redirects to HTTPS itself.
    - `proxy_protocol` is `true` when the servers expect a PROXY v2 header,
      on both ports. Left out, it is `false`.
-2. **Open the tenant's own firewall** to 80 and 443 (or the ports above)
-   from `192.168.4.16` alone. With `proxy_protocol`, trust the header from
-   that address alone, for example in Traefik's `proxyProtocol.trustedIPs`.
-   The address is `address` in `nixos/hosts/ingress/vm.json`; should it
-   change, these must change with it.
+2. **Set up the tenant's own servers.**
+   - Open their firewall to 80 and 443 (or the ports above) from
+     `192.168.4.16` alone. With `proxy_protocol`, trust the header from
+     that address alone, for example in Traefik's
+     `proxyProtocol.trustedIPs`. The address is `address` in
+     `nixos/hosts/ingress/vm.json`; should it change, these must change
+     with it.
+   - Give them certificates for the tenant's own names only, and, where
+     the server can, have them answer 421 to any other name
+     ([A tenant's certificates](#a-tenants-certificates)).
 3. **Open a pull request.** Its plan fails if:
    - two tenants claim the same name;
    - one tenant's suffix covers another tenant's name;
@@ -147,12 +159,72 @@ Nothing has served the home's 80 and 443 since `192.168.5.58` was shut down
 5. **Point the tenant's names at the home's lines.**
    - Qoax Community's records follow the active line through `wan-dns`
      ([wan-dns.md](wan-dns.md)). Other tenants handle their own.
-   - A name Cloudflare proxies can use an Origin CA certificate under Full
-     (strict). A name it doesn't proxy can get one from ACME HTTP-01 through
-     port 80.
+   - Any name, proxied or not, can get a certificate from ACME HTTP-01
+     through port 80, as long as nothing redirects
+     `/.well-known/acme-challenge/`. A name Cloudflare proxies can instead
+     use an Origin CA certificate under Full (strict), issued for the
+     tenant's own names rather than the default apex and wildcard.
 
 Removing a tenant is the reverse: delete its entry, and the apply removes its
 policy and deploys the configuration without it.
+
+## A tenant's certificates
+
+Every name a tenant's certificate covers must be one that `tenants.json`
+sends to that tenant. A certificate from ACME HTTP-01 through this VM always
+keeps to that: HAProxy sends each name's challenge to the tenant that claims
+it. A DNS-01 certificate (every wildcard) or an Origin CA certificate can
+cover any name in the zone, so no `*.qo.ax` while another tenant has a name
+under `qo.ax`.
+
+One connection can carry requests for several names:
+
+- **Browsers** reuse an HTTP/2 connection for another name when the
+  certificate covers it and the name resolves to the connection's address.
+  A name that Cloudflare doesn't proxy resolves to one of the home's lines,
+  so between names on the same line only the certificate decides.
+- **Cloudflare** may do the same between its edge and the home: its docs
+  list coalescing among the causes of a 421 without saying on which side.
+  Follow the rule for a name it proxies too.
+- **HAProxy** picks the tenant once, by the name in the ClientHello. The
+  requests that follow are inside TLS, where it can't see them.
+
+So a tenant whose certificate covers another tenant's name can get requests
+meant for that tenant, from visitors who already have a connection open to
+it, and answers them with the wrong pages or an error.
+
+A server that answers `421 Misdirected Request` to a name it doesn't serve
+makes Chrome and Firefox retry the request on a new connection. That is the
+safety net, not the fix: Safari didn't retry at last report, and Cloudflare
+may pass the 421 on to the visitor.
+
+- **Traefik:** a Let's Encrypt certificate from HTTP-01 covers its
+  routers' `Host` names and nothing else. Don't add a wildcard in
+  `tls.domains`. Traefik answers a name it has no router for with a 404,
+  and with a 421 only when that name's router has other TLS options than
+  the connection's.
+- **nginx:** a name no `server_name` matches goes to the port's default
+  server. Make that one answer 421:
+
+  ```nginx
+  server {
+      # With proxy_protocol too when the tenant's other listens have it.
+      listen 443 ssl default_server;
+      ssl_reject_handshake on;
+      return 421;
+  }
+  ```
+
+- **Caddy:** set `strict_sni_host on` in the global `servers` options.
+  Without it, a name no site matches gets an empty 200.
+
+To see the names a tenant's certificate covers, through the forward:
+
+```bash
+openssl s_client -connect '<the line address>:443' \
+  -servername yourorg.example </dev/null |
+  openssl x509 -noout -ext subjectAltName
+```
 
 ## The firewall
 
@@ -363,6 +435,10 @@ In a pull request of its own that updates this file:
   in `tofu/unifi/firewall.tf` lists them; one moved to a zone of its own
   would leave its tenants' policies matching nothing, and no plan would
   fail.
+- **Nothing checks a tenant's certificates.** One that covers another
+  tenant's names can get requests meant for that tenant
+  ([A tenant's certificates](#a-tenants-certificates)). HAProxy can't stop
+  it without ending TLS, which would put every tenant's keys on the VM.
 - **The limits stop one address, or a few.** Fourteen ordinary addresses at
   their 256 fill 443's 3,500, and so do four of Cloudflare's at 1,024;
   eight ordinary ones at 64 fill 80's 500, and visitors who arrive then
