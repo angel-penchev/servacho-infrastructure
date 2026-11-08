@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  # Not tofu-state: a queued run there would replace a pending apply.
+  # Not tofu-state: there it would wait behind every plan and apply.
   group: unseal
   cancel-in-progress: false
 

@@ -9,8 +9,10 @@ permissions:
   pull-requests: write
 
 concurrency:
+  # Why queue: max (tofu-apply.yaml).
   group: tofu-state
   cancel-in-progress: false
+  queue: max
 
 jobs:
   plan:

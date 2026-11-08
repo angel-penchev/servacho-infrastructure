@@ -22,8 +22,10 @@ permissions:
   pull-requests: write
 
 concurrency:
+  # The default queue would let a new plan cancel an apply waiting on main.
   group: tofu-state
   cancel-in-progress: false
+  queue: max
 
 jobs:
   apply-automatically:
