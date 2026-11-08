@@ -18,6 +18,7 @@ adding one is a pull request.
 | The host: HAProxy, the firewall, SSH | `nixos/hosts/ingress/configuration.nix`, `haproxy.nix` | tofu, deployed in place |
 | The VM's address, prefix and gateway, their one copy | `nixos/hosts/ingress/vm.json`, which the host, `tofu/ingress.tf` and `tofu/unifi/ingress.tf` read; the plan fails if it leaves Public Servers | a pull request; moving the VM takes more ([Known gaps](#known-gaps)) |
 | The tenants | `nixos/hosts/ingress/tenants.json` | a pull request ([Adding a tenant](#adding-a-tenant)) |
+| Cloudflare's IPv4 ranges, whose addresses may hold more connections ([limits](#how-it-routes)) | `nixos/hosts/ingress/cloudflare-ipv4.txt`, kept by hand from <https://www.cloudflare.com/ips-v4> | a pull request |
 | One `Dmz → Internal` policy per tenant, from the VM to its servers' addresses and ports | `unifi_firewall_policy.ingress`, `tofu/unifi/ingress.tf`, from the same file | tofu |
 | The reservation of `192.168.4.16` | not yet ([The reservation](#the-reservation)) | the UI, then tofu |
 | TCP 80 and 443 on both WANs → `192.168.4.16` | not yet ([The forward](#the-forward)) | the UI, then tofu |
@@ -45,10 +46,31 @@ Nothing has served the home's 80 and 443 since `192.168.5.58` was shut down
 - **Health checks:** every server every 5 s, down after 2 failures. A
   connection that fails is retried on the tenant's next server.
 - **Limits:**
-  - 4,096 connections in all, about 135 MB;
+  - 4,096 connections in all, about 135 MB: 3,500 for 443, 500 for 80 and
+    16 for the exporter, so that a flood on one leaves the others answering.
+    After a reload the old workers keep theirs for up to 30 minutes, so
+    when a reload meets a flood, connections can take about 270 MB, and
+    the per-address tables, when a flood from many addresses fills them,
+    up to about 25 MB more per worker;
+  - per source address, 80 and 443 together: 256 connections at once, and
+    1,000 new ones in 10 s. The gateway, which all of NAT loopback comes
+    from, and Cloudflare's ranges (`cloudflare-ipv4.txt`), one address of
+    which carries a tenant's whole audience, may hold 1,024 at once, at any
+    rate;
+  - at most 64 at once on 80 from an ordinary address, so that a few
+    addresses can't fill 80 and stop every tenant's ACME challenges;
+  - a connection over a per-address limit is closed before HAProxy reads
+    it, and leaves no log line; the exporter counts it in
+    `haproxy_frontend_denied_connections_total`. One over 443's 3,500 or
+    80's 500 isn't refused: the kernel completes its handshake and holds it
+    in its listen queue, unanswered, unlogged and uncounted, until a
+    connection closes or the visitor gives up. That frontend's
+    `haproxy_frontend_current_sessions` at its
+    `haproxy_frontend_limit_sessions` shows it;
   - 2 s for a server to accept a connection;
   - a 443 connection closes after 5 minutes of silence, so held streams and
-    WebSockets stay open;
+    WebSockets stay open, or after 30 s of the visitor's silence once the
+    tenant's server has closed its side;
   - a request on 80 has 10 s to send its headers.
 - **Changes:** a deploy that changes the configuration reloads HAProxy rather
   than restarting it. New workers take the listeners over, and the old ones
@@ -327,6 +349,22 @@ In a pull request of its own that updates this file:
   in `tofu/unifi/firewall.tf` lists them; one moved to a zone of its own
   would leave its tenants' policies matching nothing, and no plan would
   fail.
-- **No source limits.** Every tenant's names are open to the whole internet.
-  A tenant whose names are all behind Cloudflare could be limited to
-  Cloudflare's ranges; that waits for the first tenant that asks.
+- **The limits stop one address, or a few.** Fourteen ordinary addresses at
+  their 256 fill 443's 3,500, and so do four of Cloudflare's at 1,024;
+  eight ordinary ones at 64 fill 80's 500, and visitors who arrive then
+  wait unanswered in the kernel's queue. Nothing on the VM stops a flood
+  from many addresses, or one that fills the home's uplink before it
+  reaches the VM.
+- **An address that keeps retrying stays locked out.** Rejected attempts
+  count toward its 1,000 in 10 s, so while it opens more than about 100 a
+  second it is turned away, and so is everyone behind the same NAT.
+- **The counts start again on a reload.** The connections an old worker
+  keeps, for up to 30 minutes, aren't counted by the new one.
+- **Cloudflare's ranges carry every Cloudflare customer's traffic**, so
+  their higher limit is open to anyone who proxies through Cloudflare, not
+  only to the tenants' names; one of their addresses can fill 80's 500 on
+  its own. The list is kept by hand: a range missing from it gets the
+  ordinary limit until a pull request adds it.
+- **No source allow-lists.** Every tenant's names are open to the whole
+  internet. A tenant whose names are all behind Cloudflare could be limited
+  to `cloudflare-ipv4.txt`; that waits for the first tenant that asks.

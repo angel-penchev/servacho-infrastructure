@@ -43,10 +43,12 @@ let
   isName = matches "\\.?${label}(\\.${label})+";
   # On the home's networks, and neither the VM itself nor its gateway. The VM
   # trusts lo, so a server at its own address would hand each connection of a
-  # tenant without proxy_protocol back to HAProxy, until it ran out of
-  # connections; the gateway's 80 and 443 are the UniFi console. Which
-  # networks a server may be on, and which hosts on them it may not be, is
-  # tofu/unifi/ingress.tf's to check: it knows them, and fails the plan.
+  # tenant without proxy_protocol back to HAProxy, from that address, until
+  # perAddressLimits turned it away: the tenant's site would fail, and the
+  # loop would hold up to 256 of HAProxy's connections (64 on 80). The
+  # gateway's 80 and 443 are the UniFi console. Which networks a server may be
+  # on, and which hosts on them it may not be, is tofu/unifi/ingress.tf's to
+  # check: it knows them, and fails the plan.
   isServer =
     s:
     matches "192\\.168\\.${octet}\\.${octet}:[1-9][0-9]{0,4}" s
@@ -236,6 +238,29 @@ let
       ) checked
     )
   );
+
+  # The limits on one source address, in both the https and the http
+  # frontend, so that its connections on 443 and 80 count together in the
+  # per-address table: 256 at once, and 1,000 opened in 10 s. The gateway,
+  # which all of NAT loopback comes from, and Cloudflare's ranges
+  # (cloudflare-ipv4.txt), one address of which carries a whole audience,
+  # may each hold 1,024 at once, at any rate. Only the count at once keeps
+  # an address from holding the slots. The rate limits the work it makes,
+  # and counts rejected attempts too, so an address that keeps retrying
+  # stays out. A connection over one of these limits is closed before
+  # HAProxy reads it, with no log line; the exporter counts it, in
+  # haproxy_frontend_denied_connections_total. These lines must come before
+  # any tcp-request content, http-request or use_backend line in their
+  # frontend: haproxy -c warns otherwise, and -dW fails the build. They are
+  # joined so that each line keeps its frontend's indentation.
+  perAddressLimits = lib.concatStringsSep "\n  " [
+    "acl shared-address src ${vm.gateway}"
+    "acl shared-address src -f ${./cloudflare-ipv4.txt}"
+    "tcp-request connection track-sc0 src table per-address"
+    "tcp-request connection reject if { sc0_conn_cur gt 1024 }"
+    "tcp-request connection reject if !shared-address { sc0_conn_cur gt 256 }"
+    "tcp-request connection reject if !shared-address { sc0_conn_rate gt 1000 }"
+  ];
 in
 {
   services.haproxy = {
@@ -243,6 +268,12 @@ in
     # The module opens the global section with the stats socket that hands
     # the listeners over on a reload; this carries on from there.
     config = ''
+        # 4,096 connections in all, about 135 MB (tofu/ingress.tf). The
+        # frontends' own limits, 3,500 on 443, 500 on 80 and 16 for the
+        # exporter, add up to less, so that a flood that fills one of them
+        # leaves the others answering. A connection over a frontend's limit
+        # isn't refused: it waits in the kernel's listen queue until a slot
+        # frees.
         maxconn 4096
         # After a reload, old workers keep their connections until those
         # close, for 30 minutes at most.
@@ -254,9 +285,14 @@ in
         log global
         timeout connect 2s
         # 443's: 5 minutes of silence, so that held streams and WebSockets
-        # stay open. Port 80 sets its own.
+        # stay open. Port 80 sets its own. Once the tenant's server has closed
+        # its side, 30 s of silence from the visitor ends the connection
+        # (client-fin), so that a visitor who vanished doesn't hold the slot 5
+        # minutes more; a visitor who closes first leaves the server its 5
+        # minutes (no server-fin).
         timeout client 5m
         timeout server 5m
+        timeout client-fin 30s
         # Every server is checked every 5 s and down after 2 failures, and a
         # failed connection is retried on the tenant's next server.
         default-server inter 5s fall 2 rise 2
@@ -265,7 +301,11 @@ in
       frontend https
         mode tcp
         bind :443
+        maxconn 3500
         log-format "%ci:%cp %ft %[var(sess.name)] %b/%s %Tw/%Tc/%Tt %B %ts %ac/%fc/%bc/%sc/%rc %sq/%bq"
+        # Each source address's limits, before any other rule
+        # (perAddressLimits).
+        ${perAddressLimits}
         # Up to 5 s for the ClientHello. Its server name picks the tenant,
         # an exact name before a suffix.
         tcp-request inspect-delay 5s
@@ -279,7 +319,15 @@ in
       frontend http
         mode http
         bind :80
+        maxconn 500
         log-format "%ci:%cp %ft %[var(txn.name)] %b/%s %TR/%Tw/%Tc/%Tr/%Ta %ST %B %tsc %ac/%fc/%bc/%sc/%rc %sq/%bq %{+Q}r"
+        # The same limits as on 443, in the same table, before any other
+        # rule (perAddressLimits); and at most 64 at once on 80 from an
+        # ordinary address, so that a few addresses can't fill its 500 and
+        # stop every tenant's ACME challenges.
+        ${perAddressLimits}
+        tcp-request connection track-sc1 src table per-address-80
+        tcp-request connection reject if !shared-address { sc1_conn_cur gt 64 }
         # 10 s to send the headers.
         timeout http-request 10s
         timeout client 30s
@@ -291,14 +339,29 @@ in
         use_backend http-%[var(txn.tenant)]
 
       # HAProxy's Prometheus exporter, for the sources configuration.nix
-      # admits.
+      # admits, with 16 connections of its own that a flood on 80 or 443
+      # can't take.
       frontend metrics
         mode http
         bind :8405
+        maxconn 16
         no log
         timeout client 30s
         http-request use-service prometheus-exporter if { path /metrics }
         http-request deny deny_status 404
+
+      # The tables perAddressLimits counts in, by source address: per-address
+      # holds the connections open on 80 and 443 and those opened in the last
+      # 10 s, per-address-80 those open on 80. An address is kept a minute
+      # past its last connection; 64k of them take up to about 13 MB a table
+      # when full (192 bytes an entry at most), and when a table is full the
+      # oldest unused go first. Neither backend has servers, and no tenant's
+      # can take their names (https-<tenant>, http-<tenant>).
+      backend per-address
+        stick-table type ipv4 size 64k expire 1m store conn_cur,conn_rate(10s)
+
+      backend per-address-80
+        stick-table type ipv4 size 64k expire 1m store conn_cur
     ''
     + backends;
   };
