@@ -22,7 +22,8 @@
 # A file that claims a name twice, in which a tenant's suffix covers another
 # tenant's name, or that makes the VM or its gateway (vm.json) a server, does
 # not evaluate, and the system's build runs haproxy -c on the result: a bad
-# entry fails the pull request's plan, not the VM. Which networks a server
+# entry fails the pull request's plan, not the VM. The same build tries these
+# checks on files they must refuse (rejectedFiles). Which networks a server
 # may be on is tofu/unifi/ingress.tf's to check, in the same plan.
 {
   config,
@@ -104,14 +105,79 @@ let
       ) claims
     ) claims;
 
-  problems =
-    if !builtins.isAttrs tenants then
+  # What is wrong with a tenant file, if anything: a function of the file, so
+  # that rejectedFiles below can be tried as well as tenants.json. Names are
+  # compared only once every entry has the right shape.
+  problemsOf =
+    file:
+    if !builtins.isAttrs file then
       [ "the file is one JSON object, of tenants" ]
     else
       let
-        shapes = lib.concatLists (lib.mapAttrsToList tenantProblems tenants);
+        shapes = lib.concatLists (lib.mapAttrsToList tenantProblems file);
       in
-      if shapes != [ ] then shapes else conflicts (claimsOf tenants);
+      if shapes != [ ] then shapes else conflicts (claimsOf file);
+
+  problems = problemsOf tenants;
+
+  # tenants.json shows only that a good file passes. Each of these files must
+  # fail, with the problem given: the assertions below try them in every
+  # build of the system, so in every plan, with nothing added to CI. The
+  # problem is matched, not just any problem, because a case turned away for
+  # its shape would never reach the names it is meant to test. The first two
+  # keep one tenant off another's names: whoever gets a name's port 80 can
+  # answer its ACME challenges and get a certificate for it. Apart from the
+  # problem under test, each file is a good one, its servers on Qoax VPS.
+  rejectedFiles =
+    let
+      tenant = names: {
+        inherit names;
+        https = [ "192.168.10.40:443" ];
+      };
+      serverProblem =
+        field:
+        "a: ${field} is a list of address:port, the addresses in 192.168.0.0/16 and neither the VM's ${vm.address} nor its gateway ${vm.gateway}";
+    in
+    {
+      "a name claimed twice" = {
+        file = {
+          a = tenant [ "a.example" ];
+          b = tenant [ "a.example" ];
+        };
+        problem = "a.example is claimed by both a and b";
+      };
+      "a suffix over another tenant's name" = {
+        file = {
+          a = tenant [ "www.a.example" ];
+          b = tenant [ ".a.example" ];
+        };
+        problem = "www.a.example (a) is covered by .a.example (b)";
+      };
+      "a misspelt field" = {
+        file.a = tenant [ "a.example" ] // {
+          proxy-protocol = true;
+        };
+        problem = "a: unknown field proxy-protocol";
+      };
+      "a server off 192.168.0.0/16" = {
+        file.a = tenant [ "a.example" ] // {
+          https = [ "10.0.0.1:443" ];
+        };
+        problem = serverProblem "https";
+      };
+      "the VM's own address as a server" = {
+        file.a = tenant [ "a.example" ] // {
+          https = [ "${vm.address}:443" ];
+        };
+        problem = serverProblem "https";
+      };
+      "the VM's gateway as a server" = {
+        file.a = tenant [ "a.example" ] // {
+          http = [ "${vm.gateway}:80" ];
+        };
+        problem = serverProblem "http";
+      };
+    };
 
   checked =
     if problems == [ ] then
@@ -254,4 +320,11 @@ in
       touch $out
     '';
   system.checks = [ config.system.build.haproxyCheck ];
+
+  # The files the checks above must refuse (rejectedFiles), tried in every
+  # build of the system.
+  assertions = lib.mapAttrsToList (name: c: {
+    assertion = lib.elem c.problem (problemsOf c.file);
+    message = "haproxy.nix lets a tenant file with ${name} through: it should report \"${c.problem}\", and reports ${builtins.toJSON (problemsOf c.file)}.";
+  }) rejectedFiles;
 }

@@ -143,8 +143,9 @@
         # The tenant file: no name claimed twice or covered by another
         # tenant's suffix, no server at the VM's own address or its gateway,
         # and a configuration haproxy -c accepts (hosts/ingress/haproxy.nix).
-        # The system's build runs it too; which networks a server may be on
-        # is the plan's to check (tofu/unifi/ingress.tf).
+        # The system's build, checks.ingress, runs it too, and also tries the
+        # checks on files they must refuse (rejectedFiles). Which networks a
+        # server may be on is the plan's to check (tofu/unifi/ingress.tf).
         ingress-haproxy = self.nixosConfigurations.ingress.config.system.build.haproxyCheck;
         installer = self.nixosConfigurations.installer.config.system.build.toplevel;
       };

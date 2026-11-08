@@ -109,7 +109,11 @@ Nothing has served the home's 80 and 443 since `192.168.5.58` was shut down
    ```
 
    The last two are `terraform_data.ingress_checks` in
-   `tofu/unifi/ingress.tf`, which only the plan runs.
+   `tofu/unifi/ingress.tf`, which only the plan runs. The system's build
+   also tries the Nix checks on files they must refuse (`rejectedFiles` in
+   `haproxy.nix`) and fails if one gets through, so a change that breaks a
+   check fails its own plan; `nix build ./nixos#checks.x86_64-linux.ingress`
+   runs those too.
 
    A good plan replaces
    `module.ingress.module.deploy.null_resource.nixos-rebuild`,
