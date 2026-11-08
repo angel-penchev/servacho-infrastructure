@@ -6,6 +6,24 @@
       "sourceType": "github",
       "skillPath": "videos/ep01-the-cure-for-ai-slop/asd-ste100/SKILL.md",
       "computedHash": "70d5843811fd4feda32610c18f10a5d5f90ba15cedb4854b21acd61ccfb1fee7"
+    },
+    "grill-me": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/productivity/grill-me/SKILL.md",
+      "computedHash": "9cdbb4b8f7a3aeaef82e6230c9e823500d4a8a1214c726cf342cf9829d34fc7d"
+    },
+    "grilling": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/productivity/grilling/SKILL.md",
+      "computedHash": "e40cc1d348f6d935e28f1e24474302d7368f0a400429271a43b35fe154891dc5"
+    },
+    "writing-code-comments": {
+      "source": "posthog/posthog",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/writing-code-comments/SKILL.md",
+      "computedHash": "e4478f6eb3a726e3239fc292ba7695fbaba01e3cdf6719eae63750ab893bea65"
     }
   }
 }
