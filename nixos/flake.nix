@@ -141,8 +141,10 @@
         os-tues-lazyvim = self.nixosConfigurations.os-tues.config.system.build.lazyvimCheck;
         ingress = self.nixosConfigurations.ingress.config.system.build.toplevel;
         # The tenant file: no name claimed twice or covered by another
-        # tenant's suffix, and a configuration haproxy -c accepts
-        # (hosts/ingress/haproxy.nix). The system's build runs it too.
+        # tenant's suffix, no server at the VM's own address or its gateway,
+        # and a configuration haproxy -c accepts (hosts/ingress/haproxy.nix).
+        # The system's build runs it too; which networks a server may be on
+        # is the plan's to check (tofu/unifi/ingress.tf).
         ingress-haproxy = self.nixosConfigurations.ingress.config.system.build.haproxyCheck;
         installer = self.nixosConfigurations.installer.config.system.build.toplevel;
       };

@@ -74,10 +74,12 @@ Nothing has served the home's 80 and 443 since `192.168.5.58` was shut down
      which covers every name under it. `.yourorg.example` covers
      `www.yourorg.example`, but not `yourorg.example` itself, hence both, nor
      `badyourorg.example`.
-   - `https` lists the servers for 443, as `address:port`, on the home's
-     networks (`192.168.0.0/16`).
-   - `http` lists the servers for 80. Leave it out, and HAProxy redirects to
-     HTTPS itself.
+   - `https` lists the servers for 443, as `address:port`, on Public
+     Servers, Private Servers, Qoax VPS or FMI{Codes} VPS
+     (`ingress_server_networks` in `tofu/unifi/ingress.tf`). Step 3 says
+     which addresses on them are refused.
+   - `http` lists the servers for 80, on the same networks. Leave it out,
+     and HAProxy redirects to HTTPS itself.
    - `proxy_protocol` is `true` when the servers expect a PROXY v2 header,
      on both ports. Left out, it is `false`.
 2. **Open the tenant's own firewall** to 80 and 443 (or the ports above)
@@ -85,18 +87,29 @@ Nothing has served the home's 80 and 443 since `192.168.5.58` was shut down
    that address alone, for example in Traefik's `proxyProtocol.trustedIPs`.
    The address is `address` in `nixos/hosts/ingress/vm.json`; should it
    change, these must change with it.
-3. **Open a pull request.** Its plan builds the VM's system, which fails if:
+3. **Open a pull request.** Its plan fails if:
    - two tenants claim the same name;
    - one tenant's suffix covers another tenant's name;
    - an entry has a field it shouldn't, or a value of the wrong shape;
-   - HAProxy rejects the configuration, or warns about it (`haproxy -c`).
+   - a server is the VM itself, or its gateway: `192.168.4.1` would publish
+     the UniFi console;
+   - HAProxy rejects the configuration, or warns about it (`haproxy -c`);
+   - a server is on a network other than the four in step 1: Main,
+     Default, UniFi Devices, Guest, IoT or a VPN's pool;
+   - a server is another network's gateway, or an infrastructure host
+     reserved in `tofu/unifi/clients.tf`: the Proxmox host, a management
+     plane or a JetKVM.
 
-   The error names the entries. The same check builds on its own, on
-   x86_64-linux Nix such as the root plane's:
+   The error names the entries. The first five are the VM's system build,
+   which also builds on its own on x86_64-linux Nix such as the root
+   plane's:
 
    ```bash
    nix build ./nixos#checks.x86_64-linux.ingress-haproxy
    ```
+
+   The last two are `terraform_data.ingress_checks` in
+   `tofu/unifi/ingress.tf`, which only the plan runs.
 
    A good plan replaces
    `module.ingress.module.deploy.null_resource.nixos-rebuild`,
@@ -305,6 +318,11 @@ In a pull request of its own that updates this file:
   address.
 - **Each tenant's records name one line at a time** (#70), even with the
   forward on both lines.
+- **Nothing pins Private Servers, Qoax VPS and FMI{Codes} VPS to Internal**,
+  the zone the tenants' policies open. They are in it only because no zone
+  in `tofu/unifi/firewall.tf` lists them; one moved to a zone of its own
+  would leave its tenants' policies matching nothing, and no plan would
+  fail.
 - **No source limits.** Every tenant's names are open to the whole internet.
   A tenant whose names are all behind Cloudflare could be limited to
   Cloudflare's ranges; that waits for the first tenant that asks.

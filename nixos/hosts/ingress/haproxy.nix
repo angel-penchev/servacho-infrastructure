@@ -19,10 +19,11 @@
 #   proxy_protocol  true when its servers take a PROXY v2 header with the
 #                   visitor's address, on both ports; false when left out
 #
-# A file that claims a name twice, or in which a tenant's suffix covers
-# another tenant's name, does not evaluate, and the system's build runs
-# haproxy -c on the result: a bad entry fails the pull request's plan, not
-# the VM.
+# A file that claims a name twice, in which a tenant's suffix covers another
+# tenant's name, or that makes the VM or its gateway (vm.json) a server, does
+# not evaluate, and the system's build runs haproxy -c on the result: a bad
+# entry fails the pull request's plan, not the VM. Which networks a server
+# may be on is tofu/unifi/ingress.tf's to check, in the same plan.
 {
   config,
   lib,
@@ -31,18 +32,30 @@
 }:
 let
   tenants = lib.importJSON ./tenants.json;
+  # The VM's address and gateway, as configuration.nix sets them.
+  vm = lib.importJSON ./vm.json;
 
   label = "[a-z0-9]([a-z0-9-]*[a-z0-9])?";
   octet = "(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])";
   matches = pattern: s: builtins.isString s && builtins.match pattern s != null;
   isListOf = check: v: builtins.isList v && lib.all check v;
   isName = matches "\\.?${label}(\\.${label})+";
-  # On the home's networks: tofu/unifi/ingress.tf opens the gateway from the
-  # VM to each of them.
+  # On the home's networks, and neither the VM itself nor its gateway. The VM
+  # trusts lo, so a server at its own address would hand each connection of a
+  # tenant without proxy_protocol back to HAProxy, until it ran out of
+  # connections; the gateway's 80 and 443 are the UniFi console. Which
+  # networks a server may be on, and which hosts on them it may not be, is
+  # tofu/unifi/ingress.tf's to check: it knows them, and fails the plan.
   isServer =
     s:
     matches "192\\.168\\.${octet}\\.${octet}:[1-9][0-9]{0,4}" s
-    && lib.toInt (lib.last (lib.splitString ":" s)) <= 65535;
+    && lib.toInt (lib.last (lib.splitString ":" s)) <= 65535
+    && !builtins.elem (lib.head (lib.splitString ":" s)) [
+      vm.address
+      vm.gateway
+    ];
+  # isServer in words, for the problems below.
+  serverRule = "address:port, the addresses in 192.168.0.0/16 and neither the VM's ${vm.address} nor its gateway ${vm.gateway}";
 
   tenantProblems =
     id: t:
@@ -60,10 +73,8 @@ let
       ) "${id}: names is a list of lower-case names, exact or with a leading dot"
       ++ lib.optional (
         !(t ? https && t.https != [ ] && isListOf isServer t.https)
-      ) "${id}: https is a list of address:port, the addresses in 192.168.0.0/16"
-      ++ lib.optional (
-        t ? http && !isListOf isServer t.http
-      ) "${id}: http is a list of address:port, the addresses in 192.168.0.0/16"
+      ) "${id}: https is a list of ${serverRule}"
+      ++ lib.optional (t ? http && !isListOf isServer t.http) "${id}: http is a list of ${serverRule}"
       ++ lib.optional (
         t ? proxy_protocol && !builtins.isBool t.proxy_protocol
       ) "${id}: proxy_protocol is true or false";
