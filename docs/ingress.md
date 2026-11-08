@@ -24,7 +24,8 @@ adding one is a pull request.
 | TCP 80 and 443 on both WANs → `192.168.4.16` | not yet ([The forward](#the-forward)) | the UI, then tofu |
 
 Nothing has served the home's 80 and 443 since `192.168.5.58` was shut down
-(below), and there are no tenants yet: `tenants.json` is `{}`.
+(below). The first tenant is Qoax Community's `qoax-broadcast`: Ontime at
+`ontime.qo.ax`, behind Cloudflare's proxy, on `192.168.10.23`.
 
 ## How it routes
 
