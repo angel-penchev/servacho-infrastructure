@@ -10,7 +10,7 @@ applied from the root plane.
 |---|---|---|
 | this one | The shared layer above | The root plane |
 | [qoax-community/qoax-infrastructure](https://github.com/qoax-community/qoax-infrastructure) | Everything in Qoax Community's pool | Qoax Community's plane |
-| an FMI{Codes} repository, when there is one | Everything in FMI{Codes}' pool | FMI{Codes}' plane |
+| a SUGAMING repository, when there is one | Everything in SUGAMING's pool | SUGAMING's plane |
 | [infrastructure-reusables](https://github.com/angel-penchev/infrastructure-reusables) | The NixOS and OpenTofu modules all of the above share | — |
 
 - `tofu/`: the OpenTofu the root plane applies; see [tofu/README.md](tofu/README.md).

@@ -18,7 +18,7 @@ A management plane takes `.15` of its VLAN. VM ids follow the rule from Phase
 |---|---|---|---|---|---|
 | `servacho-management-plane` (root) | — | 5 (`192.168.5.0/24`) | `192.168.5.15` | 5015 | running; moved from `.11` / 5011 on 2026-10-02 ([management-plane-move.md](management-plane-move.md)) |
 | `qoax-community-management-plane` | `pool-qoax-community` | 10 (`192.168.10.0/23`) | `192.168.10.15` | 10015 | running; brought up on 2026-10-04 (#47) |
-| `fmicodes-management-plane` | `pool-fmicodes` | 12 (`192.168.12.0/24`) | `192.168.12.15` | 12015 | running; brought up on 2026-10-04 (#47) |
+| `sugaming-management-plane` | `pool-sugaming` | 13 (`192.168.13.0/24`) | `192.168.13.15` | 13015 | replaces FMI{Codes}' plane (VM 12015, `192.168.12.15`), removed with that organisation in November 2026 |
 
 Addresses inside an organisation's VLAN other than its plane's are that
 organisation's to allocate, in its own infrastructure repository (Qoax
@@ -72,7 +72,7 @@ module this repository installs the planes with.
 | The module every plane is made of | infrastructure-reusables' `nixosModules.management-plane` |
 | The VM's hardware and disk layout (disko), in place of a generated file | infrastructure-reusables' `nixosModules.proxmox-guest` |
 | The installer every plane starts from | `nixos/images/installer.nix`, built as `installer-iso` |
-| The tenant hosts | `nixos/hosts/qoax-community-management-plane/`, `nixos/hosts/fmicodes-management-plane.nix` |
+| The tenant hosts | `nixos/hosts/qoax-community-management-plane/`, `nixos/hosts/sugaming-management-plane.nix` |
 | The VMs, their install, deploy and OpenBao bootstrap | `tofu/organisation/plane.tf`, with infrastructure-reusables' `installer-iso` and `nixos-vm` |
 | The OpenBao bootstrap and the unseal after a reboot | `scripts/tenant-plane-openbao.sh`, `.github/actions/unseal-tenant-planes`, `.github/workflows/tenant-planes-unseal.yaml` |
 | The runner's registration | `scripts/tenant-plane-runner.sh`, `tofu/organisation/plane.tf` |
@@ -203,6 +203,34 @@ runner doesn't restart when its configuration changes, so after the deploy
 that turns ephemeral mode on, restart it once from outside a job
 (`systemctl restart github-runner-<name>`) and remove its old, now offline,
 entry in the repository's runner settings.
+
+## Removing an organisation
+
+1. The organisation destroys its own VMs from its own repository first.
+   Proxmox does not delete a pool that still holds VMs, and the next step
+   removes the organisation's plane, its state and its token.
+2. In one change: set `count = 0` on its module in `tofu/organisations.tf`,
+   take the module out of `organisation_deploy_keys`, remove its host from
+   `nixos/hosts/` and `nixos/flake.nix` (`nixosConfigurations` and `checks`),
+   and remove its plane's UniFi client reservation. The apply destroys the
+   plane, the pool, the user, the token and the ISO storage. The module must
+   still be in the configuration, or `iso_storage`'s destroy step does not
+   run and the storage definition stays on the node.
+3. Once `tofu state list` shows nothing under the module, delete the module
+   block in a later change.
+4. Right after the apply, delete the plane's record in the root OpenBao.
+   Until then the unseal job connects to the old address every 30 minutes:
+
+   ```bash
+   bao kv metadata delete -mount=secret management-planes/<id>
+   ```
+
+   The apply only soft-deletes the token copy and the deploy key. Delete
+   their metadata the same way: `proxmox/<id>_token`, with each `-` in the id
+   written as `_`, and `deploy-keys/<id>`. Delete `github/runners/<id>` if it
+   exists.
+5. On the node, remove `/var/lib/organisation-isos/<id>` by hand. The destroy
+   removes only the storage definition.
 
 ## Still open
 
