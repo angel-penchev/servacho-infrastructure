@@ -74,29 +74,6 @@ module "qoax_community" {
   ssh_private_key  = data.vault_kv_secret_v2.management_plane_ssh.data["private_key"]
 }
 
-# Replaced by SUGAMING. count = 0 destroys it with its definition still here,
-# so iso_storage's destroy step removes iso-fmicodes (organisation/main.tf).
-# Delete this block once that apply is done.
-module "fmicodes" {
-  count  = 0
-  source = "./organisation"
-
-  id    = "fmicodes"
-  name  = "FMI{Codes}"
-  vlan  = 12
-  roles = local.organisation_roles
-  plane = local.management_planes_enabled ? {
-    host    = "fmicodes-management-plane"
-    vm_id   = 12015
-    address = "192.168.12.15"
-  } : null
-
-  installer_iso_id = local.plane_tools.installer_iso_id
-  openbao_cli      = local.plane_tools.openbao_cli
-  nixos_flake      = local.plane_tools.nixos_flake
-  ssh_private_key  = data.vault_kv_secret_v2.management_plane_ssh.data["private_key"]
-}
-
 module "sugaming" {
   source = "./organisation"
 
