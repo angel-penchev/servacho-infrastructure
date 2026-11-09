@@ -478,9 +478,9 @@ resource "proxmox_virtual_environment_vm" "legacy_database" {
 
 ### Example Git Repository File Tree (Management Plane)
 
-The following example shows a practical single-repository layout for a tenant-specific Management Plane (for example, Qoax Community). It keeps infrastructure provisioning (`terraform`) and operating system state (`nixos`) separated while sharing environment-specific values through clear boundaries.
+The following example shows a practical single-repository layout for a tenant-specific Management Plane (for example, Qoax). It keeps infrastructure provisioning (`terraform`) and operating system state (`nixos`) separated while sharing environment-specific values through clear boundaries.
 
-> **Done differently.** Qoax Community's repository is `qoax-community/qoax-infrastructure`, with a `tofu/` and a `nixos/` directory. The NixOS modules, the installer image, and the OpenTofu modules shared by every plane come from [infrastructure-reusables](https://github.com/angel-penchev/infrastructure-reusables), pinned by tag, rather than from each repository's own `modules/` and `profiles/`. The tree below is the original design.
+> **Done differently.** Qoax's repository is `qoax-community/qoax-infrastructure`, with a `tofu/` and a `nixos/` directory. The NixOS modules, the installer image, and the OpenTofu modules shared by every plane come from [infrastructure-reusables](https://github.com/angel-penchev/infrastructure-reusables), pinned by tag, rather than from each repository's own `modules/` and `profiles/`. The tree below is the original design.
 
 ```
 management-plane-qoax-community/
@@ -642,8 +642,8 @@ The following table outlines the prescribed VLAN architecture based on the speci
 | Public Servers | 4 | 192.168.4.0/24 | Server | Externally facing services, reverse proxies, and ingress controllers |
 | Private Servers | 5 | 192.168.5.0/24 | Server | Internal databases, management planes, and personal administration |
 | IoT | 6 | 192.168.6.0/24 | Server | Isolated smart devices and sensors |
-| Qoax VPS | 10 | 192.168.10.0/23 | Server (from .100) | Multi-tenant compute for the Qoax Community organization |
-| Qoax Public Servers | 12 | 192.168.12.0/24 | Server (from .100) | Qoax Community's hosts the internet reaches through a port forward, in the Dmz zone (FMI{Codes} VPS until November 2026) |
+| Qoax VPS | 10 | 192.168.10.0/23 | Server (from .100) | Multi-tenant compute for the Qoax organization |
+| Qoax Public Servers | 12 | 192.168.12.0/24 | Server (from .100) | Qoax's hosts the internet reaches through a port forward, in the Dmz zone (FMI{Codes} VPS until November 2026) |
 | SUGAMING VPS | 13 | 192.168.13.0/24 | Server (from .100) | Isolated compute for the SUGAMING student club |
 
 ### Implementation Steps
@@ -704,7 +704,7 @@ resource "unifi_network" "main" {
 
 ## Phase 4: Proxmox Role-Based Access Control and Tenant Isolation
 
-Supporting multiple distinct organizations (Personal, Qoax Community, FMI{Codes}) on a single Proxmox cluster introduces complex security and isolation requirements. The architecture dictates that different Git repositories manage different sets of machines, and each repository must be strictly confined to its administrative domain. An OpenTofu run triggered by the Qoax Community repository must be physically and cryptographically incapable of modifying the Personal or FMI{Codes} environments.
+Supporting multiple distinct organizations (Personal, Qoax, FMI{Codes}) on a single Proxmox cluster introduces complex security and isolation requirements. The architecture dictates that different Git repositories manage different sets of machines, and each repository must be strictly confined to its administrative domain. An OpenTofu run triggered by the Qoax repository must be physically and cryptographically incapable of modifying the Personal or FMI{Codes} environments.
 
 To prevent organizational overreach, Proxmox Resource Pools and Role-Based Access Control (RBAC) are utilized as the boundary mechanism. Crucially, the **first OpenTofu instance** (the root Management VM established in Phase 0) acts as the central Identity and Access Management (IAM) authority. It is exclusively responsible for defining all operational roles, users, and resource pools across the entire cluster.
 
@@ -717,22 +717,22 @@ To prevent organizational overreach, Proxmox Resource Pools and Role-Based Acces
 5. **Generate API Tokens via IaC:** Use the `proxmox_virtual_environment_user_token` resource within the root OpenTofu pipeline to dynamically create the tokens for each tenant user (with privilege separation disabled, so they inherit the pool ACLs).
 6. **Zero-Touch Vault Hand-Off:** In that exact same pipeline run, use the `vault_kv_secret_v2` resource to instantly push the raw token output directly into the root OpenBao (Vault) instance. When the isolated tenant repository (e.g. `qoax-community`) executes its pipeline later, it uses a `vault_kv_secret_v2` data source to dynamically pull its specific token. No human ever sees or copy-pastes the credentials.
 
-> **Done differently.** Each organisation is one instance of the `tofu/organisation/` module in `tofu/organisations.tf`: a pool, a user with its ACL, a token, and the token's copy in the root OpenBao, plus the organisation's management plane once it has one. Qoax Community and SUGAMING are the two organisations. SUGAMING replaced FMI{Codes} in November 2026. The Qoax Community Broadcast pool was removed on 2026-10-04 without ever being used. The code below is that module written out for a single organisation.
+> **Done differently.** Each organisation is one instance of the `tofu/organisation/` module in `tofu/organisations.tf`: a pool, a user with its ACL, a token, and the token's copy in the root OpenBao, plus the organisation's management plane once it has one. Qoax and SUGAMING are the two organisations. SUGAMING replaced FMI{Codes} in November 2026. The Qoax Broadcast pool was removed on 2026-10-04 without ever being used. The code below is that module written out for a single organisation.
 
 OpenTofu Configuration for Phase 4 (RBAC Setup via Root Management VM):
 
 ```hcl
 # -------------------------------------------------------------
-# QOAX COMMUNITY ISOLATION
+# QOAX ISOLATION
 # -------------------------------------------------------------
 resource "proxmox_virtual_environment_pool" "pool_qoax_community" {
   pool_id = "pool-qoax-community"
-  comment = "Isolated Resource Pool for Qoax Community Infrastructure"
+  comment = "Isolated Resource Pool for Qoax Infrastructure"
 }
 
 resource "proxmox_virtual_environment_user" "tofu_qoax_community" {
   user_id = "tofu-qoax-community@pve"
-  comment = "Qoax Community IaC Account"
+  comment = "Qoax IaC Account"
 }
 
 resource "proxmox_virtual_environment_acl" "qoax_community_pool_acl" {
@@ -743,7 +743,7 @@ resource "proxmox_virtual_environment_acl" "qoax_community_pool_acl" {
 }
 
 resource "proxmox_virtual_environment_user_token" "qoax_community_token" {
-  comment               = "Qoax Community Automation Token"
+  comment               = "Qoax Automation Token"
   user_id               = proxmox_virtual_environment_user.tofu_qoax_community.user_id
   token_name            = "tofu-provisioner"
   privileges_separation = false
@@ -760,7 +760,7 @@ resource "vault_kv_secret_v2" "qoax_community_vault_secret" {
 
 ## Phase 5: The Dedicated Management Plane and State Isolation
 
-> **Done differently.** The tenant planes are built from this repository's NixOS flake and created and deployed by the root OpenTofu, not by a hand-made template and Colmena; see [tenant-management-planes.md](tenant-management-planes.md), which also holds the address table. Each plane is on `.15` of its VLAN (VM 10015 and 13015, not `.11`). The root plane initialises and unseals each plane's OpenBao itself and keeps the keys in the root OpenBao, so none of the steps below is done by hand. Qoax Community's plane has been running since 2026-10-04. SUGAMING's replaced FMI{Codes}' (VM 12015) in November 2026. The text below is the original design.
+> **Done differently.** The tenant planes are built from this repository's NixOS flake and created and deployed by the root OpenTofu, not by a hand-made template and Colmena; see [tenant-management-planes.md](tenant-management-planes.md), which also holds the address table. Each plane is on `.15` of its VLAN (VM 10015 and 13015, not `.11`). The root plane initialises and unseals each plane's OpenBao itself and keeps the keys in the root OpenBao, so none of the steps below is done by hand. Qoax's plane has been running since 2026-10-04. SUGAMING's replaced FMI{Codes}' (VM 12015) in November 2026. The text below is the original design.
 
 While software-defined RBAC provides the hypervisor-level barrier, the IaC state files and the execution environments themselves must be isolated. Relying solely on logical namespaces within a single, monolithic management instance increases the risk of cross-tenant contamination. The architectural solution is to deploy a dedicated "Management VM" for each Virtual Private Server (VPS) organization.
 
@@ -768,11 +768,11 @@ Each Management VM operates in an isolated VLAN (or a highly restricted manageme
 
 ### Implementation Steps
 
-1. **Provision Tenant Management VMs via Root OpenTofu:** Unlike the root Management VM (which was bootstrapped manually in Phase 0), the tenant-specific Management VMs (Personal, Qoax Community, and FMI) are provisioned entirely declaratively by the root OpenTofu instance. Define `proxmox_virtual_environment_vm` resources in your root `.tf` files for each tenant management node, assigning them directly to the resource pools created in Phase 4 (e.g., `pool_id = proxmox_virtual_environment_pool.pool_qoax_community.id`).
-2. **Strict Network Segregation:** Assign the network interfaces for these VMs to their respective, isolated VLANs using the dynamic ID calculation logic defined in Phase 7. For example, configure the Qoax Community Management VM with a static IP of `192.168.10.11` on VLAN `10` (yielding VM ID `10011`), and the FMI Management VM with `192.168.12.11` on VLAN `12` (yielding VM ID `12011`).
+1. **Provision Tenant Management VMs via Root OpenTofu:** Unlike the root Management VM (which was bootstrapped manually in Phase 0), the tenant-specific Management VMs (Personal, Qoax, and FMI) are provisioned entirely declaratively by the root OpenTofu instance. Define `proxmox_virtual_environment_vm` resources in your root `.tf` files for each tenant management node, assigning them directly to the resource pools created in Phase 4 (e.g., `pool_id = proxmox_virtual_environment_pool.pool_qoax_community.id`).
+2. **Strict Network Segregation:** Assign the network interfaces for these VMs to their respective, isolated VLANs using the dynamic ID calculation logic defined in Phase 7. For example, configure the Qoax Management VM with a static IP of `192.168.10.11` on VLAN `10` (yielding VM ID `10011`), and the FMI Management VM with `192.168.12.11` on VLAN `12` (yielding VM ID `12011`).
 3. **Deploy Core Tooling via Colmena:** From the root Management VM, execute a `colmena apply` deployment to push the NixOS operating system configurations to the newly created tenant Management VMs over SSH. The Nix flake configuration for these child management nodes must explicitly install the `opentofu` and `colmena` packages, and activate the `services.openbao` module configured to use a local Raft integrated storage backend.
-4. **Initialize and Unseal OpenBao:** Once the NixOS configuration is active, the OpenBao daemon on each tenant VM will start in a sealed, uninitialized state. SSH into the Qoax Community Management VM and execute `bao operator init -key-shares=5 -key-threshold=3`. This process outputs five unseal keys and one initial root token. Save these securely (e.g., in the root Management VM's secure offline storage). Finally, run `bao operator unseal` three consecutive times, inputting a different key each time, until the `Sealed` status changes to `false`. Repeat this manual unseal process for the FMI and Personal Management VMs.
-5. **Isolate State Backend Configuration:** In the isolated Git repository designated for the Qoax Community infrastructure, configure the OpenTofu `backend` to store its `.tfstate` locally on the Qoax Community Management VM's disk at a designated path (e.g., `/var/lib/opentofu/qoax-community-infrastructure.tfstate`). By executing the Qoax Community pipeline exclusively on the Qoax Community VM, the OpenTofu execution environment is physically and cryptographically prevented from reading the FMI or Personal state files.
+4. **Initialize and Unseal OpenBao:** Once the NixOS configuration is active, the OpenBao daemon on each tenant VM will start in a sealed, uninitialized state. SSH into the Qoax Management VM and execute `bao operator init -key-shares=5 -key-threshold=3`. This process outputs five unseal keys and one initial root token. Save these securely (e.g., in the root Management VM's secure offline storage). Finally, run `bao operator unseal` three consecutive times, inputting a different key each time, until the `Sealed` status changes to `false`. Repeat this manual unseal process for the FMI and Personal Management VMs.
+5. **Isolate State Backend Configuration:** In the isolated Git repository designated for the Qoax infrastructure, configure the OpenTofu `backend` to store its `.tfstate` locally on the Qoax Management VM's disk at a designated path (e.g., `/var/lib/opentofu/qoax-community-infrastructure.tfstate`). By executing the Qoax pipeline exclusively on the Qoax VM, the OpenTofu execution environment is physically and cryptographically prevented from reading the FMI or Personal state files.
 
 NixOS Configuration for Phase 5 (OpenBao Service Definition applied via Colmena):
 
@@ -809,7 +809,7 @@ environment.systemPackages = with pkgs; [
 OpenTofu Configuration for Phase 5 (Root Provisioning & State Backend Isolation):
 
 ```
-# 1. Provisioning the Qoax Community Management VM from the ROOT OpenTofu instance
+# 1. Provisioning the Qoax Management VM from the ROOT OpenTofu instance
 resource "proxmox_virtual_environment_vm" "qoax_community_management_vm" {
   name      = "qoax-community-management-plane"
   node_name = "pve-01"
@@ -844,8 +844,8 @@ resource "proxmox_virtual_environment_vm" "qoax_community_management_vm" {
 
 # -------------------------------------------------------------------
 
-# 2. State Backend config inside the QOAX COMMUNITY SPECIFIC Git repository.
-# This runs exclusively on the Qoax Community Management VM.
+# 2. State Backend config inside the QOAX SPECIFIC Git repository.
+# This runs exclusively on the Qoax Management VM.
 terraform {
   backend "local" {
     # State file is securely stored on the isolated management plane disk
@@ -858,10 +858,10 @@ terraform {
 
 Secret management is a critical vector for securing the infrastructure pipeline, ensuring that credentials, API tokens, and SSH private keys are never hardcoded into the Git repositories. OpenBao, an open-source derivative of HashiCorp Vault, serves as the cryptographic heart of each Management VM.
 
-Because the infrastructure spans multiple environments (Root, Personal, Qoax Community, FMI), the authentication strategy must adapt to the operational context:
+Because the infrastructure spans multiple environments (Root, Personal, Qoax, FMI), the authentication strategy must adapt to the operational context:
 
 - **Path A: Single Password/Token (Root & Personal Installations):** For the root management plane or isolated personal labs, operators can rely on the Initial Root Token generated during initialization, or enable the basic `userpass` auth method (`bao auth enable userpass`). This provides a simple, single-password login path without external dependencies, which is critical for disaster recovery and solo operations.
-- **Path B: SSO Integration (Production & Multi-Tenant Installations):** For organizational tenants (e.g., Qoax Community, FMI{Codes}), relying on static tokens or shared passwords for human access is an operational anti-pattern. Instead, tenant OpenBao instances are configured to delegate authentication to a Google Workspace environment via Single Sign-On (SSO) using the OpenID Connect (OIDC) protocol. This ensures centralized revocation, MFA enforcement, and accurate audit logging tied to real human identities.
+- **Path B: SSO Integration (Production & Multi-Tenant Installations):** For organizational tenants (e.g., Qoax, FMI{Codes}), relying on static tokens or shared passwords for human access is an operational anti-pattern. Instead, tenant OpenBao instances are configured to delegate authentication to a Google Workspace environment via Single Sign-On (SSO) using the OpenID Connect (OIDC) protocol. This ensures centralized revocation, MFA enforcement, and accurate audit logging tied to real human identities.
 
 ### Implementation Steps (SSO Path)
 
@@ -871,7 +871,7 @@ Because the infrastructure spans multiple environments (Root, Personal, Qoax Com
     - Create new OAuth 2.0 Client ID credentials (Web Application).
     - Set the Authorized Redirect URI to match the OpenBao instance callback (e.g., `http://127.0.0.1:8200/ui/vault/auth/oidc/oidc/callback`).
     - Note the Client ID and Client Secret.
-2. **Enable OIDC in OpenBao:** On the Qoax Community Management VM, execute `bao auth enable oidc`.
+2. **Enable OIDC in OpenBao:** On the Qoax Management VM, execute `bao auth enable oidc`.
 3. **Configure the Auth Method:** Set the OIDC provider settings in OpenBao, injecting the Google credentials.
 4. **Create Role Mappings:** Create the `qoax-community-engineers` role within OpenBao to map the Google authentication to specific internal policies.
 5. **Dynamic Provider Injection:** In your IaC code, utilize the HashiCorp Vault provider to fetch your Proxmox token dynamically at runtime so it is never committed to Git.

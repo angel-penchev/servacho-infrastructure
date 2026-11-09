@@ -189,7 +189,7 @@ resource "unifi_network" "qoax_community_vps" {
   }
 }
 
-# Qoax Community's hosts that take a port forward from the internet, in the
+# Qoax's hosts that take a port forward from the internet, in the
 # Dmz zone (firewall.tf), so they cannot open connections into Internal. No
 # management plane: Qoax's plane on VLAN 10 deploys here. .2-.99 are for
 # static hosts; DHCP, which a VM's installer needs, starts above them.

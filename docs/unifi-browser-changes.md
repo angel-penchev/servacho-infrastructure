@@ -10,7 +10,7 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ## Session 2026-11-09 — VLAN 13 for SUGAMING, VLAN 12 renamed
 
-FMI{Codes} is replaced by a new organisation, SUGAMING, on a new VLAN 13. VLAN 12 becomes Qoax Community's network for hosts that take a port forward from the internet, in the Dmz zone. Made through the controller's REST API from the user's Chrome session (`https://192.168.2.1`), read-modify-write and read back after each write.
+FMI{Codes} is replaced by a new organisation, SUGAMING, on a new VLAN 13. VLAN 12 becomes Qoax's network for hosts that take a port forward from the internet, in the Dmz zone. Made through the controller's REST API from the user's Chrome session (`https://192.168.2.1`), read-modify-write and read back after each write.
 
 | Object | Attribute | Was | Now |
 |---|---|---|---|
@@ -121,7 +121,7 @@ No network binding and no local DNS record, like the root plane's entry. The fix
 
 ## Session 2026-10-04 — DHCP pools of the VPS VLANs start at .100
 
-Made in the UniFi web UI (Settings → Networks → the network → IPv4: Auto-Scale Network off, DHCP Range Start, Apply Changes) so that the organisations' management planes (`.15`) and Qoax Community's cluster addresses (from `.21`) are outside DHCP. Read back over `GET /rest/networkconf`. Neither VLAN had a client or a reservation at the time.
+Made in the UniFi web UI (Settings → Networks → the network → IPv4: Auto-Scale Network off, DHCP Range Start, Apply Changes) so that the organisations' management planes (`.15`) and Qoax's cluster addresses (from `.21`) are outside DHCP. Read back over `GET /rest/networkconf`. Neither VLAN had a client or a reservation at the time.
 
 | Network | Attribute | Was | Now |
 |---|---|---|---|

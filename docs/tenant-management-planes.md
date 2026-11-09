@@ -45,7 +45,7 @@ what creating VMs in its pool takes, each right on one path:
 | `/storage/iso-<id>` | `TofuIsos` | its own ISO storage: upload and delete its installer |
 | `/sdn/zones/localnetwork/vmbr0/<vlan>` | `TofuNetwork` | a network card on its own VLANs (`vlan`, and `extra_vlans` if set), and no other |
 
-Qoax Community also has VLAN 12, Qoax Public Servers, in the Dmz zone, for
+Qoax also has VLAN 12, Qoax Public Servers, in the Dmz zone, for
 its hosts that take a port forward. Proxmox cannot stop one VM from having a
 card on both of its VLANs, which would join Dmz to Internal past the gateway.
 Qoax's VMs come from infrastructure-reusables' `nixos-vm`, which gives a VM
@@ -191,7 +191,7 @@ Without it the apply fails at `terraform_data.runner` with a message saying
 where it goes. When the token expires, nothing breaks until a runner has to
 register again.
 
-**An ephemeral runner** (`runner.ephemeral = true`, as on the Qoax Community
+**An ephemeral runner** (`runner.ephemeral = true`, as on the Qoax
 plane) takes one job per registration: afterwards it de-registers, its state
 and work directories are wiped and it registers again, so no job meets what an
 earlier one left behind. A one-hour registration token can't do that, so its
@@ -245,6 +245,6 @@ entry in the repository's runner settings.
   for up to 30 minutes, until the scheduled unseal. Transit auto-unseal keyed
   by the root OpenBao would remove the wait.
 - **A listener on the tenant VLAN, with TLS**, for workloads that read
-  secrets from the plane (Qoax Community's clusters). The module keeps OpenBao on
+  secrets from the plane (Qoax's clusters). The module keeps OpenBao on
   loopback until that consumer exists.
 - **Human access** through Google Workspace OIDC, Phase 6 of the guide.

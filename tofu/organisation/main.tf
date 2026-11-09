@@ -79,6 +79,13 @@ resource "proxmox_virtual_environment_user_token" "tofu" {
   user_id               = proxmox_virtual_environment_user.tofu.user_id
   token_name            = "tofu-provisioner"
   privileges_separation = false
+
+  # The provider (0.69.1) empties value in state on every update, and the
+  # OpenBao copy and the plane's bootstrap read it. A new name must not update
+  # the token, so the comment keeps the name the token was created with.
+  lifecycle {
+    ignore_changes = [comment]
+  }
 }
 
 resource "vault_kv_secret_v2" "proxmox_token" {

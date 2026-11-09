@@ -53,7 +53,7 @@ module "qoax_community" {
   source = "./organisation"
 
   id   = "qoax-community"
-  name = "Qoax Community"
+  name = "Qoax"
   vlan = 10
   # Qoax Public Servers, in Dmz, for its hosts that take a port forward from
   # the internet. A VM with cards on both VLANs would join Dmz to Internal past

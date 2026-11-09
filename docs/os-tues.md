@@ -275,5 +275,5 @@ set with that in mind:
   initial passwords. The SSH host key changes too, so students see a warning.
 - **No disk quotas.** One student can fill `/home` for everyone, though not
   the system or the Nix store.
-- **WAN failover** depends on `wan-dns` and Qoax Community's plane, as for
+- **WAN failover** depends on `wan-dns` and Qoax's plane, as for
   the intercom ([wan-dns.md](wan-dns.md)).
