@@ -8,6 +8,23 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ---
 
+## Session 2026-11-09 (b) — the SUGAMING plane's client, the FMI{Codes} plane's record
+
+After the apply of #102. VM 13015 showed under the hostname `nixos`, from its installer's DHCP request. The apply forgot the FMI{Codes} plane's client at 06:45:25 UTC. VM 12015's destroy finished 2 s later, and the controller made a new, unnamed record for its MAC. The changes went through the controller's REST API from the user's Chrome session (`https://192.168.2.1`). A read-back followed each write.
+
+| Object | Attribute | Was | Now |
+|---|---|---|---|
+| Client `6af16c1bf1a8a0e9ad976286`, `bc:24:11:85:1b:83` (VM 13015), `PUT /rest/user` | `name` (alias) | unset | `sugaming-management-plane` |
+| | `use_fixedip` / `fixed_ip` | unset / unset | `true` / `192.168.13.15` |
+| | `noted` | unset | `true` |
+| Client record for `bc:24:11:9d:30:04` (VM 12015), `POST /cmd/stamgr` | `forget-sta`, sent twice | unnamed record | gone |
+
+Read back: the SUGAMING plane's client has the same settings as the Qoax plane's. It has no network binding and no local DNS record. The Qoax client also has the `local_dns_record*` and `virtual_network_override_*` keys, all off, which the UI wrote. This client has none of them. Its fixed IP is outside the DHCP pool (from `.100`). The first forget went out before 07:02 UTC. At 07:02 the controller made the record again, and it last saw the MAC at 07:05. No VM on the node has that MAC. At 06:45 Proxmox logged the destroy of VM 12015 and the create and start of VM 13015. It logged no other task up to 07:15. A read-back after the second forget, at 08:36, showed the record gone.
+
+**Code.** `clients.tf` declares `unifi_client.sugaming_management_plane`, and `tofu/imports_unifi.tf` adopts it by MAC. The expected plan is 1 to import and no change.
+
+---
+
 ## Session 2026-11-09 — VLAN 13 for SUGAMING, VLAN 12 renamed
 
 FMI{Codes} is replaced by a new organisation, SUGAMING, on a new VLAN 13. VLAN 12 becomes Qoax's network for hosts that take a port forward from the internet, in the Dmz zone. Made through the controller's REST API from the user's Chrome session (`https://192.168.2.1`), read-modify-write and read back after each write.
