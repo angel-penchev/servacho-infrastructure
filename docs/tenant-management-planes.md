@@ -156,9 +156,16 @@ Replacing the `tls_private_key` rotates it.
 After a reboot a plane's OpenBao is sealed, like the root plane's. Every
 apply, and `tenant-planes-unseal.yaml` every 30 minutes from `main`, unseals
 the root OpenBao and then every plane recorded under
-`secret/management-planes`; a plane that is down is a warning in the run, not
-a failure. Pull request plans do not: they never need a tenant plane, and the
-script would run from the pull request's branch with the root token.
+`secret/management-planes`. Pull request plans do not: they never need a
+tenant plane, and the script would run from the pull request's branch with the
+root token.
+
+The unseal step tries every plane. Then it fails if a plane did not answer,
+stays sealed, or has an unreadable record in the root OpenBao. Each such plane
+is an error in the run. In `tenant-planes-unseal.yaml` the run goes red.
+While a plane is down or sealed, its organisation's pipeline cannot read its
+secrets, so this must not stay quiet. In an apply the step has
+`continue-on-error`, so the apply goes on.
 
 The root plane holds every plane's unseal keys and root token. Tenants still
 cannot read each other's secrets, since each pipeline runs on its own plane;
@@ -233,7 +240,8 @@ entry in the repository's runner settings.
 3. Once `tofu state list` shows nothing under the module, delete the module
    block in a later change.
 4. Right after the apply, delete the plane's record in the root OpenBao.
-   Until then the unseal job connects to the old address every 30 minutes.
+   Until then the unseal job connects to the old address every 30 minutes
+   and fails.
    The root OpenBao listens only on the root plane's loopback. Log in there
    as `servacho-managment-plane`, with a key that its host file authorises
    (today `nixos/keys/servacho.pub`). Root's declared key is the deploy key.
