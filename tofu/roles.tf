@@ -23,7 +23,7 @@ resource "proxmox_virtual_environment_role" "tofu_provisioner" {
 
 # What an organisation's OpenTofu user needs outside its pool to create a VM,
 # each granted on one path only (organisation/main.tf): disk space on the VM
-# storage, its own ISO storage, and its VLAN on the bridge.
+# storage, its own ISO storage, and its VLANs on the bridge.
 
 resource "proxmox_virtual_environment_role" "tofu_disks" {
   role_id = "TofuDisks"

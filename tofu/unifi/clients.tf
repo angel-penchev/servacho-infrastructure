@@ -29,13 +29,6 @@ resource "unifi_client" "qoax_community_management_plane" {
   allow_existing = true
 }
 
-resource "unifi_client" "fmicodes_management_plane" {
-  mac            = "bc:24:11:9d:30:04"
-  name           = "fmicodes-management-plane"
-  fixed_ip       = "192.168.12.15"
-  allow_existing = true
-}
-
 # USW Pro Max port 12.
 resource "unifi_client" "jetkvm_servacho_gosho" {
   mac      = "30:52:53:0a:09:87"

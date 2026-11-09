@@ -3,7 +3,7 @@
 The home has two internet lines: WAN1 (`46.10.181.183`), the primary, and
 WAN2 (`87.126.144.74`), used only while WAN1 is down. A DNS record that points
 at the home has to follow whichever one is active. `wan-dns` does that, on
-Qoax Community's management plane (`192.168.10.15`), where the zones are
+Qoax's management plane (`192.168.10.15`), where the zones are
 managed (qoax-infrastructure, its `docs/dns.md`).
 
 | Piece | Where |
@@ -58,6 +58,6 @@ Until the file is there, the unit is skipped, not failed.
 
 ## Known gaps
 
-- **The plane.** While Qoax Community's management plane is down, or its
+- **The plane.** While Qoax's management plane is down, or its
   OpenBao sealed, the records keep whichever address they last had.
 - **IPv4 only.** Only A records follow; nothing points at the home over IPv6.

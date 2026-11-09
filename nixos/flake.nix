@@ -83,7 +83,7 @@
         # The organisations' planes, installed and deployed by
         # tofu/organisation/plane.tf.
         qoax-community-management-plane = mkInstalledPlane ./hosts/qoax-community-management-plane/configuration.nix;
-        fmicodes-management-plane = mkInstalledPlane ./hosts/fmicodes-management-plane.nix;
+        sugaming-management-plane = mkInstalledPlane ./hosts/sugaming-management-plane.nix;
 
         # The operating systems class's machine, installed and deployed by
         # tofu/os_tues.tf (docs/os-tues.md).
@@ -123,8 +123,8 @@
           self.nixosConfigurations.servacho-management-plane.config.system.build.toplevel;
         qoax-community-management-plane =
           self.nixosConfigurations.qoax-community-management-plane.config.system.build.toplevel;
-        fmicodes-management-plane =
-          self.nixosConfigurations.fmicodes-management-plane.config.system.build.toplevel;
+        sugaming-management-plane =
+          self.nixosConfigurations.sugaming-management-plane.config.system.build.toplevel;
         os-tues = self.nixosConfigurations.os-tues.config.system.build.toplevel;
         # LazyVim starting offline, in the build sandbox (hosts/os-tues/lazyvim.nix).
         os-tues-lazyvim = self.nixosConfigurations.os-tues.config.system.build.lazyvimCheck;

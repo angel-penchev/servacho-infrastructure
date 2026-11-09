@@ -1,4 +1,4 @@
-# The Qoax Community management plane: OpenTofu, OpenBao and the runner for
+# The Qoax management plane: OpenTofu, OpenBao and the runner for
 # the qoax tenant, on the qoax VPS network. Installed from
 # images/installer.nix and deployed by tofu/organisation/plane.tf; the
 # VM's hardware and disk layout come from infrastructure-reusables.

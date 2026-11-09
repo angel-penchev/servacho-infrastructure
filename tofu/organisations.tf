@@ -52,10 +52,16 @@ module "openbao_cli" {
 module "qoax_community" {
   source = "./organisation"
 
-  id    = "qoax-community"
-  name  = "Qoax Community"
-  vlan  = 10
-  roles = local.organisation_roles
+  id   = "qoax-community"
+  name = "Qoax"
+  vlan = 10
+  # Qoax Public Servers, in Dmz, for its hosts that take a port forward from
+  # the internet. A VM with cards on both VLANs would join Dmz to Internal past
+  # the gateway, and Proxmox cannot refuse it. Qoax's VMs come from nixos-vm,
+  # which has one card; qoax-infrastructure has to check the rest
+  # (qoax-community/qoax-infrastructure#46).
+  extra_vlans = [12]
+  roles       = local.organisation_roles
   plane = local.management_planes_enabled ? {
     host    = "qoax-community-management-plane"
     vm_id   = 10015
@@ -68,7 +74,11 @@ module "qoax_community" {
   ssh_private_key  = data.vault_kv_secret_v2.management_plane_ssh.data["private_key"]
 }
 
+# Replaced by SUGAMING. count = 0 destroys it with its definition still here,
+# so iso_storage's destroy step removes iso-fmicodes (organisation/main.tf).
+# Delete this block once that apply is done.
 module "fmicodes" {
+  count  = 0
   source = "./organisation"
 
   id    = "fmicodes"
@@ -87,11 +97,30 @@ module "fmicodes" {
   ssh_private_key  = data.vault_kv_secret_v2.management_plane_ssh.data["private_key"]
 }
 
+module "sugaming" {
+  source = "./organisation"
+
+  id    = "sugaming"
+  name  = "SUGAMING"
+  vlan  = 13
+  roles = local.organisation_roles
+  plane = local.management_planes_enabled ? {
+    host    = "sugaming-management-plane"
+    vm_id   = 13015
+    address = "192.168.13.15"
+  } : null
+
+  installer_iso_id = local.plane_tools.installer_iso_id
+  openbao_cli      = local.plane_tools.openbao_cli
+  nixos_flake      = local.plane_tools.nixos_flake
+  ssh_private_key  = data.vault_kv_secret_v2.management_plane_ssh.data["private_key"]
+}
+
 # The public halves of the planes' deploy keys, for each organisation to
 # commit to its repository (its installer and hosts let the plane in with it).
 output "organisation_deploy_keys" {
   value = {
-    for org in [module.qoax_community, module.fmicodes] :
+    for org in [module.qoax_community, module.sugaming] :
     org.id => org.deploy_public_key
     if org.deploy_public_key != null
   }

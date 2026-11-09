@@ -13,6 +13,17 @@ variable "vlan" {
   description = "The organisation's VLAN on the bridge: its VMs' network, and its plane's."
 }
 
+variable "extra_vlans" {
+  type        = set(number)
+  default     = []
+  description = "More VLANs on the bridge the organisation's VMs may use. The plane stays on vlan."
+
+  validation {
+    condition     = !contains(var.extra_vlans, var.vlan)
+    error_message = "extra_vlans must not repeat vlan."
+  }
+}
+
 variable "roles" {
   type = object({
     pool    = string
@@ -20,7 +31,7 @@ variable "roles" {
     isos    = string
     network = string
   })
-  description = "Roles of the organisation's OpenTofu user: on its pool, on disk_storage, on its ISO storage and on its VLAN (../roles.tf)."
+  description = "Roles of the organisation's OpenTofu user: on its pool, on disk_storage, on its ISO storage and on its VLANs (../roles.tf)."
 }
 
 variable "disk_storage" {
