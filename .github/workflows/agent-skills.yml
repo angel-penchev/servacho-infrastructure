@@ -1,0 +1,32 @@
+# Checks the agent skills in .agents/skills. They are copies from
+# qoax-community/qoax-agent-skills, and skills-lock.json pins them.
+name: Agent skills
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "23 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lock:
+    name: Skills match the lock
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: qoax-community/qoax-agent-skills@de8b161d437c4a08ef6569755dde0e5e31e3b6f5 # v1.0.0
+
+  upstream:
+    name: Skills are current
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: qoax-community/qoax-agent-skills@de8b161d437c4a08ef6569755dde0e5e31e3b6f5 # v1.0.0
+        with:
+          upstream: "true"

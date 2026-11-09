@@ -2,28 +2,28 @@
   "version": 1,
   "skills": {
     "asd-ste100": {
-      "source": "woosal1337/blog",
+      "source": "qoax-community/qoax-agent-skills",
       "sourceType": "github",
-      "skillPath": "videos/ep01-the-cure-for-ai-slop/asd-ste100/SKILL.md",
-      "computedHash": "70d5843811fd4feda32610c18f10a5d5f90ba15cedb4854b21acd61ccfb1fee7"
+      "skillPath": "plugins/asd-ste100/skills/asd-ste100/SKILL.md",
+      "computedHash": "0259ae0d0118c4d99de600e268456f80e7eba1e8f34bcd1bea890568416a28fe"
     },
     "grill-me": {
-      "source": "mattpocock/skills",
+      "source": "qoax-community/qoax-agent-skills",
       "sourceType": "github",
-      "skillPath": "skills/productivity/grill-me/SKILL.md",
-      "computedHash": "9cdbb4b8f7a3aeaef82e6230c9e823500d4a8a1214c726cf342cf9829d34fc7d"
+      "skillPath": "plugins/qoax-agent-skills/skills/grill-me/SKILL.md",
+      "computedHash": "9e6fcfa9e8a78032f39748215597b2432a42c5197348472d7e574ec8d223eace"
     },
     "grilling": {
-      "source": "mattpocock/skills",
+      "source": "qoax-community/qoax-agent-skills",
       "sourceType": "github",
-      "skillPath": "skills/productivity/grilling/SKILL.md",
-      "computedHash": "e40cc1d348f6d935e28f1e24474302d7368f0a400429271a43b35fe154891dc5"
+      "skillPath": "plugins/qoax-agent-skills/skills/grilling/SKILL.md",
+      "computedHash": "03d65d0473566562b08a27fe20c982e97cf00523c40e6010acbee89f7a26d652"
     },
     "writing-code-comments": {
-      "source": "posthog/posthog",
+      "source": "qoax-community/qoax-agent-skills",
       "sourceType": "github",
-      "skillPath": ".agents/skills/writing-code-comments/SKILL.md",
-      "computedHash": "e4478f6eb3a726e3239fc292ba7695fbaba01e3cdf6719eae63750ab893bea65"
+      "skillPath": "plugins/qoax-agent-skills/skills/writing-code-comments/SKILL.md",
+      "computedHash": "6a409ebe1085937cb329292a13e0d7932a8d44b6cd48d4da042398e845cd7379"
     }
   }
 }
