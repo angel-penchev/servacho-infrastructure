@@ -15,7 +15,7 @@ output → variable plumbing. One topic per file:
 | File | Contents | Where it lives in the UI |
 |---|---|---|
 | `module.tf` | provider pin, the five secret inputs, shared data sources | — |
-| `networks.tf` | the nine LAN networks / VLANs (incl. the VLAN 99 management network) | Settings → Networks |
+| `networks.tf` | the ten LAN networks / VLANs (incl. the VLAN 99 management network) | Settings → Networks |
 | `wans.tf` | the two Vivacom uplinks; WAN SLA block (unsupported) | Settings → Internet |
 | `port_profiles.tf` | the five switch-port profiles (UniFi Device, Host Device, per-VLAN) | Settings → Profiles → Ethernet Ports |
 | `device_udm_pro_max.tf` | the gateway: name, port overrides | Devices |

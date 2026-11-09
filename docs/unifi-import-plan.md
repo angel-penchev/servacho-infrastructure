@@ -105,7 +105,8 @@ unifi_network	public_servers	6a9d35773346f05e9f31f0ac
 unifi_network	private_servers	6a9d358b3346f05e9f31f0bd
 unifi_network	iot	6a9d35a43346f05e9f31f0db
 unifi_network	qoax_community_vps	6a9d35e63346f05e9f31f11f
-unifi_network	fmicodes_vps	6a9d360a3346f05e9f31f145
+unifi_network	qoax_public_servers	6a9d360a3346f05e9f31f145
+unifi_network	sugaming_vps	6af1576ff1a8a0e9ad974ee7
 unifi_wan	vivacom_primary	6a9c2f5583de4db1f0f1dcf4
 unifi_wan	vivacom_secondary	6a9c2f5583de4db1f0f1dcf5
 unifi_vpn_server	openvpn	6aa6f9cae5a2f2ebb4474a26
@@ -148,7 +149,7 @@ TSV
 
 The `unifi_radius_user` names carry their `for_each` key, e.g. `module.unifi.unifi_radius_user.users["a.penchev"]`; the quotes must reach `tofu`, which the loop preserves.
 
-The list is the 2026-09-14 set. Since then the module gained four reservations (`servacho_management_plane`, `qoax_community_management_plane`, `fmicodes_management_plane`, `mac4o_mini`), each imported by MAC, and two forwards created by apply (`unity_intercom`, `os_tues_ssh`; their import id is the controller `_id`), and `nginx_proxy` is gone (#85).
+The list is the 2026-09-14 set. Since then the module gained four reservations (`servacho_management_plane`, `qoax_community_management_plane`, `fmicodes_management_plane`, `mac4o_mini`), each imported by MAC (`fmicodes_management_plane` went with its VM in November 2026), and two forwards created by apply (`unity_intercom`, `os_tues_ssh`; their import id is the controller `_id`), and `nginx_proxy` is gone (#85).
 
 ## Re-import one resource
 

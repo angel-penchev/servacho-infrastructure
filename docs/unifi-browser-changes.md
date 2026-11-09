@@ -8,6 +8,25 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ---
 
+## Session 2026-11-09 — VLAN 13 for SUGAMING, VLAN 12 renamed
+
+FMI{Codes} is replaced by a new organisation, SUGAMING, on a new VLAN 13. VLAN 12 becomes Qoax Community's network for hosts that take a port forward from the internet, in the Dmz zone. Made through the controller's REST API from the user's Chrome session (`https://192.168.2.1`), read-modify-write and read back after each write.
+
+| Object | Attribute | Was | Now |
+|---|---|---|---|
+| Network `6af1576ff1a8a0e9ad974ee7`, `POST /rest/networkconf` | whole object | none existed | `SUGAMING VPS`: VLAN 12's object with `vlan 13`, `ip_subnet 192.168.13.1/24`, `dhcpd_start 192.168.13.100`, `dhcpd_stop 192.168.13.254` and `dhcpd_ip_1 192.168.13.1` (the DHCP Guarding server) |
+| Network `6a9d360a3346f05e9f31f145` (VLAN 12), `PUT /rest/networkconf` | `name` | `FMI{Codes} VPS` | `Qoax Public Servers` |
+
+Read back: SUGAMING VPS differs from VLAN 12 only in those keys, its `_id` and its `external_id`. It is in Internal. On VLAN 12 only `name` changed. VLAN 13 needs no switch change: the host's port profile, Private Server (Aggregation port 1, and USW Pro Max port 21 while the DAC is out), tags every VLAN (`tagged_vlan_mgmt = "auto"`).
+
+**Not done live: VLAN 12 into Dmz.** `PUT /v2/api/site/default/firewall/zone/6a9d37ad3346f05e9f31f329` with the full zone object returned 400 (`Unrecognized field "attr_no_edit"`) and changed nothing. No retry was sent. Add it in the UI (Settings → Security → Zones → Dmz) before the merge, or let the apply do it from `unifi_firewall_zone.dmz`. An apply from `main` before this change merges renames VLAN 12 back and takes it out of Dmz. This change's apply puts both back.
+
+**The Dmz zone's predefined policies**, read the same day over `GET /v2/api/site/default/firewall-policies`: Dmz → Internal, Vpn, Dmz, Hotspot and IoT block everything but return traffic. Dmz → Gateway blocks everything but DNS, DHCP, DHCPv6, ICMP, ICMPv6 and return traffic, so a host there needs public NTP. Dmz → External allows everything. Internal, Vpn and Gateway → Dmz allow everything.
+
+**Code.** `networks.tf` declares `unifi_network.sugaming_vps`, which `tofu/imports_unifi.tf` adopts, and renames `fmicodes_vps` to `qoax_public_servers` with a `moved` block there. `firewall.tf` adds VLAN 12 to `unifi_firewall_zone.dmz`. The plan shows 1 to import, no change to either network, and a change to the Dmz zone's `network_ids` until the UI step is done.
+
+---
+
 ## Session 2026-11-07 — a WAN SLA that fails over a captive WAN1
 
 WAN1's bill was left unpaid on purpose, to test failover. Vivacom put the line behind its captive portal (`captivation.vivacom.bg`), and the gateway never failed over. Both WANs ran the **Auto** SLA, which is down only when two of three probes fail: a ping to `ping.ui.com`, and DNS lookups of `ui.com` through 1.1.1.1 and 8.8.8.8. Through the captive line DNS reached the real resolvers (Cloudflare saw `46.10.181.183`), while ICMP was dropped past the gateway, plain HTTP was redirected with a 302 to the portal, and HTTPS timed out. Only the ping failed, so WAN1 stayed Online and active. The `www` health subsystem showed `warning`, but it does not drive failover.

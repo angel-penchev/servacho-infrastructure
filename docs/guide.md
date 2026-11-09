@@ -643,7 +643,8 @@ The following table outlines the prescribed VLAN architecture based on the speci
 | Private Servers | 5 | 192.168.5.0/24 | Server | Internal databases, management planes, and personal administration |
 | IoT | 6 | 192.168.6.0/24 | Server | Isolated smart devices and sensors |
 | Qoax VPS | 10 | 192.168.10.0/23 | Server (from .100) | Multi-tenant compute for the Qoax Community organization |
-| FMI{Codes} VPS | 12 | 192.168.12.0/24 | Server (from .100) | Isolated compute for the FMI educational/development organization |
+| Qoax Public Servers | 12 | 192.168.12.0/24 | Server (from .100) | Qoax Community's hosts the internet reaches through a port forward, in the Dmz zone (FMI{Codes} VPS until November 2026) |
+| SUGAMING VPS | 13 | 192.168.13.0/24 | Server (from .100) | Isolated compute for the SUGAMING student club |
 
 ### Implementation Steps
 

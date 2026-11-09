@@ -238,7 +238,8 @@ Global Switch Settings without an attribute (802.1X fallback VLAN = Guest, the 8
 | Private Servers | corporate | 5 | 192.168.5.1/24 | .6–.254 | off |
 | IoT | corporate | 6 | 192.168.6.1/24 | .6–.254 | on |
 | **Qoax VPS** | corporate | 10 | **192.168.10.1/23** | **.10.100–.11.254** | off |
-| FMI{Codes} VPS | corporate | 12 | 192.168.12.1/24 | .100–.254 | off |
+| Qoax Public Servers *(FMI{Codes} VPS until 2026-11-09)* | corporate | 12 | 192.168.12.1/24 | .100–.254 | off |
+| SUGAMING VPS *(new 2026-11-09)* | corporate | 13 | 192.168.13.1/24 | .100–.254 | off |
 
 *Updated 2026-11-02:* mDNS has been off everywhere but Main and IoT since 2026-09-13 (difference 4 below), and the Qoax VPS and FMI{Codes} VPS pools have started at .100 since 2026-10-04 (`unifi-browser-changes.md`). Read back live on 2026-11-02.
 
@@ -468,13 +469,13 @@ The `StKr_IoT_2.4GHz` diff matters: applying the code would drop WPA3 from that 
 
 | Zone | Networks |
 |---|---|
-| Internal | Default (Untagged), UniFi Devices (VLAN 99), Main, Private Servers, Qoax VPS, FMI{Codes} VPS |
+| Internal | Default (Untagged), UniFi Devices (VLAN 99), Main, Private Servers, Qoax VPS, SUGAMING VPS |
 | IoT *(custom zone, verified 2026-09-13; `unifi_firewall_zone.iot` since 2026-09-14)* | IoT |
 | External | Vivacom Primary, Vivacom Secondary |
 | Gateway | – |
 | Vpn | – |
 | **Hotspot** | **Guest** |
-| **Dmz** | **Public Servers** |
+| **Dmz** | **Public Servers**, Qoax Public Servers *(VLAN 12, from November 2026)* |
 
 Both checklist assignments (Hotspot ← Guest, DMZ ← Public Servers) are done, and the new firewall UI is active.
 

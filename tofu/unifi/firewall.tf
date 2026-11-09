@@ -2,13 +2,16 @@ data "unifi_firewall_zone" "internal" {
   name = "Internal"
 }
 
-# Built-in zone; managed only to pin the Public Servers network to it. The
-# controller spells it "Dmz".
+# Built-in zone; managed only to pin the networks of hosts the internet reaches
+# to it. Its predefined policies block new connections from it to every other
+# zone but External, between its own networks, and to the gateway but DNS, DHCP
+# and ICMP. The controller spells it "Dmz".
 resource "unifi_firewall_zone" "dmz" {
   name = "Dmz"
 
   network_ids = [
-    unifi_network.public_servers.id
+    unifi_network.public_servers.id,
+    unifi_network.qoax_public_servers.id,
   ]
 }
 

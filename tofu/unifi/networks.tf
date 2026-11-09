@@ -189,9 +189,12 @@ resource "unifi_network" "qoax_community_vps" {
   }
 }
 
-# .2-.99 are for static hosts (the management plane on .15); DHCP starts above.
-resource "unifi_network" "fmicodes_vps" {
-  name               = "FMI{Codes} VPS"
+# Qoax Community's hosts that take a port forward from the internet, in the
+# Dmz zone (firewall.tf), so they cannot open connections into Internal. No
+# management plane: Qoax's plane on VLAN 10 deploys here. .2-.99 are for
+# static hosts; DHCP, which a VM's installer needs, starts above them.
+resource "unifi_network" "qoax_public_servers" {
+  name               = "Qoax Public Servers"
   purpose            = "corporate"
   vlan               = 12
   subnet             = "192.168.12.1/24"
@@ -210,5 +213,29 @@ resource "unifi_network" "fmicodes_vps" {
   dhcp_guarding = {
     enabled = true
     servers = ["192.168.12.1"]
+  }
+}
+
+# .2-.99 are for static hosts (the management plane on .15); DHCP starts above.
+resource "unifi_network" "sugaming_vps" {
+  name               = "SUGAMING VPS"
+  purpose            = "corporate"
+  vlan               = 13
+  subnet             = "192.168.13.1/24"
+  multicast_dns      = false
+  setting_preference = "manual"
+
+  # Off, or the DHCP range below cannot differ from the whole subnet.
+  auto_scale = false
+
+  dhcp_server = {
+    enabled = true
+    start   = "192.168.13.100"
+    stop    = "192.168.13.254"
+  }
+
+  dhcp_guarding = {
+    enabled = true
+    servers = ["192.168.13.1"]
   }
 }
