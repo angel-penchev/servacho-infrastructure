@@ -43,7 +43,14 @@ what creating VMs in its pool takes, each right on one path:
 | `/pool/pool-<id>` | `TofuProvisioner` | the VMs in the pool: create, configure (CD-ROM included), power, read the guest agent |
 | `/storage/local-lvm` | `TofuDisks` | their disks |
 | `/storage/iso-<id>` | `TofuIsos` | its own ISO storage: upload and delete its installer |
-| `/sdn/zones/localnetwork/vmbr0/<vlan>` | `TofuNetwork` | a network card on its own VLAN, and no other |
+| `/sdn/zones/localnetwork/vmbr0/<vlan>` | `TofuNetwork` | a network card on its own VLANs (`vlan`, and `extra_vlans` if set), and no other |
+
+Qoax Community also has VLAN 12, Qoax Public Servers, in the Dmz zone, for
+its hosts that take a port forward. Proxmox cannot stop one VM from having a
+card on both of its VLANs, which would join Dmz to Internal past the gateway.
+Qoax's VMs come from infrastructure-reusables' `nixos-vm`, which gives a VM
+one card. qoax-infrastructure has to check that no VM gets two
+(qoax-community/qoax-infrastructure#46).
 
 `iso-<id>` is a directory storage at `/var/lib/organisation-isos/<id>` for ISO
 images only, created through the Proxmox API by

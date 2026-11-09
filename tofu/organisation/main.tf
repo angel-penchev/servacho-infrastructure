@@ -4,7 +4,7 @@
 #
 # Besides the pool, the user can do exactly what creating a VM there takes:
 # allocate disks on the VM storage, keep ISO images (its installer) in a
-# storage of its own, and put a network card on its own VLAN.
+# storage of its own, and put a network card on its own VLANs.
 
 resource "proxmox_virtual_environment_pool" "this" {
   pool_id = "pool-${var.id}"
@@ -60,10 +60,17 @@ resource "proxmox_virtual_environment_user" "tofu" {
     role_id = var.roles.isos
   }
   # Proxmox checks a tagged network card against the bridge's VLAN path, so
-  # this is the organisation's VLAN and nothing else on the bridge.
+  # these are the organisation's VLANs and nothing else on the bridge.
   acl {
     path    = "/sdn/zones/localnetwork/${var.bridge}/${var.vlan}"
     role_id = var.roles.network
+  }
+  dynamic "acl" {
+    for_each = var.extra_vlans
+    content {
+      path    = "/sdn/zones/localnetwork/${var.bridge}/${acl.value}"
+      role_id = var.roles.network
+    }
   }
 }
 

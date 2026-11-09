@@ -52,10 +52,16 @@ module "openbao_cli" {
 module "qoax_community" {
   source = "./organisation"
 
-  id    = "qoax-community"
-  name  = "Qoax Community"
-  vlan  = 10
-  roles = local.organisation_roles
+  id   = "qoax-community"
+  name = "Qoax Community"
+  vlan = 10
+  # Qoax Public Servers, in Dmz, for its hosts that take a port forward from
+  # the internet. A VM with cards on both VLANs would join Dmz to Internal past
+  # the gateway, and Proxmox cannot refuse it. Qoax's VMs come from nixos-vm,
+  # which has one card; qoax-infrastructure has to check the rest
+  # (qoax-community/qoax-infrastructure#46).
+  extra_vlans = [12]
+  roles       = local.organisation_roles
   plane = local.management_planes_enabled ? {
     host    = "qoax-community-management-plane"
     vm_id   = 10015
