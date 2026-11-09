@@ -149,7 +149,7 @@ TSV
 
 The `unifi_radius_user` names carry their `for_each` key, e.g. `module.unifi.unifi_radius_user.users["a.penchev"]`; the quotes must reach `tofu`, which the loop preserves.
 
-The list is the 2026-09-14 set. Since then the module gained four reservations (`servacho_management_plane`, `qoax_community_management_plane`, `fmicodes_management_plane`, `mac4o_mini`), each imported by MAC (`fmicodes_management_plane` went with its VM in November 2026), and two forwards created by apply (`unity_intercom`, `os_tues_ssh`; their import id is the controller `_id`), and `nginx_proxy` is gone (#85).
+The list is the 2026-09-14 set. Since then the module gained five reservations, each imported by MAC: `servacho_management_plane`, `qoax_community_management_plane`, `fmicodes_management_plane`, `mac4o_mini` and `sugaming_management_plane`. The apply of #102 removed `fmicodes_management_plane` with its VM. The apply created two forwards, `unity_intercom` and `os_tues_ssh`. Their import id is the controller `_id`. `nginx_proxy` is gone (#85).
 
 ## Re-import one resource
 

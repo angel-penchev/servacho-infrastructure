@@ -18,7 +18,7 @@ A management plane takes `.15` of its VLAN. VM ids follow the rule from Phase
 |---|---|---|---|---|---|
 | `servacho-management-plane` (root) | — | 5 (`192.168.5.0/24`) | `192.168.5.15` | 5015 | running; moved from `.11` / 5011 on 2026-10-02 ([management-plane-move.md](management-plane-move.md)) |
 | `qoax-community-management-plane` | `pool-qoax-community` | 10 (`192.168.10.0/23`) | `192.168.10.15` | 10015 | running; brought up on 2026-10-04 (#47) |
-| `sugaming-management-plane` | `pool-sugaming` | 13 (`192.168.13.0/24`) | `192.168.13.15` | 13015 | replaces FMI{Codes}' plane (VM 12015, `192.168.12.15`), removed with that organisation in November 2026 |
+| `sugaming-management-plane` | `pool-sugaming` | 13 (`192.168.13.0/24`) | `192.168.13.15` | 13015 | running; brought up on 2026-11-09 (#102); replaces FMI{Codes}' plane (VM 12015, `192.168.12.15`), removed the same day |
 
 Addresses inside an organisation's VLAN other than its plane's are that
 organisation's to allocate, in its own infrastructure repository (Qoax
@@ -138,6 +138,13 @@ apply, from the root plane:
    bootstrap runs again when either changes, so the plane's copies follow a
    rotation.
 
+**The plane's UniFi client** is one step by hand. After the first apply, the
+plane shows in UniFi under the hostname `nixos`. Give it the host's name and
+its `.15` as a fixed IP on the controller, and log the change in
+`docs/unifi-browser-changes.md`. Then declare it in `tofu/unifi/clients.tf`
+and import it by MAC. The fixed IP is outside the DHCP pool, so it only
+records the address.
+
 **The plane's deploy key** is what the plane installs and deploys its
 organisation's VMs with: an ED25519 key OpenTofu generates for each plane
 (`tls_private_key` in `tofu/organisation/plane.tf`), kept in the root state and
@@ -226,18 +233,37 @@ entry in the repository's runner settings.
 3. Once `tofu state list` shows nothing under the module, delete the module
    block in a later change.
 4. Right after the apply, delete the plane's record in the root OpenBao.
-   Until then the unseal job connects to the old address every 30 minutes:
+   Until then the unseal job connects to the old address every 30 minutes.
+   The root OpenBao listens only on the root plane's loopback. Log in there
+   as `servacho-managment-plane`, with a key that its host file authorises
+   (today `nixos/keys/servacho.pub`). Root's declared key is the deploy key.
+   Then log in to OpenBao with the root token, which can delete under
+   `secret/metadata`:
 
    ```bash
+   ssh servacho-managment-plane@192.168.5.15
+   export BAO_ADDR=http://127.0.0.1:8200 && bao login
    bao kv metadata delete -mount=secret management-planes/<id>
    ```
 
    The apply only soft-deletes the token copy and the deploy key. Delete
    their metadata the same way: `proxmox/<id>_token`, with each `-` in the id
    written as `_`, and `deploy-keys/<id>`. Delete `github/runners/<id>` if it
-   exists.
+   exists. Then remove the token that `bao login` stored in your home
+   directory:
+
+   ```bash
+   rm ~/.vault-token
+   ```
+
+   Do not use `bao token revoke -self` for this. With the root token, it
+   revokes the token that CI uses.
 5. On the node, remove `/var/lib/organisation-isos/<id>` by hand. The destroy
    removes only the storage definition.
+6. In UniFi, look for a record of the old plane's MAC. The apply forgets the
+   client while the VM can still run. The controller can then make a new,
+   unnamed record for the MAC. Once the VM is gone, forget that record
+   (Client Devices → the client → Forget). Check later that it stays gone.
 
 ## Still open
 
