@@ -6,7 +6,7 @@
     # The NixOS modules and installer shared with the organisations'
     # infrastructure repositories.
     reusables = {
-      url = "github:angel-penchev/infrastructure-reusables/v0.9.1";
+      url = "github:angel-penchev/infrastructure-reusables/v0.10.0";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
