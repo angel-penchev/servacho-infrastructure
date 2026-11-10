@@ -81,6 +81,7 @@ module this repository installs the planes with.
 | The installer every plane starts from | `nixos/images/installer.nix`, built as `installer-iso` |
 | The tenant hosts | `nixos/hosts/qoax-community-management-plane/`, `nixos/hosts/sugaming-management-plane.nix` |
 | The VMs, their install, deploy and OpenBao bootstrap | `tofu/organisation/plane.tf`, with infrastructure-reusables' `installer-iso` and `nixos-vm` |
+| Who may open SSH connections to a plane | `servacho.ssh.sources` in the host file, checked by `nixos/deployed-by-root-plane.nix` |
 | The OpenBao bootstrap and the unseal after a reboot | `scripts/tenant-plane-openbao.sh`, `.github/actions/unseal-tenant-planes`, `.github/workflows/tenant-planes-unseal.yaml` |
 | The runner's registration | `scripts/tenant-plane-runner.sh`, `tofu/organisation/plane.tf` |
 | The organisation's rights outside its pool, its ISO storage, the plane's deploy key | `tofu/organisation/main.tf`, `tofu/organisation/plane.tf`, `tofu/roles.tf`, `scripts/organisation-iso-storage.sh` |
@@ -91,6 +92,13 @@ file: it imports the VM hardware and disk layout instead of a generated
 `network` option (systemd-networkd, matched by interface type, so the device
 name does not matter), and its runner is off until the tenant's repository
 exists.
+
+Both tenant hosts set `servacho.ssh.sources = "any"`, so sshd is open to
+every source. The root plane deploys each plane and unseals its OpenBao over
+SSH from `192.168.5.15`. A source list in place of `"any"` must keep that
+address. The check in `nixos/deployed-by-root-plane.nix` stops the
+evaluation if it does not. `nixos/admin-sources.nix` holds the
+administrators' networks for such a list.
 
 ## Bringing a plane up
 
