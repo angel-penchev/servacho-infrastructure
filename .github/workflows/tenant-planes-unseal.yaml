@@ -3,6 +3,11 @@ name: Unseal the management planes
 # A plane that reboots comes back sealed. This unseals the root OpenBao and
 # every tenant plane recorded in it from main's copy of the scripts, on a
 # schedule and after every apply (tofu-apply.yaml), never from a pull request.
+#
+# A tenant plane that does not answer or stays sealed fails this run, so
+# somebody sees it. While a plane is down or sealed, its organisation's
+# pipeline cannot read its secrets. The apply workflow (tofu-apply.yaml) lets
+# the same step fail, so the root apply goes on.
 
 on:
   schedule:

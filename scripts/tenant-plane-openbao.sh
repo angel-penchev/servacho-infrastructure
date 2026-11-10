@@ -15,9 +15,13 @@
 #
 #   unseal-all  From the workflows, after the root OpenBao is unsealed: unseal
 #               every plane recorded under secret/management-planes, the way
-#               the openbao-unseal action does for the root plane. A plane that
-#               cannot be reached is reported and skipped, so one tenant's
-#               outage never fails the root pipeline.
+#               the openbao-unseal action does for the root plane. It tries
+#               every plane. Then it exits 1 if a plane did not answer, is
+#               still sealed, or has a record it cannot read. A plane that is
+#               down or sealed blocks its organisation's pipeline, so the
+#               scheduled job must go red. The apply workflow (tofu-apply.yaml)
+#               lets this step fail, so one tenant's outage never stops the
+#               root pipeline.
 #
 # Both need BAO (the bao binary) and the root OpenBao's address and token, as
 # BAO_ADDR / BAO_TOKEN or VAULT_ADDR / VAULT_TOKEN. SSH to the planes uses the
@@ -117,7 +121,7 @@ EOF
 }
 
 unseal_all() {
-  local tenants tenant record host status
+  local tenants tenant record host status failed=()
   tenants=$("$BAO" kv list -mount=secret -format=json management-planes 2>/dev/null | jq -r '.[]' || true)
   if [[ -z $tenants ]]; then
     echo "No tenant management planes recorded."
@@ -127,7 +131,8 @@ unseal_all() {
     tenant=${tenant%/}
     if ! record=$("$BAO" kv get -mount=secret -format=json "management-planes/$tenant" | jq -e .data.data) ||
       ! host=$(jq -er .address <<<"$record"); then
-      echo "::warning::could not read secret/management-planes/$tenant from the root OpenBao"
+      echo "::error::could not read secret/management-planes/$tenant from the root OpenBao"
+      failed+=("$tenant")
       continue
     fi
     status=$(plane_status "$host")
@@ -137,12 +142,20 @@ unseal_all() {
         if unseal "$host" "$record"; then
           echo "$tenant ($host): unsealed now"
         else
-          echo "::warning::$tenant management plane ($host) is still sealed"
+          echo "::error::$tenant management plane ($host) is still sealed"
+          failed+=("$tenant")
         fi
         ;;
-      *) echo "::warning::$tenant management plane ($host) did not answer" ;;
+      *)
+        echo "::error::$tenant management plane ($host) did not answer"
+        failed+=("$tenant")
+        ;;
     esac
   done
+  if ((${#failed[@]})); then
+    echo "Management planes with an error: ${failed[*]}" >&2
+    return 1
+  fi
 }
 
 case "${1:-}" in
