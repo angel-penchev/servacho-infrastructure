@@ -66,9 +66,26 @@
               }
             ];
           };
+
+      # The root plane deploys the hosts below over SSH, so each one takes
+      # ./deployed-by-root-plane.nix. A new host gets the check without an
+      # edit here. The check leaves out two hosts. The root plane deploys
+      # itself over loopback, which no SSH source list closes. The installer
+      # does not use base, so it has no servacho.ssh option.
+      withDeployerCheck =
+        name: host:
+        if
+          lib.elem name [
+            "servacho-management-plane"
+            "installer"
+          ]
+        then
+          host
+        else
+          host.extendModules { modules = [ ./deployed-by-root-plane.nix ]; };
     in
     {
-      nixosConfigurations = {
+      nixosConfigurations = lib.mapAttrs withDeployerCheck {
         # The root plane, switched to in place by tofu/root-plane/.
         servacho-management-plane = lib.nixosSystem {
           inherit system;
