@@ -27,7 +27,7 @@ output → variable plumbing. One topic per file:
 | `firewall.tf` | zones (Dmz, Hotspot) and policies | Settings → Policy Engine |
 | `port_forwards.tf` | NAT port forwards | Settings → Policy Engine → NAT |
 | `radius.tf` | the RADIUS user accounts | Settings → Profiles → RADIUS |
-| `vpn.tf` | Teleport (documented; the provider can only read it), OpenVPN and WireGuard servers | Settings → VPN |
+| `vpn.tf` | Teleport (set in the UI only, its subnet checked in every plan), OpenVPN and WireGuard servers | Settings → VPN |
 | `settings.tf` | site settings (`unifi_setting`), including the Global Switch Settings the provider covers (`global_switch`; the 802.1X fallback VLAN and four other keys stay hand-set) and the Gateway mDNS Proxy (`mdns`); security posture (unsupported); Etherlighting (expressible, unmanaged on purpose) | Settings → System, Settings → Networks → Global Switch Settings, Settings → Networks → Global, Control Plane → Console |
 | `mdns.tf` | notes on the Gateway mDNS Proxy, which `settings.tf` manages: why Main + IoT, the excluded services and the 25-service catalogue | Settings → Networks → Global |
 | `admins.tf` | the two admin accounts (unsupported, documentation only) | Admins & Users |
