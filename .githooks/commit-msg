@@ -1,21 +1,1554 @@
-#!/bin/sh
+#!/usr/bin/env bash
 #
-# Runs the shared commit-msg hook from the qoax-githooks submodule.
+# commit-msg — Conventional Commits v1.0.0 validator
+# https://www.conventionalcommits.org/en/v1.0.0/
 #
-# core.hooksPath points at this directory rather than at the submodule, so a
-# repository can add hooks of its own next to this file without giving up the
-# shared one.
+# Collects *every* violation in a single pass, then prints each one with the
+# offending text, the rule it breaks, and a concrete fix.
 #
-# A missing submodule is a hard stop, not a warning: a clone with no submodule
-# would otherwise commit anything at all and look like it had been checked.
-# `git commit --no-verify` is still the way past it.
+# Every finding is an error and every error aborts the commit. Some come from
+# the spec — a missing type or ": " separator, an empty scope, a body not
+# separated from the subject, a malformed BREAKING CHANGE token, a footer token
+# with spaces in it. The rest are this repo's own house style, stricter than the
+# spec allows for a parser: lowercase types and scopes, a list of types, subject
+# length, imperative mood, no capital or full stop, body width. Each finding
+# says which it is, so nobody has to guess who to argue with.
+#
+# Dependabot's messages are held to all of it except subject length, a capital
+# first letter and body width, which nothing in dependabot.yml can change, and
+# the co-author trailer GitHub adds for it on a squash merge; see
+# mark_dependabot.
+#
+# Enable:   git config core.hooksPath .githooks
+# Bypass:   git commit --no-verify
+#
+# Set COMMIT_MSG_REPORT_ONLY=1 when running it outside a commit (CI checking
+# an existing message), so the report drops the "commit aborted" wording.
+#
+# A hook sees git's config, never git's command line, so a per-invocation
+# --cleanup=<mode> is invisible here and commit.cleanup is taken as the truth.
+# Under "git commit --cleanup=verbatim" with the config unset, a "#" line is
+# judged as a comment and then stored as text; set commit.cleanup to match.
+#
+# Optional overrides (git config):
+#   commitMsg.types         space separated list of allowed types
+#   commitMsg.subjectMax    max subject length      (default 72)
+#   commitMsg.bodyMax       max body line length    (default 100)
+#
+# Requires bash 4+ (associative arrays, case conversion). Uses no external
+# commands beyond git, so it behaves the same on Linux, macOS and BSD.
+#
+set -uo pipefail
 
-hook="$(dirname "$0")/shared/commit-msg"
+# macOS still ships bash 3.2 as /bin/bash, and `env bash` may well find it
+# first. Re-exec into a newer bash if the system has one, and otherwise skip
+# validation with a loud warning rather than blocking the commit.
+if ((BASH_VERSINFO[0] < 4)); then
+  # The sentinel makes a second re-exec impossible, whatever a candidate
+  # reports about itself.
+  if [ -z "${COMMIT_MSG_HOOK_REEXEC-}" ]; then
+    for candidate in /opt/homebrew/bin/bash /usr/local/bin/bash /usr/bin/bash /bin/bash; do
+      [ -x "$candidate" ] || continue
+      candidate_major="$("$candidate" -c 'printf %s "${BASH_VERSINFO[0]}"' 2>/dev/null)"
+      case "$candidate_major" in
+        ''|*[!0-9]*) continue ;;
+      esac
+      if [ "$candidate_major" -ge 4 ]; then
+        COMMIT_MSG_HOOK_REEXEC=1 exec "$candidate" "$0" "$@"
+      fi
+    done
+  fi
 
-if [ ! -x "$hook" ]; then
-  printf 'commit message validation is not installed.\n' >&2
-  printf '  run: git submodule update --init .githooks/shared\n' >&2
-  exit 1
+  printf '\ncommit-msg: bash %s is too old to validate this commit message.\n' \
+    "${BASH_VERSION%%(*}" >&2
+  printf '            the hook needs bash 4+ — install it with `brew install bash`.\n' >&2
+  printf '            commit message conventions are NOT being checked.\n\n' >&2
+  exit 0
 fi
 
-exec "$hook" "$@"
+readonly SPEC_URL='https://www.conventionalcommits.org/en/v1.0.0/'
+readonly DEFAULT_TYPES=(
+  feat fix docs style refactor perf test build ci chore revert security
+)
+
+# Footer tokens common enough that a match inside the body is worth flagging.
+readonly KNOWN_FOOTER_TOKENS=(
+  close closes closed fix fixes fixed resolve resolves resolved
+  ref refs reviewed-by acked-by signed-off-by co-authored-by
+)
+
+# Non-imperative first words we can rewrite with confidence: wrong form -> stem.
+declare -rA IMPERATIVE_FORM=(
+  [added]=add             [adds]=add             [adding]=add
+  [fixed]=fix             [fixes]=fix            [fixing]=fix
+  [updated]=update        [updates]=update       [updating]=update
+  [changed]=change        [changes]=change       [changing]=change
+  [removed]=remove        [removes]=remove       [removing]=remove
+  [deleted]=delete        [deletes]=delete       [deleting]=delete
+  [created]=create        [creates]=create       [creating]=create
+  [implemented]=implement [implements]=implement [implementing]=implement
+  [refactored]=refactor   [refactors]=refactor   [refactoring]=refactor
+  [renamed]=rename        [renames]=rename       [renaming]=rename
+  [moved]=move            [moves]=move           [moving]=move
+  [bumped]=bump           [bumps]=bump           [bumping]=bump
+  [improved]=improve      [improves]=improve     [improving]=improve
+  [migrated]=migrate      [migrates]=migrate     [migrating]=migrate
+  [introduced]=introduce  [introduces]=introduce [introducing]=introduce
+  [reverted]=revert       [reverts]=revert       [reverting]=revert
+  [upgraded]=upgrade      [upgrades]=upgrade     [upgrading]=upgrade
+  [pinned]=pin            [pins]=pin             [pinning]=pin
+  [allowed]=allow         [allows]=allow         [allowing]=allow
+  [prevented]=prevent     [prevents]=prevent     [preventing]=prevent
+  [supported]=support     [supports]=support     [supporting]=support
+  [enabled]=enable        [enables]=enable       [enabling]=enable
+  [disabled]=disable      [disables]=disable     [disabling]=disable
+  [dropped]=drop          [drops]=drop           [dropping]=drop
+  [replaced]=replace      [replaces]=replace     [replacing]=replace
+  [switched]=switch       [switches]=switch      [switching]=switch
+  [cleaned]=clean         [cleans]=clean         [cleaning]=clean
+  [handled]=handle        [handles]=handle       [handling]=handle
+  [made]=make             [makes]=make           [making]=make
+  [wrote]=write           [writes]=write         [writing]=write
+)
+
+# Runtime configuration, filled in by load_config.
+TYPES=()
+SUBJECT_MAX=72
+BODY_MAX=100
+CLEANUP_MODE=default
+COMMENT_CHAR='#'      # the comment character; empty only under commentChar=auto
+
+# The cleaned-up commit message, one line per element, filled in by read_message.
+LINES=()
+# Set when a comment line was dropped from where the subject would otherwise be.
+SUBJECT_MAY_BE_COMMENT=0
+# Indices of lines inside an embedded YAML document, filled in by
+# mark_yaml_documents. Sparse: only the lines that are in one.
+YAML_DOCUMENT_LINES=()
+# Set when Dependabot wrote the message, by mark_dependabot.
+FROM_DEPENDABOT=0
+
+# --- Helpers ----------------------------------------------------------------
+
+die() {
+  printf '%scommit-msg:%s %s\n' "${RED-}" "${OFF-}" "$1" >&2
+  exit 1
+}
+
+# A whitespace-only line separates paragraphs just like an empty one, and
+# git's own message cleanup would turn it into one.
+is_blank() {
+  [[ -z ${1//[[:space:]]/} ]]
+}
+
+# Strip leading and trailing whitespace from $1.
+trim() {
+  local text="$1"
+  text="${text#"${text%%[![:space:]]*}"}"
+  text="${text%"${text##*[![:space:]]}"}"
+  printf '%s' "$text"
+}
+
+# "feat, fix, docs, ..." for use in messages.
+list_types() {
+  local joined='' type
+  for type in "${TYPES[@]}"; do
+    joined+="${joined:+, }${type}"
+  done
+  printf '%s' "$joined"
+}
+
+is_known_type() {
+  local candidate="$1" type
+  for type in "${TYPES[@]}"; do
+    [[ $type == "$candidate" ]] && return 0
+  done
+  return 1
+}
+
+is_known_footer_token() {
+  local candidate="${1,,}" token
+  for token in "${KNOWN_FOOTER_TOKENS[@]}"; do
+    [[ $token == "$candidate" ]] && return 0
+  done
+  return 1
+}
+
+# Cheapest useful "did you mean": prefix overlap first, then a shared 2-char stem.
+suggest_type() {
+  local given="${1,,}" type
+  for type in "${TYPES[@]}"; do
+    [[ $type == "$given"* || $given == "$type"* ]] && { printf '%s' "$type"; return; }
+  done
+  for type in "${TYPES[@]}"; do
+    [[ ${type:0:2} == "${given:0:2}" ]] && { printf '%s' "$type"; return; }
+  done
+}
+
+# --- Set-up and input -------------------------------------------------------
+
+load_config() {
+  local configured
+
+  configured="$(git config --get commitMsg.types || true)"
+  if [[ -n $configured ]]; then
+    read -r -a TYPES <<<"$configured"
+  else
+    TYPES=("${DEFAULT_TYPES[@]}")
+  fi
+
+  # 10# keeps a value written as 010 or 08 out of bash's octal arithmetic,
+  # where it would silently mean 8, or fail outright.
+  configured="$(git config --get commitMsg.subjectMax || true)"
+  [[ $configured =~ ^[0-9]+$ ]] && SUBJECT_MAX=$((10#$configured))
+
+  configured="$(git config --get commitMsg.bodyMax || true)"
+  [[ $configured =~ ^[0-9]+$ ]] && BODY_MAX=$((10#$configured))
+
+  # Which character opens a comment, and so which line is git's scissors line.
+  # Unset means "#", git's default. Only "auto" leaves this empty: git resolves
+  # that against the message itself, and a hook cannot repeat it reliably.
+  configured="$(git config --get core.commentChar || true)"
+  case "$configured" in
+    auto) COMMENT_CHAR='' ;;
+    ?)    COMMENT_CHAR="$configured" ;;
+    *)    COMMENT_CHAR='#' ;;
+  esac
+
+  # Which cleanup git will apply decides what counts as a comment, and whether
+  # blank lines and trailing whitespace survive into the commit.
+  configured="$(git config --get commit.cleanup || true)"
+  case "$configured" in
+    verbatim|whitespace|scissors|strip) CLEANUP_MODE="$configured" ;;
+    *) CLEANUP_MODE=default ;;
+  esac
+
+  return 0
+}
+
+setup_colours() {
+  if [[ -t 2 && -z ${NO_COLOR-} && ${TERM:-dumb} != dumb ]]; then
+    BOLD=$'\033[1m' DIM=$'\033[2m' RED=$'\033[31m'
+    YELLOW=$'\033[33m' GREEN=$'\033[32m' CYAN=$'\033[36m' OFF=$'\033[0m'
+  else
+    BOLD='' DIM='' RED='' YELLOW='' GREEN='' CYAN='' OFF=''
+  fi
+}
+
+# Validate what git will actually store. Rather than reimplement its cleanup,
+# run the message through git's own: that is what decides whether a "#" line is
+# a comment (core.commentChar, including "auto", which a hook cannot resolve by
+# itself) and whether blank lines and trailing whitespace survive.
+# The line git writes above the diff it appends, and the only line it cuts at:
+# the comment character, then this exactly. A shorter rule of dashes, or the
+# same rule with anything after it, git keeps — so the hook keeps it too.
+readonly SCISSORS_RULE=' ------------------------ >8 ------------------------'
+
+is_scissors_marker() {
+  # git strips trailing whitespace before it compares.
+  local line="${1%"${1##*[![:space:]]}"}"
+
+  [[ $line == ?"$SCISSORS_RULE" ]] || return 1
+
+  # With core.commentChar=auto a hook cannot know which character git settled
+  # on, so any non-whitespace opener counts. When it is configured, only that.
+  [[ -n $COMMENT_CHAR ]] && { [[ ${line:0:1} == "$COMMENT_CHAR" ]]; return; }
+  [[ ${line:0:1} != [[:space:]] ]]
+}
+
+read_message() {
+  local msg_file="$1" line first_raw
+  local -a raw=() body=()
+
+  # In report-only mode the message belongs to a commit that already exists, so
+  # git cleaned it once already. Cleaning it a second time would delete real
+  # content: "#note" is a comment while the message sits in an editor buffer,
+  # but ordinary text once it is stored. For the same reason nothing below a
+  # scissors line can be git's own any more.
+  local stored=0
+  [[ -n ${COMMIT_MSG_REPORT_ONLY-} ]] && stored=1
+
+  while IFS= read -r line || [[ -n $line ]]; do
+    raw+=("${line%$'\r'}")
+  done <"$msg_file"
+
+  # A scissors line is git's own when it introduces the diff --verbose appends,
+  # and git removes that itself in every cleanup mode. One somebody typed is
+  # message content that only the scissors mode removes, so verbatim keeps it
+  # and so must the hook.
+  local idx cut=-1 diff_at=-1
+  if ((stored == 0)); then
+    if [[ $CLEANUP_MODE == scissors ]]; then
+      # This mode cuts at the first marker, whoever wrote it.
+      for ((idx = 0; idx < ${#raw[@]}; idx++)); do
+        is_scissors_marker "${raw[idx]}" && { cut=$idx; break; }
+      done
+    else
+      # Otherwise the only marker that is git's own is the one it wrote
+      # directly above the diff — the nearest one above, not the first in the
+      # message. An earlier marker somebody typed is still their text.
+      for ((idx = 0; idx < ${#raw[@]}; idx++)); do
+        [[ ${raw[idx]} == 'diff --git '* ]] && { diff_at=$idx; break; }
+      done
+      for ((idx = diff_at - 1; idx >= 0; idx--)); do
+        is_scissors_marker "${raw[idx]}" && { cut=$idx; break; }
+      done
+    fi
+  fi
+
+  for ((idx = 0; idx < ${#raw[@]}; idx++)); do
+    ((cut >= 0 && idx >= cut)) && break
+    body+=("${raw[idx]}")
+  done
+
+  LINES=()
+  if ((${#body[@]})); then
+    local mode="$CLEANUP_MODE"
+    ((stored)) && mode=verbatim
+    case "$mode" in
+      verbatim)
+        # Nothing is cleaned, not even the blank lines around the message.
+        mapfile -t LINES < <(printf '%s\n' "${body[@]}")
+        ;;
+      whitespace|scissors)
+        mapfile -t LINES < <(printf '%s\n' "${body[@]}" | git stripspace)
+        ;;
+      *)
+        mapfile -t LINES < <(printf '%s\n' "${body[@]}" | git stripspace --strip-comments)
+        ;;
+    esac
+  fi
+
+  # With commit.cleanup unset git decides by whether it opened an editor, which
+  # a hook cannot see: comments go for an edited message and stay for "git
+  # commit -m". Stripping is the right guess for the editor, but it must not
+  # quietly drop a line that would otherwise be the subject.
+  SUBJECT_MAY_BE_COMMENT=0
+  if [[ $CLEANUP_MODE == default ]] && ((${#LINES[@]})); then
+    first_raw=''
+    for line in ${body[@]+"${body[@]}"}; do
+      is_blank "$line" && continue
+      first_raw="$line"
+      break
+    done
+    [[ -n $first_raw && "$(trim "$first_raw")" != "$(trim "${LINES[0]}")" ]] &&
+      SUBJECT_MAY_BE_COMMENT=1
+  fi
+
+  return 0
+}
+
+# Autosquash markers are written by git. So is a merge subject — but only
+# during an actual merge; "Merge the two config files" typed by hand is an
+# ordinary commit and gets checked like any other.
+is_generated_by_git() {
+  # A title has no exemptions: squash merging turns it into the subject on the
+  # default branch, where "fixup! …" is nobody's idea of a commit message.
+  [[ -n ${COMMIT_MSG_NO_AUTOSQUASH-} ]] && return 1
+
+  # The space is git's own: "fixup!nonsense" is somebody's commit, not a marker.
+  case "$1" in
+    'fixup! '*|'squash! '*|'amend! '*) return 0 ;;
+  esac
+
+  [[ $1 == Merge\ * ]] || return 1
+  [ -e "$(git rev-parse --git-path MERGE_HEAD 2>/dev/null)" ]
+}
+
+# --- Findings ---------------------------------------------------------------
+
+readonly FIELD_SEP=$'\x1f'
+FINDINGS=()
+ERROR_COUNT=0
+WARNING_COUNT=0
+
+# add_finding <severity> <location> <summary> [--at <line> <col> <width>]
+#             [--why <text>] [--fix <text>]
+#
+# --at anchors the finding to a message line and underlines <width> characters
+# from <col> (both 1-based) when the report is printed.
+add_finding() {
+  local severity="$1" location="$2" summary="$3"
+  shift 3
+
+  local line=0 col=0 width=0 why='' fix='' absolute=0
+  while (($#)); do
+    case "$1" in
+      --at)       line="$2" col="$3" width="$4"; shift 4 ;;
+      --absolute) absolute=1; shift ;;
+      --why)      why="$2"; shift 2 ;;
+      --fix)      fix="$2"; shift 2 ;;
+      *)          die "internal: unknown add_finding option '$1'" ;;
+    esac
+  done
+
+  # Subject columns are worked out on the trimmed subject, so an indented
+  # subject shifts every one of them against the line the report prints.
+  # --absolute marks the few findings whose columns come from the raw line.
+  ((absolute == 0 && line == 1)) && col=$((col + SUBJECT_COL_OFFSET))
+
+  FINDINGS+=("${severity}${FIELD_SEP}${location}${FIELD_SEP}${summary}${FIELD_SEP}${line}${FIELD_SEP}${col}${FIELD_SEP}${width}${FIELD_SEP}${why}${FIELD_SEP}${fix}")
+
+  if [[ $severity == error ]]; then
+    ERROR_COUNT=$((ERROR_COUNT + 1))
+  else
+    WARNING_COUNT=$((WARNING_COUNT + 1))
+  fi
+
+  return 0
+}
+
+error()   { add_finding error "$@"; }
+# Kept, but nothing calls it: a rule this hook cannot state with confidence is
+# a rule it should not have, and a warning is invisible in CI, where the commit
+# it would comment on has already been written.
+warning() { add_finding warning "$@"; }
+
+# --- Subject checks ---------------------------------------------------------
+
+# Filled in by split_subject / parse_prefix / parse_description.
+SUBJECT_PREFIX=''     # everything before the first colon, exactly as written
+SUBJECT_REMAINDER=''  # everything after it, leading space included
+SUBJECT_TYPE=''
+SUBJECT_SCOPE=''
+SUBJECT_HAS_SCOPE=0
+SUBJECT_DESC=''
+SUBJECT_DESC_COL=0    # column of the first description character, 1-based
+SUBJECT_COL_OFFSET=0  # leading whitespace the subject columns are measured past
+MALFORMED_TOKEN=''    # footer token whose separator has already been reported
+MALFORMED_FIX=''      # that line, rewritten with a separator git understands
+
+check_subject() {
+  local raw="${LINES[0]}"
+
+  local leading="${raw%%[![:space:]]*}"
+  [[ $raw == *[![:space:]]* ]] || leading=''
+  SUBJECT_COL_OFFSET=${#leading}
+
+  if ((SUBJECT_MAY_BE_COMMENT)); then
+    error subject 'a comment line stands where the subject belongs' \
+      --at 1 1 "${#raw}" --absolute \
+      --why 'git keeps comment lines for "git commit -m" and drops them for an edited message, so this either is the subject or hides it' \
+      --fix 'remove the comment line above the subject, or move your subject above it'
+  fi
+
+  check_subject_indent "$raw"
+  check_subject_length "$(trim "$raw")"
+
+  # A raw `git revert` subject gets one targeted finding; parsing it further
+  # would only produce noise about the quoted subject it carries.
+  if [[ $raw == Revert\ \"* ]]; then
+    report_generated_revert "$raw"
+    return 0
+  fi
+
+  local subject
+  subject="$(trim "$raw")"
+
+  if [[ $subject != *:* ]]; then
+    report_missing_separator "$subject"
+    return 0
+  fi
+
+  split_subject "$subject"
+  parse_prefix
+  check_type
+  check_scope
+  parse_description
+  check_description
+
+  return 0
+}
+
+# Leading whitespace is an error because git keeps it: its message cleanup
+# strips trailing whitespace and blank lines, never indentation, so an indented
+# type reaches the stored commit and defeats every parser reading it. Trailing
+# whitespace is rejected too, for a different reason — see
+# check_trailing_whitespace.
+check_subject_indent() {
+  local raw="$1"
+
+  [[ $raw =~ ^[[:space:]] ]] || return 0
+  local leading="${raw%%[![:space:]]*}"
+  [[ $raw == *[![:space:]]* ]] || leading="$raw"
+
+  error subject 'leading whitespace before the type' \
+    --at 1 1 "${#leading}" --absolute \
+    --why 'the type MUST be the first character of the commit message' \
+    --fix 'remove the indentation'
+}
+
+check_subject_length() {
+  local subject="$1"
+  ((FROM_DEPENDABOT)) && return 0
+  ((${#subject} > SUBJECT_MAX)) || return 0
+
+  error subject "subject is ${#subject} characters (max ${SUBJECT_MAX})" \
+    --at 1 $((SUBJECT_MAX + 1)) $((${#subject} - SUBJECT_MAX)) \
+    --why 'no spec limit; this repo caps the subject so git log and the GitHub UI do not truncate it' \
+    --fix 'shorten the description and move the detail into the body'
+}
+
+report_generated_revert() {
+  local reverted="${1#Revert \"}"
+  reverted="${reverted%\"}"
+
+  error subject 'git-generated revert subject is not a conventional commit' \
+    --at 1 1 6 \
+    --why 'a revert MUST also carry a type; the spec recommends the revert type plus a Refs footer' \
+    --fix "rewrite as \"revert: ${reverted}\" and keep \"Refs: <sha>\" in the footer"
+}
+
+report_missing_separator() {
+  local subject="$1"
+
+  # Offer the same text as a conformant subject: lowercase start, no full stop.
+  local suggestion="${subject%.}"
+  suggestion="${suggestion,}"
+
+  error subject 'missing the ": " separator' \
+    --at 1 1 "${#subject}" \
+    --why 'the format is <type>[optional scope][!]: <description> — the colon and space are REQUIRED' \
+    --fix "prefix it with a type, e.g. \"feat: ${suggestion:-add community page}\""
+}
+
+# Split "type(scope)!: description" at the first colon.
+split_subject() {
+  local subject="$1"
+
+  SUBJECT_PREFIX="${subject%%:*}"
+  SUBJECT_REMAINDER="${subject#*:}"
+
+  local spacing="${SUBJECT_REMAINDER%%[![:space:]]*}"
+  SUBJECT_DESC_COL=$((${#SUBJECT_PREFIX} + 2 + ${#spacing}))
+
+  return 0
+}
+
+# Report anything malformed in the "type(scope)!" prefix, then hand the
+# normalised form to split_type_and_scope.
+parse_prefix() {
+  local prefix="$SUBJECT_PREFIX"
+
+  if [[ $prefix =~ [[:space:]] ]]; then
+    local before_space="${prefix%%[[:space:]]*}"
+    error subject 'whitespace inside the type/scope prefix' \
+      --at 1 $((${#before_space} + 1)) 1 \
+      --why 'nothing may sit between the type, the scope, the "!" and the colon' \
+      --fix 'write "type(scope)!: description" with no spaces before the colon'
+    prefix="${prefix//[[:space:]]/}"
+  fi
+
+  # A trailing "!" is the breaking-change marker; one anywhere else is a typo.
+  prefix="${prefix%!}"
+  if [[ $prefix == *'!'* ]]; then
+    # Columns are measured against the subject as written, not the normalised
+    # copy this function works on, so the caret lands under what is displayed.
+    local before_bang="${SUBJECT_PREFIX%%!*}"
+    error subject 'misplaced "!" breaking-change marker' \
+      --at 1 $((${#before_bang} + 1)) 1 \
+      --why 'if included in the prefix, "!" MUST come immediately before the colon' \
+      --fix 'write "type(scope)!: description"'
+    prefix="${prefix//!/}"
+  fi
+
+  split_type_and_scope "$prefix"
+}
+
+split_type_and_scope() {
+  local prefix="$1"
+
+  if [[ $prefix == *'('*')'* ]]; then
+    SUBJECT_HAS_SCOPE=1
+    SUBJECT_TYPE="${prefix%%(*}"
+    SUBJECT_SCOPE="${prefix#*(}"
+    SUBJECT_SCOPE="${SUBJECT_SCOPE%%)*}"
+
+    # Deliberately the *first* ")": "feat(api)(ui)" must not look well formed.
+    local trailing="${prefix#*)}"
+    if [[ -n $trailing ]]; then
+      local through_paren="${SUBJECT_PREFIX%%)*}"
+      error subject "unexpected \"${trailing}\" after the scope" \
+        --at 1 $((${#through_paren} + 2)) $((${#SUBJECT_PREFIX} - ${#through_paren} - 1)) \
+        --why 'the prefix ends with the scope, an optional "!", then the colon' \
+        --fix 'write "type(scope)!: description"'
+    fi
+
+  elif [[ $prefix == *'('* ]]; then
+    SUBJECT_TYPE="${prefix%%(*}"
+    local before_paren="${SUBJECT_PREFIX%%(*}"
+    error subject 'unclosed scope parenthesis' \
+      --at 1 $((${#before_paren} + 1)) $((${#SUBJECT_PREFIX} - ${#before_paren})) \
+      --why 'a scope MUST be surrounded by parentheses, e.g. fix(parser):' \
+      --fix "write \"${SUBJECT_TYPE}(${prefix#*(}): ...\""
+
+  elif [[ $prefix == *')'* ]]; then
+    SUBJECT_TYPE="${prefix%%)*}"
+    local before_close="${SUBJECT_PREFIX%%)*}"
+    error subject 'scope closing parenthesis without an opening one' \
+      --at 1 $((${#before_close} + 1)) 1 \
+      --why 'a scope MUST be surrounded by parentheses, e.g. fix(parser):' \
+      --fix "write \"${SUBJECT_TYPE}(scope): ...\""
+
+  else
+    SUBJECT_TYPE="$prefix"
+  fi
+}
+
+# Check the ": " separator itself and keep the description it introduces.
+parse_description() {
+  local prefix="$SUBJECT_PREFIX" remainder="$SUBJECT_REMAINDER"
+  local separator_col=$((${#prefix} + 2))
+
+  if [[ -z $remainder ]]; then
+    error subject 'missing description' \
+      --at 1 "$separator_col" 1 \
+      --why 'a description MUST immediately follow the colon and space' \
+      --fix "e.g. \"${prefix}: add community favicon\""
+
+  elif [[ $remainder != " "* ]]; then
+    SUBJECT_DESC="$remainder"
+    error subject 'missing space after the colon' \
+      --at 1 "$separator_col" 1 \
+      --why 'the separator is exactly ": " — colon followed by one space' \
+      --fix "write \"${prefix}: ${remainder}\""
+
+  elif [[ $remainder =~ ^[[:space:]][[:space:]] ]]; then
+    SUBJECT_DESC="$(trim "$remainder")"
+    # Underline what is surplus, not the separator space that belongs there.
+    local spacing="${remainder%%[![:space:]]*}"
+    error subject 'extra whitespace after the colon' \
+      --at 1 $((separator_col + 1)) $((${#spacing} - 1)) \
+      --why 'the separator is exactly ": " — one colon, one space, then the description' \
+      --fix "write \"${prefix}: ${SUBJECT_DESC}\""
+
+  else
+    SUBJECT_DESC="${remainder# }"
+  fi
+}
+
+check_type() {
+  if [[ -z $SUBJECT_TYPE ]]; then
+    error subject 'missing type' \
+      --at 1 1 1 \
+      --why 'commits MUST be prefixed with a type — a noun such as feat or fix' \
+      --fix "start the subject with one of: $(list_types)"
+    return 0
+  fi
+
+  if [[ ! $SUBJECT_TYPE =~ ^[A-Za-z]+$ ]]; then
+    error subject "unusual type \"${SUBJECT_TYPE}\"" \
+      --at 1 1 "${#SUBJECT_TYPE}" \
+      --why 'the spec calls for a noun (§1); anything else confuses changelog tooling' \
+      --fix "use one of: $(list_types)"
+    return 0
+  fi
+
+  local lowercase="${SUBJECT_TYPE,,}"
+
+  if ! is_known_type "$lowercase"; then
+    local suggestion
+    suggestion="$(suggest_type "$lowercase")"
+    error subject "unknown type \"${SUBJECT_TYPE}\"" \
+      --at 1 1 "${#SUBJECT_TYPE}" \
+      --why "the spec allows any noun (§1, §14); this repo keeps to a list so changelog tooling stays predictable: $(list_types)" \
+      --fix "${suggestion:+did you mean \"${suggestion}\"? — }add it to DEFAULT_TYPES in .githooks/commit-msg for the whole repo; commitMsg.types only changes your own clone"
+
+  elif [[ $SUBJECT_TYPE != "$lowercase" ]]; then
+    error subject "type \"${SUBJECT_TYPE}\" is not lowercase" \
+      --at 1 1 "${#SUBJECT_TYPE}" \
+      --why 'the spec allows any casing (§15); this repo requires lowercase so history reads uniformly' \
+      --fix "write \"${lowercase}\""
+  fi
+}
+
+check_scope() {
+  ((SUBJECT_HAS_SCOPE)) || return 0
+
+  # The scope is parsed out of a prefix with its whitespace removed, so its
+  # column has to come from the subject as written: past the opening paren,
+  # then past any space somebody left after it.
+  local before="${SUBJECT_PREFIX%%(*}" inner="${SUBJECT_PREFIX#*(}"
+  inner="${inner%%)*}"
+  local lead="${inner%%[![:space:]]*}"
+  [[ $inner == *[![:space:]]* ]] || lead="$inner"
+  local written
+  written="$(trim "$inner")"
+
+  local col=$((${#before} + 2 + ${#lead}))
+  local width=${#written}
+
+  if [[ -z $SUBJECT_SCOPE ]]; then
+    # The parentheses themselves are the problem, and they start one column
+    # before the (absent) scope text.
+    error subject 'empty scope "()"' \
+      --at 1 $((col - 1)) 2 \
+      --why 'a scope MUST be a noun describing a section of the codebase' \
+      --fix "drop the parentheses or fill them in, e.g. \"${SUBJECT_TYPE:-feat}(legal): ...\""
+
+  elif [[ ! $SUBJECT_SCOPE =~ ^[a-z0-9]+([-_./,][a-z0-9]+)*$ ]]; then
+    error subject "unusual scope \"${SUBJECT_SCOPE}\"" \
+      --at 1 "$col" "$width" \
+      --why 'the spec only asks for a noun in parentheses (§4); this repo requires lowercase scopes' \
+      --fix 'e.g. (auth), (api/routes), (legal.terms)'
+
+  fi
+}
+
+check_description() {
+  [[ -n $SUBJECT_DESC ]] || return 0
+
+  local desc="$SUBJECT_DESC" col="$SUBJECT_DESC_COL"
+
+  if [[ $desc =~ ^[[:upper:]] ]] && ((!FROM_DEPENDABOT)); then
+    error subject 'description starts with a capital letter' \
+      --at 1 "$col" 1 \
+      --why 'the spec is case-insensitive here (§15); this repo keeps descriptions lowercase for uniform changelogs' \
+      --fix "write \"${desc,}\""
+  fi
+
+  if [[ $desc == *. ]]; then
+    error subject 'description ends with a period' \
+      --at 1 $((col + ${#desc} - 1)) 1 \
+      --why 'not a spec rule; the subject is a title, and a full stop reads oddly in a changelog list' \
+      --fix "write \"${desc%.}\""
+  fi
+
+  check_imperative_mood "$desc" "$col"
+
+  local closing='(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)'
+  local reference='([a-z0-9._/-]*#[0-9]+|https?://[^[:space:]]+/issues/[0-9]+)'
+  if [[ ${desc,,} =~ (^|[^a-z])${closing}[[:space:]]+${reference} ]]; then
+    error subject 'issue-closing keyword in the subject line' \
+      --at 1 "$col" "${#desc}" \
+      --why 'GitHub and GitLab read closing keywords from the footer, and the subject stays short without them' \
+      --fix 'move it to a footer, e.g. "Closes #42" — a plain "#42" reference in the subject is fine'
+  fi
+}
+
+check_imperative_mood() {
+  local desc="$1" col="$2"
+  local first_word="${desc%%[ ,:;.!?]*}"
+  # A description opening with one of those delimiters has no first word, and
+  # an empty subscript is a bash error rather than a lookup that finds nothing.
+  [[ -n $first_word ]] || return 0
+  local rest="${desc#"$first_word"}"
+  local lowercase="${first_word,,}"
+
+  if [[ -n ${IMPERATIVE_FORM[$lowercase]-} ]]; then
+    error subject "\"${lowercase}\" is not imperative mood" \
+      --at 1 "$col" "${#first_word}" \
+      --why 'not a spec rule; git convention is an instruction: "add", not "added" or "adds"' \
+      --fix "write \"${IMPERATIVE_FORM[$lowercase]}${rest}\""
+
+  fi
+}
+
+# --- Body and whitespace checks ---------------------------------------------
+
+check_body() {
+  ((${#LINES[@]} > 1)) || return 0
+
+  if ! is_blank "${LINES[1]}"; then
+    error body 'no blank line after the subject' \
+      --at 2 1 "${#LINES[1]}" \
+      --why 'the body MUST begin one blank line after the description — parsers split the header there' \
+      --fix 'insert an empty line between the subject and the body'
+  fi
+
+  check_body_line_length
+}
+
+check_body_line_length() {
+  local idx line in_code_fence=0
+
+  ((FROM_DEPENDABOT)) && return 0
+
+  for ((idx = 1; idx < ${#LINES[@]}; idx++)); do
+    line="${LINES[idx]}"
+
+    if [[ $line == '```'* ]]; then
+      in_code_fence=$((1 - in_code_fence))
+      continue
+    fi
+    ((in_code_fence)) && continue
+
+    ((${#line} > BODY_MAX)) || continue
+    # A single long token — a URL, a path, a hash — has nowhere to wrap. Prose
+    # that merely mentions one does.
+    [[ $(trim "$line") =~ [[:space:]] ]] || continue
+
+    error body "line $((idx + 1)) is ${#line} characters (max ${BODY_MAX})" \
+      --at $((idx + 1)) $((BODY_MAX + 1)) $((${#line} - BODY_MAX)) \
+      --why 'hard-wrapped bodies stay readable in terminals and in git log' \
+      --fix "wrap the paragraph at ${BODY_MAX} columns"
+  done
+}
+
+# Trailing whitespace reaches the commit only under --cleanup=verbatim; git's
+# default cleanup strips it from every line, and does so after this hook has
+# run. Rejected either way, because this hook has no way to tell which mode is
+# in force and no warning severity to fall back on.
+check_trailing_whitespace() {
+  local idx line stripped start width location
+
+  for ((idx = 0; idx < ${#LINES[@]}; idx++)); do
+    line="${LINES[idx]}"
+    [[ $line =~ [[:space:]]$ ]] || continue
+
+    # Underline the run of whitespace, or the whole line when it holds nothing
+    # else.
+    stripped="${line%"${line##*[![:space:]]}"}"
+    start=$((${#stripped} + 1))
+    width=$((${#line} - ${#stripped}))
+    if ((width == 0)); then
+      start=1
+      width=${#line}
+    fi
+
+    location=body
+    ((idx == 0)) && location=subject
+
+    error "$location" 'trailing whitespace' \
+      --at $((idx + 1)) "$start" "$width" --absolute \
+      --why "git strips it under the default cleanup, --cleanup=verbatim keeps it, and this repo rejects it either way" \
+      --fix 'remove the whitespace at the end of the line'
+  done
+}
+
+# --- Footer checks ----------------------------------------------------------
+
+check_footers() {
+  ((${#LINES[@]} > 1)) || return 0
+
+  mark_yaml_documents
+
+  local footer_start
+  footer_start="$(find_footer_start)"
+
+  check_breaking_change "$footer_start"
+  check_footer_separators
+  check_footer_tokens "$footer_start"
+  check_footers_in_body "$footer_start"
+  check_no_ai_attribution
+}
+
+# Where the footer block begins: the last paragraph, extended back over any
+# earlier paragraph that also opens with a footer token. "BREAKING CHANGE: …",
+# a blank line, then "Refs: #1" is one footer section — not a body followed by
+# a footer. With no blank line anywhere, every line after the subject is a
+# footer candidate.
+find_footer_start() {
+  local idx last start=1 candidate
+
+  # Find the last line with something on it first. verbatim keeps trailing
+  # blank lines, and counting them as the final paragraph puts the block past
+  # the end of the message, where every footer check scans nothing at all.
+  last=$((${#LINES[@]} - 1))
+  while ((last >= 1)) && is_blank "${LINES[last]}"; do last=$((last - 1)); done
+  if ((last < 1)); then
+    printf '1'
+    return 0
+  fi
+
+  # Walk back to where that paragraph begins.
+  start=$last
+  while ((start > 1)) && ! is_blank "${LINES[start - 1]}"; do start=$((start - 1)); done
+
+  # Only a message that ends in a footer block has one. When the last paragraph
+  # is body text, an earlier footer-looking paragraph is stranded before it,
+  # not the start of a block.
+  if ! looks_like_footer "${LINES[start]}"; then
+    printf '%s' "$start"
+    return 0
+  fi
+
+  while ((start > 1)); do
+    # Step back to the last line of the paragraph before this one...
+    idx=$((start - 1))
+    while ((idx >= 1)) && is_blank "${LINES[idx]}"; do idx=$((idx - 1)); done
+    ((idx >= 1)) || break
+
+    # ...then rewind to where that paragraph starts.
+    while ((idx > 1)) && ! is_blank "${LINES[idx - 1]}"; do idx=$((idx - 1)); done
+    candidate=$idx
+
+    looks_like_footer "${LINES[candidate]}" || break
+    start=$candidate
+  done
+
+  printf '%s' "$start"
+}
+
+# First line of the paragraph that line <idx> belongs to.
+paragraph_start_of() {
+  local idx="$1"
+
+  while ((idx > 1)) && ! is_blank "${LINES[idx - 1]}"; do idx=$((idx - 1)); done
+  printf '%s' "$idx"
+}
+
+# Does this line open a footer — "Token: value", "Token #value", or the one
+# token the spec spells with a space?
+looks_like_footer() {
+  # The token and its delimiter, not a line that merely starts with the same
+  # letters: "BREAKING CHANGES are documented below" is a sentence.
+  # The separator is exactly ": " or " #" (§9) — a tab in its place is not a
+  # footer to git, and check_footer_separators says so in as many words.
+  [[ $1 =~ ^[A-Za-z][A-Za-z0-9-]*(:\ |\ #) ]] ||
+    [[ $1 =~ ^BREAKING[[:space:]-]CHANGE([[:space:]]*:|[[:space:]]+#|$) ]]
+}
+
+# What stands between a footer token and its value. §9 allows exactly two
+# separators, ": " and " #", and a tab reads like a space in every editor while
+# stopping git's trailer parser dead. True when $1 is plainly meant as a footer
+# and uses neither separator; sets MALFORMED_TOKEN and MALFORMED_FIX. Every
+# other footer check skips such a line, so it is reported once.
+has_malformed_separator() {
+  local line="$1" rest gap
+
+  if [[ $line =~ ^(BREAKING[[:space:]-]CHANGE|[A-Za-z][A-Za-z0-9-]*): ]]; then
+    MALFORMED_TOKEN="${BASH_REMATCH[1]}"
+    is_footer_token "$MALFORMED_TOKEN" || return 1
+
+    rest="${line#*:}"
+    # A bare token line is check_breaking_change's business, not this one.
+    [[ -z $rest ]] && return 1
+    # Exactly one space, the same as the " #" form below: a run of them is a
+    # run, and "Refs:  #42" is not the separator §9 spells out.
+    [[ ${rest%%[![:space:]]*} == ' ' ]] && return 1
+    MALFORMED_FIX="${MALFORMED_TOKEN}: ${rest#"${rest%%[![:space:]]*}"}"
+    return 0
+  fi
+
+  # The " #" form, which carries an issue reference: one space, then the hash.
+  if [[ $line =~ ^(BREAKING[[:space:]-]CHANGE|[A-Za-z][A-Za-z0-9-]*)([[:space:]]+)# ]]; then
+    MALFORMED_TOKEN="${BASH_REMATCH[1]}"
+    gap="${BASH_REMATCH[2]}"
+    is_footer_token "$MALFORMED_TOKEN" || return 1
+
+    [[ $gap == ' ' ]] && return 1
+    MALFORMED_FIX="${MALFORMED_TOKEN} #${line#*#}"
+    return 0
+  fi
+
+  return 1
+}
+
+# A line nobody could mistake for prose: the breaking-change token, a dashed
+# token, or one this repo already knows.
+is_footer_token() {
+  [[ $1 == BREAKING* || $1 == *-* ]] || is_known_footer_token "$1"
+}
+
+# Dependabot ends every commit body with a machine-readable summary, written
+# as a YAML document between the two markers YAML spells them with:
+#
+#   ---
+#   updated-dependencies:
+#   - dependency-name: actions/checkout
+#     dependency-version: '7'
+#   ...
+#
+# "updated-dependencies:" is a mapping key whose value is on the lines below
+# it, not a trailer token with nothing after the colon — and reading it as one
+# fails every bot commit in every repository that uses this hook. So the lines
+# of a document are not footer candidates.
+#
+# Only a document that is opened and closed counts, and only one that holds
+# together: a lone "---" is a horizontal rule somebody typed, and a blank line
+# ends the paragraph, which is as far as anything git parses reaches.
+mark_yaml_documents() {
+  local idx end scan
+
+  YAML_DOCUMENT_LINES=()
+  for ((idx = 1; idx < ${#LINES[@]}; idx++)); do
+    [[ ${LINES[idx]} == '---' ]] || continue
+
+    end=-1
+    for ((scan = idx + 1; scan < ${#LINES[@]}; scan++)); do
+      is_blank "${LINES[scan]}" && break
+      [[ ${LINES[scan]} == '...' ]] && { end=$scan; break; }
+    done
+    ((end < 0)) && continue
+
+    for ((scan = idx; scan <= end; scan++)); do
+      YAML_DOCUMENT_LINES[scan]=1
+    done
+    idx=$end
+  done
+}
+
+# True when line <idx> is part of an embedded YAML document.
+in_yaml_document() {
+  [[ -n ${YAML_DOCUMENT_LINES[$1]-} ]]
+}
+
+# Dependabot writes its own messages, and dependabot.yml reaches only part of
+# them. commit-message.prefix and include: scope give it a type and a scope
+# this repo accepts; nothing gives it a width or a case. It never wraps the
+# "Bumps [x](url) from a to b." line or the links under it, a grouped update's
+# subject is past the limit on its own ("bump the dev-tooling group across 1
+# directory with 9 updates"), and whether "bump" gets a capital is decided by
+# the repository's recent history, not by the config.
+#
+# So for a message Dependabot wrote, the three house rules it cannot be made to
+# follow are waived: subject length, a capital first letter, body width. So is
+# the co-author trailer naming Dependabot that GitHub appends when somebody
+# else squash-merges its pull request; it is the bot whose message this is, not
+# an agent. Every other rule still applies, and that is what holds
+# dependabot.yml to a prefix.
+#
+# Dependabot ends every message with this sign-off, so its presence in the
+# footer block is what marks one. A pull request title carries no trailer, so
+# CI sets COMMIT_MSG_FROM_DEPENDABOT for the title of a pull request Dependabot
+# opened instead.
+readonly DEPENDABOT_SIGNOFF='Signed-off-by: dependabot[bot] <support@github.com>'
+readonly DEPENDABOT_COAUTHOR='Co-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>'
+
+mark_dependabot() {
+  local idx footer_start
+
+  FROM_DEPENDABOT=0
+  if [[ -n ${COMMIT_MSG_FROM_DEPENDABOT-} ]]; then
+    FROM_DEPENDABOT=1
+    return 0
+  fi
+  ((${#LINES[@]} > 1)) || return 0
+
+  footer_start="$(find_footer_start)"
+  for ((idx = footer_start; idx < ${#LINES[@]}; idx++)); do
+    if [[ ${LINES[idx]} == "$DEPENDABOT_SIGNOFF" ]]; then
+      FROM_DEPENDABOT=1
+      return 0
+    fi
+  done
+  return 0
+}
+
+check_footer_separators() {
+  local idx line token
+
+  for ((idx = 1; idx < ${#LINES[@]}; idx++)); do
+    in_yaml_document "$idx" && continue
+    line="${LINES[idx]}"
+
+    # A token and a colon and nothing else. The breaking-change token has its
+    # own finding for this, and says more about what belongs there.
+    if [[ $line =~ ^([A-Za-z][A-Za-z0-9-]*):[[:space:]]*$ ]]; then
+      token="${BASH_REMATCH[1]}"
+      if is_footer_token "$token" && [[ ${token^^} != BREAKING* ]]; then
+        error footer "footer \"${token}\" has no value" \
+          --at $((idx + 1)) 1 "${#line}" \
+          --why 'a footer is a token, a separator and a value (§9); with nothing after the colon there is no trailer for a parser to read' \
+          --fix "write \"${token}: <value>\", or delete the line"
+        continue
+      fi
+    fi
+
+    has_malformed_separator "$line" || continue
+
+    error footer "footer \"${MALFORMED_TOKEN}\" is not followed by \": \" or \" #\"" \
+      --at $((idx + 1)) 1 $((${#MALFORMED_TOKEN} + 1)) \
+      --why 'those two separators are the whole of §9, one space and no more; git is laxer after a colon, but a run of spaces or a tab is nobody else\047s idea of a footer' \
+      --fix "write \"${MALFORMED_FIX}\""
+  done
+}
+
+# A final paragraph is only a footer block when a line in it really does parse
+# as a footer; a paragraph of prose stays body text however it is punctuated.
+# This is what git's own trailer parser does, and without it any sentence that
+# ends a message carrying a colon reads as a broken footer token.
+has_well_formed_footer() {
+  local footer_start="$1" idx
+
+  for ((idx = footer_start; idx < ${#LINES[@]}; idx++)); do
+    is_blank "${LINES[idx]}" && continue
+    looks_like_footer "${LINES[idx]}" && return 0
+  done
+  return 1
+}
+
+check_breaking_change() {
+  local footer_start="$1" idx line lowercase token line_no
+
+  for ((idx = 1; idx < ${#LINES[@]}; idx++)); do
+    in_yaml_document "$idx" && continue
+    line="${LINES[idx]}"
+    lowercase="${line,,}"
+    # The token proper, followed by its colon or ending the line — so that body
+    # prose such as "Breaking changes are listed below." is left alone.
+    # One or more separators, so that "BREAKING  CHANGE:" is caught here and
+    # reported rather than falling past every footer check as prose.
+    [[ $lowercase =~ ^breaking[[:space:]-]+change([[:space:]]*:|[[:space:]]+#|$) ]] || continue
+
+    line_no=$((idx + 1))
+    token="${line%%:*}"
+    [[ $line == *:* ]] || token="${line%%[[:space:]]#*}"
+
+    if [[ ${line^^} == 'BREAKING CHANGE'* || ${line^^} == 'BREAKING-CHANGE'* ]] &&
+       [[ $line != 'BREAKING CHANGE'* && $line != 'BREAKING-CHANGE'* ]]; then
+      error footer "\"${token}\" must be uppercase" \
+        --at "$line_no" 1 "${#token}" \
+        --why 'BREAKING CHANGE is the one token the spec treats as case-sensitive; BREAKING-CHANGE is a synonym' \
+        --fix 'write "BREAKING CHANGE: <description>"'
+
+    elif [[ $line != 'BREAKING CHANGE'* && $line != 'BREAKING-CHANGE'* ]]; then
+      error footer "\"${token}\" is not the BREAKING CHANGE token" \
+        --at "$line_no" 1 "${#token}" \
+        --why 'the token is exactly "BREAKING CHANGE" or "BREAKING-CHANGE" — one space or one hyphen, and no parser matches anything else' \
+        --fix 'write "BREAKING CHANGE: <description>"'
+
+    elif [[ ! $line =~ ^BREAKING[[:space:]-]CHANGE(:|[[:space:]]+#)[[:space:]]*[^[:space:]] ]]; then
+      error footer 'BREAKING CHANGE footer has no description' \
+        --at "$line_no" 1 "${#line}" \
+        --why 'the token MUST be followed by a colon, a space and a description' \
+        --fix 'write "BREAKING CHANGE: environment variables now take precedence over config files"'
+    fi
+
+    # Footers stack inside one block, so "Refs: #42" directly above it is
+    # perfectly legal. What is not is a breaking change left in the body, or
+    # sharing a paragraph that opens with prose — git and the spec both read
+    # that as body text.
+    local para_start
+    para_start="$(paragraph_start_of "$idx")"
+    if ((idx < footer_start)) || ! looks_like_footer "${LINES[para_start]}"; then
+      error footer 'BREAKING CHANGE footer sits inside the body' \
+        --at "$line_no" 1 "${#token}" \
+        --why 'the footer block MUST start one blank line after the body (§8)' \
+        --fix 'move it into the footer block, or add a blank line above it'
+    fi
+  done
+}
+
+# A footer token uses "-" where a sentence would use a space — that is what
+# tells a parser "Reviewed-by: Z" apart from a body paragraph.
+check_footer_tokens() {
+  local footer_start="$1" idx line token block_is_real=1
+
+  has_well_formed_footer "$footer_start" || block_is_real=0
+
+  # Every paragraph, not just the last: "Reviewed by: Alice" two paragraphs up
+  # is the same spoiled trailer, and the footer block moving past it does not
+  # make it well formed.
+  for ((idx = 1; idx < ${#LINES[@]}; idx++)); do
+    in_yaml_document "$idx" && continue
+    line="${LINES[idx]}"
+    # Breaking-change lines are check_breaking_change's business, whatever
+    # case they are written in; reporting them twice helps nobody.
+    [[ ${line,,} =~ ^breaking[[:space:]-]+change([[:space:]]*:|[[:space:]]+#|$) ]] && continue
+    # Hyphens inside a segment as well as spaces between them: "Signed-off by"
+    # is the same spoiled token as "Signed off by".
+    [[ $line =~ ^([A-Za-z][A-Za-z0-9-]*([[:space:]]+[A-Za-z0-9-]+)+)(:|[[:space:]]#) ]] || continue
+
+    token="${BASH_REMATCH[1]}"
+    # Alongside a well-formed footer this is a malformed one, because the whole
+    # block is discarded over it. Standing in a paragraph of prose it is only a
+    # sentence, unless the token is one we actually recognise. A novel token
+    # written with spaces and no dashed neighbour cannot be told from a
+    # sentence, so it goes unreported rather than taking every sentence with it.
+    if ((idx < footer_start)) || ((!block_is_real)); then
+      is_known_footer_token "${token// /-}" || continue
+    fi
+
+    error footer "footer token \"${token}\" contains spaces" \
+      --at $((idx + 1)) 1 "${#token}" \
+      --why 'a footer token MUST use - in place of whitespace, e.g. Acked-by — that is what separates a footer from a multi-paragraph body' \
+      --fix "write \"${token// /-}: ...\""
+  done
+}
+
+# A footer-looking line glued to the body is read as body text by parsers.
+check_footers_in_body() {
+  local footer_start="$1" idx line token scan_end="$1"
+
+  # When the last paragraph does not open with a footer token it is body text,
+  # so trailers glued to the end of it are misplaced too — the commonest shape
+  # of this mistake, and the one a boundary-only scan misses.
+  if ((footer_start >= ${#LINES[@]})) || ! looks_like_footer "${LINES[footer_start]}"; then
+    scan_end=${#LINES[@]}
+  fi
+
+  for ((idx = 2; idx < scan_end; idx++)); do
+    in_yaml_document "$idx" && continue
+    line="${LINES[idx]}"
+    # One finding per line: a bad separator has already been reported, and it
+    # is why this line does not read as a footer in the first place.
+    has_malformed_separator "$line" && continue
+    # A paragraph of its own is no defence: "Refs: #1" with body text below it
+    # is still stranded ahead of the footer block. The paragraphs that stack
+    # legitimately are already past scan_end, because find_footer_start counts
+    # them as part of the block.
+    [[ $line =~ ^([A-Za-z][A-Za-z0-9-]*)(:[[:space:]]|[[:space:]]#) ]] || continue
+
+    token="${BASH_REMATCH[1]}"
+    is_known_footer_token "$token" || continue
+
+    # Telling someone to move a trailer "to the end" is useless when it is
+    # already there; sharing the last paragraph with prose is its own mistake,
+    # and it costs the neighbouring trailers too.
+    if ((idx >= footer_start)); then
+      error footer "footer \"${token}\" shares a paragraph with body text" \
+        --at $((idx + 1)) 1 "${#token}" \
+        --why 'git drops a whole trailer block over one line that does not parse, taking this trailer with it' \
+        --fix 'give the trailers a paragraph of their own, with no prose lines in it'
+    else
+      error footer "footer \"${token}\" sits inside the body" \
+        --at $((idx + 1)) 1 "${#token}" \
+        --why 'footers MUST start one blank line after the body, otherwise they are parsed as body text' \
+        --fix 'move it to the footer block at the end of the message'
+    fi
+  done
+}
+
+# A co-author trailer names a person, and people are called Claude Shannon and
+# Cursor and Bing. So the tool names alone decide nothing here: what marks a
+# co-author as a machine is a bot address, a bot marker, or a display name that
+# is nothing but the tool's own.
+is_agent_coauthor() {
+  local line="$1" name address
+
+  [[ ${line,,} =~ ^co-authored-by:[[:space:]]*(.*)$ ]] || return 1
+  name="${BASH_REMATCH[1]}"
+
+  # GitHub's own marker, on the login and in the address it generates.
+  [[ $name == *'[bot]'* ]] && return 0
+
+  address=''
+  [[ $name =~ \<([^\>]*)\> ]] && address="${BASH_REMATCH[1]}"
+  name="${name%%<*}"
+  name="$(trim "$name")"
+
+  # The vendors' own domains, and the numeric no-reply address GitHub mints for
+  # an app — "175728472+copilot@users.noreply.github.com".
+  [[ $address =~ @(anthropic|openai)\.com$ ]] && return 0
+  [[ $address =~ ^[0-9]+\+(claude|copilot|chatgpt|codex|cursor)@ ]] && return 0
+
+  # A bare tool name and nothing else. "Claude Shannon" is a person.
+  case "$name" in
+    claude|copilot|'github copilot'|'claude code'|chatgpt|codex|cursor) return 0 ;;
+  esac
+  return 1
+}
+
+# This repo attributes commits to their human author only. Scoped to the footer
+# block, where trailers live: body prose that merely mentions a tool by name is
+# not an attribution.
+check_no_ai_attribution() {
+  local agents='(claude|anthropic|copilot|chatgpt|gpt-|cursor|codex|bot@)'
+  # The generic label, bounded so that "maintainer" and "Ai Tanaka" are not it.
+  local generic='[^a-z]ai([^a-z]|$)'
+  local idx line lowercase
+
+  # Every line after the subject, not just the closing block: body text after
+  # a trailer does not make the trailer disappear. The shape test below is what
+  # keeps ordinary prose out of this.
+  for ((idx = 1; idx < ${#LINES[@]}; idx++)); do
+    line="${LINES[idx]}"
+    lowercase="${line,,}"
+
+    # A trailer, the robot marker these tools sign off with, or a trailer
+    # written with spaces in the token — "Generated with: Copilot" is still an
+    # attribution, however malformed. Prose that names a tool is just prose.
+    looks_like_footer "$line" ||
+      has_malformed_separator "$line" ||
+      [[ $line == 🤖* ]] ||
+      [[ $line =~ ^[A-Za-z][A-Za-z0-9-]*([[:space:]]+[A-Za-z0-9-]+)*: ]] ||
+      continue
+
+    # GitHub adds this when somebody squash-merges Dependabot's pull request.
+    # It names the bot whose message this is, not an agent that helped write it.
+    ((FROM_DEPENDABOT)) && [[ $line == "$DEPENDABOT_COAUTHOR" ]] && continue
+
+    # A co-author is judged on its own terms — the phrase test below would
+    # match every "co-authored-by" line whose person shares a name with a tool.
+    if [[ $lowercase == co-authored-by:* ]]; then
+      is_agent_coauthor "$line" || continue
+    elif [[ ! $lowercase =~ (generated|created|authored|written|assisted)[[:space:]-]+(with|by).*($agents|$generic) ]] &&
+         [[ $line != *🤖* ]]; then
+      continue
+    fi
+
+    error footer 'AI agent attribution trailer' \
+      --at $((idx + 1)) 1 "${#line}" \
+      --why 'commits in this repo are attributed to their human author only' \
+      --fix 'delete this line'
+  done
+}
+
+# --- Reporting --------------------------------------------------------------
+
+report() {
+  local msg_file="$1"
+
+  if ((ERROR_COUNT == 0 && WARNING_COUNT == 0)); then
+    exit 0
+  fi
+
+  print_heading
+  print_message
+
+  if ((ERROR_COUNT)); then
+    printf '\n%s%s %d error(s)%s\n' "$BOLD" "$RED" "$ERROR_COUNT" "$OFF" >&2
+    print_findings error '✗' "$RED"
+  fi
+  if ((WARNING_COUNT)); then
+    printf '\n%s%s %d warning(s)%s\n' "$BOLD" "$YELLOW" "$WARNING_COUNT" "$OFF" >&2
+    print_findings warning '!' "$YELLOW"
+  fi
+
+  print_reference
+
+  if ((ERROR_COUNT)); then
+    if [[ -n ${COMMIT_MSG_REPORT_ONLY-} ]]; then
+      printf '\n%smessage rejected.%s rewrite it to follow the format above\n\n' \
+        "$RED" "$OFF" >&2
+    else
+      printf '\n%scommit aborted.%s your message is kept in %s — fix it and commit again%s\n\n' \
+        "$RED" "$OFF" "$msg_file" "${DIM}, or bypass with --no-verify${OFF}" >&2
+    fi
+    exit 1
+  fi
+
+  printf '\n%s✓ commit accepted%s %s(warnings only)%s\n\n' "$GREEN" "$OFF" "$DIM" "$OFF" >&2
+  exit 0
+}
+
+print_heading() {
+  local marker='!'
+  ((ERROR_COUNT)) && marker='✗'
+
+  printf '\n%s%s Conventional Commits check%s %s(v1.0.0)%s\n' \
+    "$BOLD" "$marker" "$OFF" "$DIM" "$OFF" >&2
+}
+
+print_message() {
+  local idx
+
+  printf '\n  %scommit message%s\n' "$DIM" "$OFF" >&2
+  for ((idx = 0; idx < ${#LINES[@]}; idx++)); do
+    printf '     %s%2d │%s %s\n' "$DIM" $((idx + 1)) "$OFF" "${LINES[idx]}" >&2
+  done
+}
+
+print_findings() {
+  local wanted="$1" marker="$2" colour="$3"
+  local record severity location summary line col width why fix
+
+  for record in "${FINDINGS[@]}"; do
+    IFS="$FIELD_SEP" read -r severity location summary line col width why fix <<<"$record"
+    [[ $severity == "$wanted" ]] || continue
+
+    printf '\n  %s%s%s %s%s%s %s·%s %s\n' \
+      "$colour" "$marker" "$OFF" "$BOLD" "$location" "$OFF" "$DIM" "$OFF" "$summary" >&2
+    print_quoted_line "$line" "$col" "$width"
+    printf '     %swhy%s  %s\n' "$DIM" "$OFF" "$why" >&2
+    printf '     %sfix%s  %s\n' "$CYAN" "$OFF" "$fix" >&2
+  done
+}
+
+# Echo message line <line>, with <width> carets under column <col>.
+print_quoted_line() {
+  local line="$1" col="$2" width="$3"
+
+  ((line > 0 && line <= ${#LINES[@]})) || return 0
+  local text="${LINES[line - 1]}"
+  printf '     %s│%s %s\n' "$DIM" "$OFF" "$text" >&2
+
+  ((col > 0 && width > 0)) || return 0
+  ((width > ${#text})) && width=${#text}
+  ((width > 0)) || width=1
+
+  # Columns are character counts; the terminal thinks in display cells. An
+  # emoji or a CJK character earlier in the line takes two of them, and a tab
+  # takes as many as the next tab stop, so the underline is spaced out of the
+  # same text rather than out of a count.
+  local indent carets
+  indent="$(blank_out "${text:0:col - 1}")"
+  carets="$(blank_out "${text:col - 1:width}")"
+
+  # A span that is nothing but a tab would print no caret at all. Put one in
+  # front of each tab and keep the tab, so there is something to see and the
+  # rows still meet at the same tab stop.
+  # A finding may point just past the end of the line — a missing description
+  # sits where the next character would be — and there is no text to space out.
+  # Show the insertion point rather than nothing.
+  [[ -n $carets ]] || carets=' '
+  carets="${carets// /^}"
+  carets="${carets//$'\t'/^$'\t'}"
+
+  printf '     %s│%s %s%s%s%s\n' \
+    "$DIM" "$OFF" "$indent" "$RED" "$carets" "$OFF" >&2
+}
+
+# $1 with every character replaced by as many spaces as it occupies on screen,
+# and every tab kept, so that the terminal's own tab stops line the two rows up.
+blank_out() {
+  local text="$1" out='' idx char code next joined=0 pending_flag=0
+
+  for ((idx = 0; idx < ${#text}; idx++)); do
+    char="${text:idx:1}"
+    if [[ $char == $'\t' ]]; then
+      out+=$'\t'
+      joined=0 pending_flag=0
+      continue
+    fi
+    printf -v code '%d' "'$char"
+
+    # A zero-width joiner glues what follows onto the emoji before it, and the
+    # whole cluster — "👨‍👩‍👧‍👦" is four of them — occupies one pair of cells.
+    if ((code == 0x200D)); then
+      joined=1
+      continue
+    fi
+    # Skin tone, variation selectors, combining marks, the enclosing keycap:
+    # all of them modify the character before rather than taking a cell.
+    if is_zero_width "$code" || ((code >= 0x1F3FB && code <= 0x1F3FF)); then
+      continue
+    fi
+    if ((joined)); then
+      joined=0
+      continue
+    fi
+    # Two regional indicators make one flag, two cells wide between them.
+    if ((code >= 0x1F1E6 && code <= 0x1F1FF)); then
+      ((pending_flag)) && { pending_flag=0; continue; }
+      pending_flag=1
+      out+='  '
+      continue
+    fi
+    pending_flag=0
+
+    # U+FE0F asks for the emoji presentation of the character before it, and
+    # that is two cells wide even where the bare character is one — "1️⃣", "⚠️".
+    next=0
+    ((idx + 1 < ${#text})) && printf -v next '%d' "'${text:idx + 1:1}"
+
+    if is_wide "$code" || ((next == 0xFE0F)); then
+      out+='  '
+    else
+      out+=' '
+    fi
+  done
+
+  printf '%s' "$out"
+}
+
+# The East Asian Width "wide" and "fullwidth" ranges a commit message
+# realistically carries: Hangul, CJK, fullwidth forms, and the emoji blocks.
+# Pairs of bounds, read two at a time — easier to extend than a chain of tests.
+readonly WIDE_RANGES=(
+  0x1100  0x115F    # Hangul Jamo
+  0x231A  0x231B    # watch, hourglass
+  0x2329  0x232A    # angle brackets
+  0x23E9  0x23EC    # media buttons
+  0x23F0  0x23F0    # alarm clock
+  0x23F3  0x23F3    # hourglass flowing
+  0x25FD  0x25FE    # small squares
+  0x2614  0x2615    # umbrella, hot beverage
+  0x2648  0x2653    # zodiac
+  0x267F  0x267F    # wheelchair
+  0x2693  0x2693    # anchor
+  0x26A1  0x26A1    # high voltage
+  0x26AA  0x26AB    # circles
+  0x26BD  0x26BE    # ball games
+  0x26C4  0x26C5    # snowman, sun behind cloud
+  0x26CE  0x26CE    # ophiuchus
+  0x26D4  0x26D4    # no entry
+  0x26EA  0x26EA    # church
+  0x26F2  0x26F3    # fountain, golf
+  0x26F5  0x26F5    # sailboat
+  0x26FA  0x26FA    # tent
+  0x26FD  0x26FD    # fuel pump
+  0x2705  0x2705    # check mark button
+  0x270A  0x270B    # hands
+  0x2728  0x2728    # sparkles
+  0x274C  0x274C    # cross mark
+  0x274E  0x274E    # cross mark button
+  0x2753  0x2755    # question and exclamation marks
+  0x2757  0x2757    # red exclamation
+  0x2795  0x2797    # maths signs
+  0x27B0  0x27B0    # curly loop
+  0x27BF  0x27BF    # double curly loop
+  0x2B1B  0x2B1C    # large squares
+  0x2B50  0x2B50    # star
+  0x2B55  0x2B55    # hollow red circle
+  0x2E80  0x303E    # CJK radicals, Kangxi, CJK symbols
+  0x3041  0x33FF    # kana through CJK compatibility
+  0x3400  0x4DBF    # CJK extension A
+  0x4E00  0x9FFF    # CJK unified ideographs
+  0xA000  0xA4CF    # Yi
+  0xAC00  0xD7A3    # Hangul syllables
+  0xF900  0xFAFF    # CJK compatibility ideographs
+  0xFE30  0xFE6F    # CJK compatibility forms, small forms
+  0xFF00  0xFF60    # fullwidth forms
+  0xFFE0  0xFFE6    # fullwidth signs
+  0x16FE0 0x16FE4   # Tangut, Nushu components
+  0x17000 0x18AFF   # Tangut, Khitan
+  0x1B000 0x1B2FF   # kana supplement and extended
+  0x1F004 0x1F004   # mahjong red dragon
+  0x1F0CF 0x1F0CF   # joker
+  0x1F18E 0x1F18E   # AB button
+  0x1F191 0x1F19A   # squared latin
+  0x1F200 0x1F2FF   # enclosed ideographic supplement
+  0x1F300 0x1F64F   # misc symbols and pictographs, emoticons
+  0x1F680 0x1F6FF   # transport and map symbols
+  0x1F7E0 0x1F7EB   # geometric shapes extended
+  0x1F900 0x1F9FF   # supplemental symbols and pictographs
+  0x1FA70 0x1FAFF   # symbols and pictographs extended-A
+  0x20000 0x3FFFD   # CJK extensions B and beyond
+)
+
+is_wide() {
+  local code="$1" idx
+  # Everything a message is usually made of is one cell wide; leave early
+  # rather than walking the table for each of them.
+  ((code < 0x1100)) && return 1
+
+  for ((idx = 0; idx < ${#WIDE_RANGES[@]}; idx += 2)); do
+    ((code >= WIDE_RANGES[idx] && code <= WIDE_RANGES[idx + 1])) && return 0
+  done
+  return 1
+}
+
+# Combining marks and the joiners that glue an emoji sequence together take no
+# cell of their own.
+is_zero_width() {
+  local code="$1"
+  ((code >= 0x0300 && code <= 0x036F)) ||   # combining diacritics
+    ((code >= 0x200B && code <= 0x200F)) || # zero-width and direction marks
+    ((code >= 0x20D0 && code <= 0x20FF)) || # combining marks, enclosing keycap
+    ((code >= 0xFE00 && code <= 0xFE0F))    # variation selectors
+}
+
+print_reference() {
+  printf '\n  %sformat%s  <type>[optional scope][!]: <description>\n' "$DIM" "$OFF" >&2
+  printf '          %s <blank line> <body>   <blank line> <footers>%s\n' "$DIM" "$OFF" >&2
+  printf '  %stypes%s   %s\n' "$DIM" "$OFF" "$(list_types)" >&2
+  printf '  %sspec%s    %s\n' "$DIM" "$OFF" "$SPEC_URL" >&2
+}
+
+# --- Entry point ------------------------------------------------------------
+
+main() {
+  setup_colours
+
+  local msg_file="${1-}"
+  [[ -n $msg_file && -f $msg_file ]] || die 'expected the commit message file as $1'
+
+  load_config
+  read_message "$msg_file"
+
+  ((${#LINES[@]})) || die 'the commit message is empty — aborting.'
+  is_generated_by_git "${LINES[0]}" && exit 0
+  mark_dependabot
+
+  check_subject
+  check_body
+  check_footers
+  check_trailing_whitespace
+
+  report "$msg_file"
+}
+
+main "$@"
