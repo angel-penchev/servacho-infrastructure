@@ -248,6 +248,12 @@ Some of the notes assume a machine of one's own:
 
 ## SSH from the internet
 
+sshd takes connections from every source: the host sets
+`servacho.ssh.sources = "any"`. A source list in its place must keep
+`192.168.5.15`. From there the root plane deploys the host and runs the
+`os-tues students` workflow over SSH. `nixos/deployed-by-root-plane.nix`
+checks this.
+
 Students log in with their passwords, or with their own keys once they have
 put them in `~/.ssh/authorized_keys`. No other account takes a password, and
 root takes keys only from the home networks.

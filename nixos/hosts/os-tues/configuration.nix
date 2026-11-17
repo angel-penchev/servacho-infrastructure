@@ -200,6 +200,11 @@ in
   };
   zramSwap.enable = true;
 
+  # sshd is open to every source, because the class logs in from the
+  # internet. The Match block below lets root log in only from
+  # 192.168.0.0/16.
+  servacho.ssh.sources = "any";
+
   # Students log in with passwords (students.nix). root takes the deploy key
   # and the administrators' keys from the home networks (and its WireGuard)
   # only: this machine is on the internet.

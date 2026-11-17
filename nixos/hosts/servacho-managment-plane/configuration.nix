@@ -49,6 +49,11 @@
   # Keys added by hand to /root/.ssh/authorized_keys keep working beside it.
   users.users.root.openssh.authorizedKeys.keyFiles = [ ./deploy-key.pub ];
 
+  # sshd is open to every source. The runner deploys this host over SSH to
+  # loopback, and a list never closes loopback. Thus a list here needs no
+  # entry for the deployer.
+  servacho.ssh.sources = "any";
+
   servacho.managementPlane = {
     enable = true;
     runner = {

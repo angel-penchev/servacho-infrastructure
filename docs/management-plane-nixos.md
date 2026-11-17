@@ -65,6 +65,9 @@ repository.
   excluded in the configuration so the job that runs the switch survives. A new
   runner version takes effect at the next reboot or `systemctl restart
   github-runner-management-runner`.
+- The switch runs over SSH to loopback, which no SSH source list closes.
+  The host sets `servacho.ssh.sources = "any"`, and a list there needs no
+  entry for the runner.
 - If OpenBao's unit changes, the switch restarts it and it comes back sealed.
   Nothing in the same run needs it after plan time; the next run unseals it.
 - A configuration that cannot activate leaves the previous generation
