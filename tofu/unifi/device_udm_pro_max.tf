@@ -140,7 +140,8 @@ resource "unifi_device" "udm_pro_max" {
     port_profile_id    = unifi_port_profile.unifi_devices.id
   }
 
-  # SFP+ 2: 10 GbE uplink to the USW Aggregation.
+  # SFP+ 2: no module, reserved for the WAN1 GPON stick. The name and profile mirror
+  # what live stores on the empty port.
   port_override {
     index              = 11
     name               = "USW-Aggregation"
