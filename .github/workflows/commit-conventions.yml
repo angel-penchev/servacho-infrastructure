@@ -1,12 +1,11 @@
-# Conventional Commits validation, using qoax-community/qoax-githooks.
+# Checks the commit messages and the title of a pull request with the
+# commit-msg hook of qoax-githooks. The action also compares the tracked copy
+# at .githooks/commit-msg with the hook of the release that it pins.
 #
-# This calls the composite action directly rather than the `qoax-reusables` reusable
-# workflow the upstream template points at: that workflow is in a private repository in
-# another organization and a caller outside it cannot resolve it.
-#
-# Keep the pin below in step with the `.githooks/shared` submodule, so local and CI run
-# the same code. Dependabot bumps the submodule; this `uses:` pin is updated by hand in
-# the same pull request.
+# The pin is a commit sha, and the comment after it names the release.
+# Dependabot moves both, but it updates the comment only while the release is
+# its last token. When a bump changes the hook, the compare fails and prints
+# the command that writes the new hook into the copy.
 name: Check commit conventions
 
 on:
@@ -18,9 +17,10 @@ on:
 permissions:
   contents: read
 
-# A pull request may cancel its own earlier run: the next one re-checks the whole range.
-# A push may not -- it is checked over the range it pushed, so cancelling would leave
-# those commits unchecked by anything.
+# A pull request may cancel its own earlier run, because the next run checks
+# the whole range again. A push may not. Its run checks only the range that it
+# pushed, so a cancel leaves those commits unchecked. Thus each push gets a
+# group of its own.
 concurrency:
   group: >-
     commit-conventions-${{ github.event.pull_request.number
@@ -29,14 +29,15 @@ concurrency:
 
 jobs:
   commit-conventions:
+    # A ruleset can require this check by its name.
     name: Conventional Commits
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # The action enumerates a commit range; a shallow clone has none.
+          # The action reads a range of commits, and a shallow clone has none.
           fetch-depth: 0
 
-      - name: Validate commit messages and pull request title
-        uses: qoax-community/qoax-githooks@6d36e527ca2a812b3a11af3ec91821c2c07ef964 # v1.0.7
+      - name: Validate commit messages, the PR title and the hook copy
+        uses: qoax-community/qoax-githooks@4abc39a4da0306503a66682044f5fe8d7f929922 # v1.1.0
