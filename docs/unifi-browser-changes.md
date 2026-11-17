@@ -8,6 +8,35 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ---
 
+## Session 2026-11-17 — the Aggregation uplinks through the Pro Max
+
+The user plans a GPON SFP stick in a UDM SFP+ port, in place of the Vivacom ONT on WAN1. Both UDM SFP+ ports carried switch uplinks: port 10 to the Pro Max and port 11 to the Aggregation. The Aggregation now uplinks to the Pro Max instead, which frees UDM port 11.
+
+**Cabling.** The 1 m OEM DAC (`SFP-H10GB-CU1M`) moved from UDM port 11 and Aggregation port 8 to Pro Max port 25 and Aggregation port 5. The Pro Max uplink stays port 26 to UDM port 10, on the white `Uplink-SFP28-.15`.
+
+**Outage, 05:29Z to about 06:26Z.** The cable moved before either new port was set. Aggregation port 5 was still disabled. Thus the Aggregation had no path to the controller, and it could not get a new setting for that port. No host was on the Aggregation (Servacho-Gosho is on Pro Max port 21), so only the switch itself was offline.
+
+**Recovery.** Pro Max port 25 got the UniFi Device profile first. Then two `UACC-CM-RJ45-MG` RJ45 modules and a patch cable linked Pro Max port 25 to Aggregation port 8, which still had the UniFi Device profile. Port 5 got its profile over that link, and the DAC went back on port 5.
+
+**Lesson.** Set both ends of a new switch link before you move a switch's only uplink.
+
+Made in the UniFi web UI (Port Manager) from the user's Chrome session, and read back over `GET /stat/device` after each change.
+
+| Port | Attribute | Was | Now |
+|---|---|---|---|
+| USW Pro Max 24 PoE, 25 | `name` | `SFP+ 1 (Disabled)` | `USW-Aggregation` |
+| | override | the disabled shape of ports 9–11 | `{name, portconf_id UniFi Device, setting_preference manual}` (`manual` is the UI's own choice) |
+| USW Aggregation, 5 | `name` | `SFP+ 5 (Disabled)` | `USW-Pro-Max-24-PoE` |
+| | override | the disabled shape of ports 2–7 | `{name, portconf_id UniFi Device, setting_preference manual}` |
+| USW Aggregation, 8 | `name` | `UDM-Pro-Max` | `SFP+ 8 (Disabled)` |
+| | override | `{name, portconf_id UniFi Device, setting_preference auto}` | the disabled shape of port 7, set field by field: Port Profile off, Port Mode Edge, native None, tagged Block All, Advanced Manual, MAC Address Filter on with no MACs, 802.1X Auto, then Port State Disabled. The UI wrote no `eee_enabled` and no `poe_mode` key. |
+
+**Read-back, 06:50Z.** All five devices are `state 1`. The Aggregation's uplink is port 5 to Pro Max port 25, at 10 GbE full duplex, forwarding, with no errors. Aggregation port 8 is `forward disabled`. UDM port 11 has no module. It keeps `USW-Aggregation` and the UniFi Device profile until the GPON stick takes it as WAN1.
+
+**Code.** `device_usw_pro_max_24_poe.tf`, `device_usw_aggregation.tf` and `device_udm_pro_max.tf` mirror the new ports. The port blocks are under `ignore_changes`, so the plan is unaffected.
+
+---
+
 ## Session 2026-11-09 (b) — the SUGAMING plane's client, the FMI{Codes} plane's record
 
 After the apply of #102. VM 13015 showed under the hostname `nixos`, from its installer's DHCP request. The apply forgot the FMI{Codes} plane's client at 06:45:25 UTC. VM 12015's destroy finished 2 s later, and the controller made a new, unnamed record for its MAC. The changes went through the controller's REST API from the user's Chrome session (`https://192.168.2.1`). A read-back followed each write.
