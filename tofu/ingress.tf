@@ -6,7 +6,7 @@
 # HAProxy passes connections on unopened, so one core and 1 GiB carry its
 # connection limits with room to spare (docs/ingress.md).
 module "ingress" {
-  source = "github.com/angel-penchev/infrastructure-reusables//tofu/modules/nixos-vm?ref=v0.9.1"
+  source = "github.com/angel-penchev/infrastructure-reusables//tofu/modules/nixos-vm?ref=v0.10.0"
 
   name             = "ingress"
   node_name        = "Servacho-Gosho"
