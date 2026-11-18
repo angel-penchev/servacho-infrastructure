@@ -228,13 +228,18 @@ openssl s_client -connect '<the line address>:443' \
 
 ## The firewall
 
-The VM's own rules are nftables, in `networking.firewall.extraInputRules`:
+The VM's own rules are nftables. `servacho.ssh.sources` in
+`configuration.nix` admits SSH, and `networking.firewall.extraInputRules`
+admits the other ports:
 
 | Port | From |
 |---|---|
 | 80, 443 | Any address outside the private ranges, which is what the forward delivers, and the gateway's own, `192.168.4.1`, which NAT loopback uses. No other private address. |
-| 22; 8405, HAProxy's Prometheus exporter at `/metrics` | The root plane (`192.168.5.15`), which deploys the VM; Main (`192.168.2.0/24`); the Teleport, OpenVPN and WireGuard subnets (`192.168.7.0/24` to `192.168.9.0/24`) |
+| 22; 8405, HAProxy's Prometheus exporter at `/metrics` | The root plane (`192.168.5.15`), which deploys the VM, and the networks in `nixos/admin-sources.nix`: Main (`192.168.2.0/24`) and the Teleport, OpenVPN and WireGuard subnets (`192.168.7.0/24` to `192.168.9.0/24`) |
 
+The evaluation fails if the SSH list leaves out `192.168.5.15`
+(`nixos/deployed-by-root-plane.nix`). The kernel log records refused SSH
+connections, at most 6 a minute: `journalctl -k -g servacho-ssh-refused`.
 The exporter's line gets the monitoring VM of #68 once that has an address.
 
 On the gateway, `Dmz → Internal` is blocked, so the VM reaches only what a

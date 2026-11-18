@@ -22,9 +22,9 @@ repository, not here.
 
 infrastructure-reusables requires `servacho.ssh.sources` on each host built
 on its `base` module: the addresses that may open SSH connections to the
-host, or `"any"`. Each host here sets `"any"`, so sshd is open to every
-source. A host that gets a list takes `admin-sources.nix` and adds its
-deployer.
+host, or `"any"`. A host that gets a list takes `admin-sources.nix` and adds
+its deployer. `hosts/ingress/` has such a list. Every other host here sets
+`"any"`, so sshd is open to every source.
 
 The root plane deploys the other hosts over SSH from `192.168.5.15`.
 `flake.nix` adds `deployed-by-root-plane.nix` to each of them, and to each
