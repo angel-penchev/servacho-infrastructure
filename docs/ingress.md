@@ -241,7 +241,9 @@ admits the other ports:
 
 The evaluation fails if the SSH list leaves out `192.168.5.15`
 (`nixos/deployed-by-root-plane.nix`). The kernel log records refused SSH
-connections, at most 6 a minute: `journalctl -k -g servacho-ssh-refused`.
+connections, with a rate limit (6 a minute, bursts of 5):
+`journalctl -k -g servacho-ssh-refused`. Attempts above that rate get no
+line.
 The exporter's line gets the monitoring VM of #68 once that has an address.
 
 On the gateway, `Dmz → Internal` is blocked, so the VM reaches only what a
