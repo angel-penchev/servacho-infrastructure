@@ -25,7 +25,7 @@ State lives on the management plane, so `tofu plan` was not run. Everything belo
 | Wireless | ✅ All 3 diffs applied to the live controller from code |
 | RADIUS / 802.1X | 🔧 Secret now wired into `unifi_setting.radius`; global 802.1X port control managed as `unifi_setting.global_switch` (§11), the fallback VLAN 🚫 still set by hand (§15); **all 4 users ✅ live, matching code, and in Vault (2026-09-13)** |
 | Firewall | ✅ Hotspot zone + `Dmz` casing in code; policy **created live** |
-| Port forwards | ✅ Two rules since #85 (2026-11-02): `Unity Intercom` and `os-tues SSH`, both created by apply (§8) |
+| Port forwards | ✅ Three rules since #101: `Unity Intercom` and `os-tues SSH`, created by apply, and `qoax-broadcast SRT`, made in the UI and imported (§8) |
 | Fixed-IP clients | ✅ `clients.tf` mirrors the live reservations, attribute-exact, **all named** (8 on 2026-09-13, 12 since 2026-10-14). In-place updates work since provider 0.56.0, but changes still go UI first; never declare `network_id` (§14.5) |
 | VPN | ✅ Teleport (UI-only, FIXME) + OpenVPN + WireGuard live and mirrored 2026-09-13; WireGuard peers still to add (§10) |
 | Module layout | ✅ **Flattened 2026-09-14**: five submodules → one module, topic-named files, `module.tf` for inputs/provider/shared data, `README.md` map. No state existed, so no `moved` blocks were needed |
@@ -491,16 +491,17 @@ Both checklist assignments (Hotspot ← Guest, DMZ ← Public Servers) are done,
 
 ## 8. Port forwards (`port_forwards.tf`)
 
-### Code and live since #85 (2026-11-02) — two rules
+### Code and live since #101, three rules
 
 | Resource | Name | Proto | WAN | Forward |
 |---|---|---|---|---|
 | `unity_intercom` | **Unity Intercom** | udp | both WANs, 20101 | `unifi_client.mac4o_mini.fixed_ip` (**192.168.4.24**):20101 (`docs/unity-intercom.md`) |
 | `os_tues_ssh` | **os-tues SSH** | tcp | both WANs, 22 | **192.168.4.31**:22 (`docs/os-tues.md`) |
+| `broadcast_srt` | **qoax-broadcast SRT** | udp | both WANs, 8890 | **192.168.12.23**:8890, `qoax-broadcast-srt` on Qoax Public Servers (`docs/qoax-broadcast.md` in qoax-infrastructure) |
 
-Both were created by apply, at provider 0.55.0, when an undeclared `enabled` still defaulted to `true`. `nginx_proxy` (the `NGINX Server` below) became `soki web` on 2026-10-29, TCP 80 and 443 to soki at `192.168.10.41`, next to `soki_ssh` (TCP 2241 to soki's 22). #85 removed both when soki was torn down, so 80 and 443 are closed until the ingress VM (#83) gets its own forward.
+The apply created the intercom and os-tues forwards at provider 0.55.0, when an undeclared `enabled` still defaulted to `true`. `broadcast_srt` started in the UI, and an import adopted it by its `_id`, as the next paragraph says. `nginx_proxy` (the `NGINX Server` below) became `soki web` on 2026-10-29, TCP 80 and 443 to soki at `192.168.10.41`, next to `soki_ssh` (TCP 2241 to soki's 22). #85 removed both when soki was torn down, so 80 and 443 are closed until the ingress VM (#83) gets its own forward.
 
-**Adding a forward.** Since provider 0.62.0 a forward created from code without `enabled = true` is written disabled (upstream #553). Create it in the UI, read it back, mirror it and import it by `_id`. An existing rule keeps the controller's `enabled`, `logging` and `source_limiting.enabled` when they are undeclared, and since 0.65.0 a create without `protocol` is `tcp_udp` again.
+**Adding a forward.** Since provider 0.62.0 a forward created from code without `enabled = true` is written disabled (upstream #553). Create it in the UI, read it back, mirror it and import it by `_id`. At 0.65.0 the provider marks `enabled` deprecated, so the code does not declare it. An existing rule keeps the controller's `enabled`, `logging` and `source_limiting.enabled` when they are undeclared, and since 0.65.0 a create without `protocol` is `tcp_udp` again.
 
 ### Live on 2026-09-13 — one rule
 
