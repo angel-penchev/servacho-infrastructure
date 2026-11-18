@@ -1,11 +1,16 @@
-# The hook submodule is pinned by commit, so nothing updates on its own. Let Dependabot
-# open the bump.
 version: 2
 updates:
-  - package-ecosystem: gitsubmodule
+  # Moves the qoax-githooks pin in .github/workflows. When a release changes
+  # the hook, the check of the bump fails until the copy at
+  # .githooks/commit-msg changes in the same pull request.
+  - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
     commit-message:
       # Conventional Commits, because the hook checks Dependabot too.
-      prefix: chore
+      prefix: ci
+    # Only this pin. Some repositories check the pins of their other actions
+    # with scripts of their own.
+    allow:
+      - dependency-name: qoax-community/qoax-githooks

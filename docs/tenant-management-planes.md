@@ -18,7 +18,7 @@ A management plane takes `.15` of its VLAN. VM ids follow the rule from Phase
 |---|---|---|---|---|---|
 | `servacho-management-plane` (root) | — | 5 (`192.168.5.0/24`) | `192.168.5.15` | 5015 | running; moved from `.11` / 5011 on 2026-10-02 ([management-plane-move.md](management-plane-move.md)) |
 | `qoax-community-management-plane` | `pool-qoax-community` | 10 (`192.168.10.0/23`) | `192.168.10.15` | 10015 | running; brought up on 2026-10-04 (#47) |
-| `fmicodes-management-plane` | `pool-fmicodes` | 12 (`192.168.12.0/24`) | `192.168.12.15` | 12015 | running; brought up on 2026-10-04 (#47) |
+| `sugaming-management-plane` | `pool-sugaming` | 13 (`192.168.13.0/24`) | `192.168.13.15` | 13015 | running; brought up on 2026-11-09 (#102); replaces FMI{Codes}' plane (VM 12015, `192.168.12.15`), removed the same day |
 
 Addresses inside an organisation's VLAN other than its plane's are that
 organisation's to allocate, in its own infrastructure repository (Qoax
@@ -43,7 +43,14 @@ what creating VMs in its pool takes, each right on one path:
 | `/pool/pool-<id>` | `TofuProvisioner` | the VMs in the pool: create, configure (CD-ROM included), power, read the guest agent |
 | `/storage/local-lvm` | `TofuDisks` | their disks |
 | `/storage/iso-<id>` | `TofuIsos` | its own ISO storage: upload and delete its installer |
-| `/sdn/zones/localnetwork/vmbr0/<vlan>` | `TofuNetwork` | a network card on its own VLAN, and no other |
+| `/sdn/zones/localnetwork/vmbr0/<vlan>` | `TofuNetwork` | a network card on its own VLANs (`vlan`, and `extra_vlans` if set), and no other |
+
+Qoax also has VLAN 12, Qoax Public Servers, in the Dmz zone, for
+its hosts that take a port forward. Proxmox cannot stop one VM from having a
+card on both of its VLANs, which would join Dmz to Internal past the gateway.
+Qoax's VMs come from infrastructure-reusables' `nixos-vm`, which gives a VM
+one card. qoax-infrastructure has to check that no VM gets two
+(qoax-community/qoax-infrastructure#46).
 
 `iso-<id>` is a directory storage at `/var/lib/organisation-isos/<id>` for ISO
 images only, created through the Proxmox API by
@@ -72,8 +79,9 @@ module this repository installs the planes with.
 | The module every plane is made of | infrastructure-reusables' `nixosModules.management-plane` |
 | The VM's hardware and disk layout (disko), in place of a generated file | infrastructure-reusables' `nixosModules.proxmox-guest` |
 | The installer every plane starts from | `nixos/images/installer.nix`, built as `installer-iso` |
-| The tenant hosts | `nixos/hosts/qoax-community-management-plane/`, `nixos/hosts/fmicodes-management-plane.nix` |
+| The tenant hosts | `nixos/hosts/qoax-community-management-plane/`, `nixos/hosts/sugaming-management-plane.nix` |
 | The VMs, their install, deploy and OpenBao bootstrap | `tofu/organisation/plane.tf`, with infrastructure-reusables' `installer-iso` and `nixos-vm` |
+| Who may open SSH connections to a plane | `servacho.ssh.sources` in the host file, checked by `nixos/deployed-by-root-plane.nix` |
 | The OpenBao bootstrap and the unseal after a reboot | `scripts/tenant-plane-openbao.sh`, `.github/actions/unseal-tenant-planes`, `.github/workflows/tenant-planes-unseal.yaml` |
 | The runner's registration | `scripts/tenant-plane-runner.sh`, `tofu/organisation/plane.tf` |
 | The organisation's rights outside its pool, its ISO storage, the plane's deploy key | `tofu/organisation/main.tf`, `tofu/organisation/plane.tf`, `tofu/roles.tf`, `scripts/organisation-iso-storage.sh` |
@@ -84,6 +92,13 @@ file: it imports the VM hardware and disk layout instead of a generated
 `network` option (systemd-networkd, matched by interface type, so the device
 name does not matter), and its runner is off until the tenant's repository
 exists.
+
+Both tenant hosts set `servacho.ssh.sources = "any"`, so sshd is open to
+every source. The root plane deploys each plane and unseals its OpenBao over
+SSH from `192.168.5.15`. A source list in place of `"any"` must keep that
+address. The check in `nixos/deployed-by-root-plane.nix` stops the
+evaluation if it does not. `nixos/admin-sources.nix` holds the
+administrators' networks for such a list.
 
 ## Bringing a plane up
 
@@ -131,6 +146,13 @@ apply, from the root plane:
    bootstrap runs again when either changes, so the plane's copies follow a
    rotation.
 
+**The plane's UniFi client** is one step by hand. After the first apply, the
+plane shows in UniFi under the hostname `nixos`. Give it the host's name and
+its `.15` as a fixed IP on the controller, and log the change in
+`docs/unifi-browser-changes.md`. Then declare it in `tofu/unifi/clients.tf`
+and import it by MAC. The fixed IP is outside the DHCP pool, so it only
+records the address.
+
 **The plane's deploy key** is what the plane installs and deploys its
 organisation's VMs with: an ED25519 key OpenTofu generates for each plane
 (`tls_private_key` in `tofu/organisation/plane.tf`), kept in the root state and
@@ -142,9 +164,16 @@ Replacing the `tls_private_key` rotates it.
 After a reboot a plane's OpenBao is sealed, like the root plane's. Every
 apply, and `tenant-planes-unseal.yaml` every 30 minutes from `main`, unseals
 the root OpenBao and then every plane recorded under
-`secret/management-planes`; a plane that is down is a warning in the run, not
-a failure. Pull request plans do not: they never need a tenant plane, and the
-script would run from the pull request's branch with the root token.
+`secret/management-planes`. Pull request plans do not: they never need a
+tenant plane, and the script would run from the pull request's branch with the
+root token.
+
+The unseal step tries every plane. Then it fails if a plane did not answer,
+stays sealed, or has an unreadable record in the root OpenBao. Each such plane
+is an error in the run. In `tenant-planes-unseal.yaml` the run goes red.
+While a plane is down or sealed, its organisation's pipeline cannot read its
+secrets, so this must not stay quiet. In an apply the step has
+`continue-on-error`, so the apply goes on.
 
 The root plane holds every plane's unseal keys and root token. Tenants still
 cannot read each other's secrets, since each pipeline runs on its own plane;
@@ -184,7 +213,7 @@ Without it the apply fails at `terraform_data.runner` with a message saying
 where it goes. When the token expires, nothing breaks until a runner has to
 register again.
 
-**An ephemeral runner** (`runner.ephemeral = true`, as on the Qoax Community
+**An ephemeral runner** (`runner.ephemeral = true`, as on the Qoax
 plane) takes one job per registration: afterwards it de-registers, its state
 and work directories are wiped and it registers again, so no job meets what an
 earlier one left behind. A one-hour registration token can't do that, so its
@@ -204,12 +233,60 @@ that turns ephemeral mode on, restart it once from outside a job
 (`systemctl restart github-runner-<name>`) and remove its old, now offline,
 entry in the repository's runner settings.
 
+## Removing an organisation
+
+1. The organisation destroys its own VMs from its own repository first.
+   Proxmox does not delete a pool that still holds VMs, and the next step
+   removes the organisation's plane, its state and its token.
+2. In one change: set `count = 0` on its module in `tofu/organisations.tf`,
+   take the module out of `organisation_deploy_keys`, remove its host from
+   `nixos/hosts/` and `nixos/flake.nix` (`nixosConfigurations` and `checks`),
+   and remove its plane's UniFi client reservation. The apply destroys the
+   plane, the pool, the user, the token and the ISO storage. The module must
+   still be in the configuration, or `iso_storage`'s destroy step does not
+   run and the storage definition stays on the node.
+3. Once `tofu state list` shows nothing under the module, delete the module
+   block in a later change.
+4. Right after the apply, delete the plane's record in the root OpenBao.
+   Until then the unseal job connects to the old address every 30 minutes
+   and fails.
+   The root OpenBao listens only on the root plane's loopback. Log in there
+   as `servacho-managment-plane`, with a key that its host file authorises
+   (today `nixos/keys/servacho.pub`). Root's declared key is the deploy key.
+   Then log in to OpenBao with the root token, which can delete under
+   `secret/metadata`:
+
+   ```bash
+   ssh servacho-managment-plane@192.168.5.15
+   export BAO_ADDR=http://127.0.0.1:8200 && bao login
+   bao kv metadata delete -mount=secret management-planes/<id>
+   ```
+
+   The apply only soft-deletes the token copy and the deploy key. Delete
+   their metadata the same way: `proxmox/<id>_token`, with each `-` in the id
+   written as `_`, and `deploy-keys/<id>`. Delete `github/runners/<id>` if it
+   exists. Then remove the token that `bao login` stored in your home
+   directory:
+
+   ```bash
+   rm ~/.vault-token
+   ```
+
+   Do not use `bao token revoke -self` for this. With the root token, it
+   revokes the token that CI uses.
+5. On the node, remove `/var/lib/organisation-isos/<id>` by hand. The destroy
+   removes only the storage definition.
+6. In UniFi, look for a record of the old plane's MAC. The apply forgets the
+   client while the VM can still run. The controller can then make a new,
+   unnamed record for the MAC. Once the VM is gone, forget that record
+   (Client Devices → the client → Forget). Check later that it stays gone.
+
 ## Still open
 
 - **Unsealing without a workflow run.** A plane that reboots stays sealed
   for up to 30 minutes, until the scheduled unseal. Transit auto-unseal keyed
   by the root OpenBao would remove the wait.
 - **A listener on the tenant VLAN, with TLS**, for workloads that read
-  secrets from the plane (Qoax Community's clusters). The module keeps OpenBao on
+  secrets from the plane (Qoax's clusters). The module keeps OpenBao on
   loopback until that consumer exists.
 - **Human access** through Google Workspace OIDC, Phase 6 of the guide.

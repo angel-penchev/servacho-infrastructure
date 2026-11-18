@@ -6,7 +6,7 @@
     # The NixOS modules and installer shared with the organisations'
     # infrastructure repositories.
     reusables = {
-      url = "github:angel-penchev/infrastructure-reusables/v0.9.1";
+      url = "github:angel-penchev/infrastructure-reusables/v0.10.0";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -66,9 +66,26 @@
               }
             ];
           };
+
+      # The root plane deploys the hosts below over SSH, so each one takes
+      # ./deployed-by-root-plane.nix. A new host gets the check without an
+      # edit here. The check leaves out two hosts. The root plane deploys
+      # itself over loopback, which no SSH source list closes. The installer
+      # does not use base, so it has no servacho.ssh option.
+      withDeployerCheck =
+        name: host:
+        if
+          lib.elem name [
+            "servacho-management-plane"
+            "installer"
+          ]
+        then
+          host
+        else
+          host.extendModules { modules = [ ./deployed-by-root-plane.nix ]; };
     in
     {
-      nixosConfigurations = {
+      nixosConfigurations = lib.mapAttrs withDeployerCheck {
         # The root plane, switched to in place by tofu/root-plane/.
         servacho-management-plane = lib.nixosSystem {
           inherit system;
@@ -83,7 +100,7 @@
         # The organisations' planes, installed and deployed by
         # tofu/organisation/plane.tf.
         qoax-community-management-plane = mkInstalledPlane ./hosts/qoax-community-management-plane/configuration.nix;
-        fmicodes-management-plane = mkInstalledPlane ./hosts/fmicodes-management-plane.nix;
+        sugaming-management-plane = mkInstalledPlane ./hosts/sugaming-management-plane.nix;
 
         # The operating systems class's machine, installed and deployed by
         # tofu/os_tues.tf (docs/os-tues.md).
@@ -134,8 +151,8 @@
           self.nixosConfigurations.servacho-management-plane.config.system.build.toplevel;
         qoax-community-management-plane =
           self.nixosConfigurations.qoax-community-management-plane.config.system.build.toplevel;
-        fmicodes-management-plane =
-          self.nixosConfigurations.fmicodes-management-plane.config.system.build.toplevel;
+        sugaming-management-plane =
+          self.nixosConfigurations.sugaming-management-plane.config.system.build.toplevel;
         os-tues = self.nixosConfigurations.os-tues.config.system.build.toplevel;
         # LazyVim starting offline, in the build sandbox (hosts/os-tues/lazyvim.nix).
         os-tues-lazyvim = self.nixosConfigurations.os-tues.config.system.build.lazyvimCheck;

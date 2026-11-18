@@ -190,7 +190,7 @@ Ordered by what unblocks what. Anything not on this list is done and mirrored.
 | A1 | **`tofu import` of every live resource, then a first `tofu plan`** | management plane; [`unifi-import-plan.md`](unifi-import-plan.md) | ✅ **Done 2026-09-14.** Apply run 34843335300 put all 46 objects in state and applied the guest `is_guest` and OpenVPN changes; two updates failed (§14.12 #11, #12) and were resolved in code (#11) and through the API (#12). The UniFi Devices network was then re-imported (apply run 34876118372, `1 imported, 0 changed`) to get past the sticky Read (§14.12 #14). `tofu/imports_unifi.tf` deleted afterwards; the plan on the branch reads **No changes**. From here on the loop is: change in UI/API → read back → mirror → plan clean. The `tofu-apply` environment has **no protection rules** — a dispatch applies immediately. |
 | A2 | **WireGuard peers** | `vpn.tf` → `unifi_wireguard_peer` blocks | Server exists live (`192.168.9.1/24`, UDP 51820, key in OpenBao). Decide the peer list (phones, laptop), generate each key pair off-box, put private keys in OpenBao, declare peers with `interface_ip` from `.9.2` up. Public keys are not secret. Create live → read back → mirror, as with the servers. |
 | A3 | ~~**Firewall policy `allow_main_to_iot`**~~ | `firewall.tf` | ✅ **Was wrong here: it has existed live since 2026-09-08** (change #6), re-pointed at the custom **IoT zone** when that zone was created on 2026-09-13, 5 200+ hits. A second custom policy, **Allow Private Servers to IoT**, exists as well. Code now mirrors both (`destination` = whole IoT zone, `matching_target ANY`) plus `unifi_firewall_zone.iot`. Ordering stays manual (§14, #348). |
-| A4 | ~~Pro Max **port 25**~~ | `device_usw_pro_max_24_poe.tf` | ✅ **Disabled 2026-09-14** (`SFP+ 1 (Disabled)`, copy of port 9's shape); code mirrors live. No port on any device is native VLAN 1 any more. |
+| A4 | ~~Pro Max **port 25**~~ | `device_usw_pro_max_24_poe.tf` | ✅ **Disabled 2026-09-14** (`SFP+ 1 (Disabled)`, copy of port 9's shape); code mirrors live. No port on any device is native VLAN 1 any more. *Since 2026-11-17 it is the 10 GbE link to Aggregation port 5, on the UniFi Device profile (change log).* |
 | A5 | ~~UDM **port 2 "Console"**~~ | `device_udm_pro_max.tf` | ✅ Re-disabled 2026-09-14 once the laptop was unplugged; code mirrors live. Re-enable it in the UI (Main access) before the next trunk change. |
 | A6 | ~~Redundant per-device `flowctrl_enabled` / `jumboframe_enabled` on the Pro Max~~ | `device_usw_pro_max_24_poe.tf` | ✅ Removed 2026-09-14 — both are site-global under `global_switch` (flow control off, jumbo frames off live) and the per-device copies added nothing. |
 | A7 | Stale §1 "Differences" 1–3 | this document | Written 2026-09-08; the code has long since had `Default (Untagged)`, no VLAN 11 and the `/23` Qoax network. Struck through below. |
@@ -238,7 +238,8 @@ Global Switch Settings without an attribute (802.1X fallback VLAN = Guest, the 8
 | Private Servers | corporate | 5 | 192.168.5.1/24 | .6–.254 | off |
 | IoT | corporate | 6 | 192.168.6.1/24 | .6–.254 | on |
 | **Qoax VPS** | corporate | 10 | **192.168.10.1/23** | **.10.100–.11.254** | off |
-| FMI{Codes} VPS | corporate | 12 | 192.168.12.1/24 | .100–.254 | off |
+| Qoax Public Servers *(FMI{Codes} VPS until 2026-11-09)* | corporate | 12 | 192.168.12.1/24 | .100–.254 | off |
+| SUGAMING VPS *(new 2026-11-09)* | corporate | 13 | 192.168.13.1/24 | .100–.254 | off |
 
 *Updated 2026-11-02:* mDNS has been off everywhere but Main and IoT since 2026-09-13 (difference 4 below), and the Qoax VPS and FMI{Codes} VPS pools have started at .100 since 2026-10-04 (`unifi-browser-changes.md`). Read back live on 2026-11-02.
 
@@ -350,7 +351,7 @@ Also:
 | 1, 9 | *no override* | WAN2 / WAN1. Binding a WAN to a physical port is UniFi OS Internet configuration, not a `port_override` — the pre-reset code's `native_networkconf_id = var.wan_*` blocks never corresponded to anything stored. Removed, along with the `wan_primary_id`/`wan_secondary_id` plumbing into the `devices` module. `FIXME(unifi-ui-only)` in the file. |
 | 2–8 | `Port N (Disabled)`, **disabled** | Port 2 was `Console` (Main access for the safety-net laptop) for the duration of runbook Phase 4 on 2026-09-14 and re-disabled the same day. It was originally disabled through the UI to learn the gateway's shape, 3–8 written as identical copies. The gateway stores a **smaller** disabled object than the switches: `forward "disabled"`, `port_security_enabled true` + `[]`, `tagged_vlan_mgmt "block_all"`, no native/voice network, `setting_preference "auto"`, `autoneg true`, `isolation/egress_rate_limit/port_keepalive false`, `sd_wan_underlay_port false` — no dot1x, STP or PoE keys at all. |
 | 10 | `USW-Pro-Max-24-PoE`, UniFi Device profile | Uplink to the Pro Max (its port **26** since 2026-09-14); renamed from `SFP+ 1` on 2026-09-14 to match port 11's convention. The pre-reset code had the **Private Servers** profile here — wrong for an inter-switch trunk. |
-| 11 | `USW-Aggregation`, UniFi Device profile | Renamed from `SFP+ 2`. |
+| 11 | `USW-Aggregation`, UniFi Device profile | Renamed from `SFP+ 2`. **No module since 2026-11-17:** the Aggregation uplinks through the Pro Max, and the port is reserved for the WAN1 GPON stick. Name and profile stay as live has them. |
 
 Written via one `PUT /rest/device/<id>` (9 entries); read back, ports 10/11 unchanged except the rename, all four uplink/WAN ports still `up`, all four downstream devices still `state 1`.
 
@@ -361,7 +362,7 @@ Profile assignments now match live on every port of every device. What the UI st
 | Shape | Provider-expressible — now declared explicitly | UI-only — `FIXME(unifi-ui-only)` in the file |
 |---|---|---|
 | Profiled port (all devices) | `name`, `poe_mode` (where present), `setting_preference`, `port_profile_id` — that *is* the whole stored object | none at this layer (the profile layer has its own FIXMEs in `port_profiles.tf`) |
-| Disabled port, switches (Pro Max 9–11, Agg 2–7; Pro Max 25 since 2026-09-14) | `forward`, `port_security_enabled`, `tagged_vlan_mgmt`, `native_networkconf_id = null`, `voice_networkconf_id = null`, `setting_preference`, `poe_mode`, `autoneg`, `dot1x_ctrl`, `dot1x_idle_timeout`, `lldpmed_enabled`, `stp_port_mode`, `isolation`, `egress_rate_limit_kbps_enabled`, `port_keepalive_enabled`; `stp_edge_state "enabled"` since provider 0.65.0 | `stp_bpdu_guard_enabled true`, `stp_uplink false`, `eee_enabled false`, `link_debounce_auto true`, `multicast_router_mode "NONE"`, `sd_wan_underlay_port false` |
+| Disabled port, switches (Pro Max 9–11, Agg 2–4 and 6–8; Pro Max 25 from 2026-09-14 to 2026-11-17) | `forward`, `port_security_enabled`, `tagged_vlan_mgmt`, `native_networkconf_id = null`, `voice_networkconf_id = null`, `setting_preference`, `poe_mode`, `autoneg`, `dot1x_ctrl`, `dot1x_idle_timeout`, `lldpmed_enabled`, `stp_port_mode`, `isolation`, `egress_rate_limit_kbps_enabled`, `port_keepalive_enabled`; `stp_edge_state "enabled"` since provider 0.65.0 | `stp_bpdu_guard_enabled true`, `stp_uplink false`, `eee_enabled false`, `link_debounce_auto true`, `multicast_router_mode "NONE"`, `sd_wan_underlay_port false`. Agg 8, disabled through the UI on 2026-11-17, stores no `eee_enabled` and no `poe_mode` |
 | Disabled port, gateway (UDM 2–8) | same minus dot1x/STP/PoE (the gateway doesn't store them) | `sd_wan_underlay_port false` |
 | No override (UDM 1, 9; Pro Max 25 until 2026-09-14) | nothing to declare | UDM 1/9 are WAN-bound in UniFi OS; Pro Max 25 ran on switch defaults until it was disabled (§0.6 A4) |
 | Agg port 1 specifically | profile assignment | BPDU Guard now comes from the Private Server profile (on) — UI-only |
@@ -375,8 +376,9 @@ Attribute names as at v0.55.0; v0.60.0 nests the prefixed ones (`port_security`,
 | Port | Live (= code) | Note |
 |---|---|---|
 | 1 | `Servacho-Gosho`, **Private Server profile**, pref auto | Was an inline native-VLAN override with ~20 explicit fields. Moved to the profile at the user's request. The inline override had BPDU Guard on and the profile initially did not; **BPDU Guard was enabled on the Private Server profile later the same day** (UI-only field, set via the API), so nothing was lost. Everything else was identical to the profile: native Private Servers, `force_authorized`, Port Mode Edge, tagged Allow All, STP on, LLDP-MED on, no isolation/storm control/rate limit. Servacho-Gosho verified still up at `192.168.5.10` afterwards. |
-| 2–7 | `SFP+ N`, **disabled** | Same stored shape as Pro Max 9 (below). Previously no override at all (the code's `forward = "disabled"` blocks were phantoms). |
-| 8 | `UDM-Pro-Max`, UniFi Device profile, pref auto | Renamed from `SFP+ 8`. |
+| 2–4, 6, 7 | `SFP+ N`, **disabled** | Same stored shape as Pro Max 9 (below). Previously no override at all (the code's `forward = "disabled"` blocks were phantoms). |
+| 5 | `USW-Pro-Max-24-PoE`, UniFi Device profile, pref manual | **Since 2026-11-17** the Aggregation's uplink, a 1 m DAC to Pro Max port 25. Disabled like 2–4 before. |
+| 8 | `SFP+ 8 (Disabled)`, **disabled** | The uplink to UDM port 11 until 2026-11-17 (`UDM-Pro-Max`, renamed from `SFP+ 8`). Disabled through the UI as a copy of port 7, without the `eee_enabled` and `poe_mode` keys. |
 
 Written via `PUT /rest/device/<id>` with the full `port_overrides` array (8 entries); read back and verified.
 
@@ -396,9 +398,9 @@ Live, grouped (25 overrides on 2026-09-13, port 25 had none; 26 since 2026-09-14
 | **9, 10, 11** | **disabled** | `Port 9`…`Port 11` |
 | 23, 24 | UniFi Device, pref auto | `LR-WiFi`, `BR-WiFi` (AP uplinks) |
 | 26 | UniFi Device, pref auto | `UDM-Pro-Max` (SFP+ 2) — the uplink to the UDM since 2026-09-14 |
-| 25 | **disabled** since 2026-09-14 (§0.6 A4); *no override* before | `SFP+ 1 (Disabled)`; until 2026-09-14 the live uplink to the UDM |
+| 25 | UniFi Device, pref manual, since 2026-11-17; **disabled** 2026-09-14 to 2026-11-17 (§0.6 A4); *no override* before | `USW-Aggregation` (SFP+ 1), the link to Aggregation port 5; until 2026-09-14 the live uplink to the UDM |
 
-Changed on the controller since, then mirrored (change log): ports 6, 12 and 18 renamed `LR-06`, `JetKVM-Servacho-Gosho` and `JetKVM-Michelangelo` (2026-09-14); port 21 carries Servacho-Gosho on the Private Server profile while its Aggregation uplink is out (2026-10-08, temporary); port 19 is on the Public Server profile for the Mac mini (2026-10-15). `device_usw_pro_max_24_poe.tf` holds all of it.
+Changed on the controller since, then mirrored (change log): ports 6, 12 and 18 renamed `LR-06`, `JetKVM-Servacho-Gosho` and `JetKVM-Michelangelo` (2026-09-14); port 21 carries Servacho-Gosho on the Private Server profile while its Aggregation uplink is out (2026-10-08, temporary); port 19 is on the Public Server profile for the Mac mini (2026-10-15); port 25 carries the Aggregation's uplink (2026-11-17). `device_usw_pro_max_24_poe.tf` holds all of it.
 
 **What "disabled" actually is on the wire.** Port 9 was disabled through the UI (Port Profile toggle off → Port State: Disabled → Apply) and read back; ports 10, 11 and Aggregation 2–7 were then written as byte-identical copies. The stored override is a full manual one: `forward "disabled"`, `port_security_enabled true` + `port_security_mac_address []`, `tagged_vlan_mgmt "block_all"`, no `native_networkconf_id`, `setting_preference "manual"`, plus carried-over defaults (`dot1x_ctrl auto`, `stp_port_mode true`, `stp_edge_state enabled`, `stp_bpdu_guard_enabled true`, `lldpmed_enabled true`, `autoneg true`, `poe_mode auto`, `link_debounce_auto true`, `eee_enabled false`, `multicast_router_mode NONE`, `sd_wan_underlay_port false`, `isolation false`, `egress_rate_limit_kbps_enabled false`, `port_keepalive_enabled false`, `stp_uplink false`, `dot1x_idle_timeout 300`). The port table confirms `forward = disabled` on all three. This settles §14.3's point empirically: `forward = "disabled"` alone was never it.
 
@@ -468,13 +470,13 @@ The `StKr_IoT_2.4GHz` diff matters: applying the code would drop WPA3 from that 
 
 | Zone | Networks |
 |---|---|
-| Internal | Default (Untagged), UniFi Devices (VLAN 99), Main, Private Servers, Qoax VPS, FMI{Codes} VPS |
+| Internal | Default (Untagged), UniFi Devices (VLAN 99), Main, Private Servers, Qoax VPS, SUGAMING VPS |
 | IoT *(custom zone, verified 2026-09-13; `unifi_firewall_zone.iot` since 2026-09-14)* | IoT |
 | External | Vivacom Primary, Vivacom Secondary |
 | Gateway | – |
 | Vpn | – |
 | **Hotspot** | **Guest** |
-| **Dmz** | **Public Servers** |
+| **Dmz** | **Public Servers**, Qoax Public Servers *(VLAN 12, from November 2026)* |
 
 Both checklist assignments (Hotspot ← Guest, DMZ ← Public Servers) are done, and the new firewall UI is active.
 
@@ -821,7 +823,7 @@ Re-checked against v0.65.0 on 2026-11-02: every upstream entry is closed. The re
 
 ## 15. What is still not in code at provider 0.65.0
 
-Every `FIXME` and `TODO` marker in `tofu/` on 2026-11-07, one row each, from `git grep -n -E 'FIXME|TODO' -- tofu`: 59 markers. Line numbers are those of that tree, so re-run the grep after editing a file. Paths are under `tofu/unifi/` except `tofu/providers.tf`. The grep also matches four lines that are not markers: `tofu/unifi/README.md:38` and `:40` define the two `FIXME` kinds, and `vpn.tf:2` and `vpn.tf:18` point at markers below them.
+Every `FIXME` and `TODO` marker in `tofu/` on 2026-11-17, one row each, from `git grep -n -E 'FIXME|TODO' -- tofu`: 59 markers. Line numbers are those of that tree, so re-run the grep after editing a file. Paths are under `tofu/unifi/` except `tofu/providers.tf`. The grep also matches four lines that are not markers: `tofu/unifi/README.md:38` and `:40` define the two `FIXME` kinds, and `vpn.tf:2` and `vpn.tf:35` point at markers below them.
 
 Why a marker stays:
 
@@ -848,21 +850,21 @@ The Global Switch Settings the provider covers and the Gateway mDNS Proxy are ma
 | `device_usw_aggregation.tf:4` | `forget_on_destroy`, as the bedroom AP | **Deliberately unmanaged** | As `device_u7_pro_bedroom.tf:4` |
 | `device_usw_aggregation.tf:26` | `ignore_changes = [port_override]` | **Blocked upstream**, as `device_udm_pro_max.tf:9` | As `device_udm_pro_max.tf:9` |
 | `device_usw_aggregation.tf:40` | BPDU Guard on port 1 (Servacho-Gosho), from the Private Server profile | **Blocked upstream:** no attribute on either layer, and any profile write turns it off (`port_profiles.tf:19`) | `stp_bpdu_guard_enabled` on `unifi_port_profile`, and profile writes that keep what they do not model |
-| `device_usw_aggregation.tf:53` | `stp_bpdu_guard_enabled = true` on disabled ports 2-7 | **Blocked upstream:** no `port_override` attribute; every write of the array carries it over from the controller | The attribute on `port_override` and `unifi_device_port` |
-| `device_usw_aggregation.tf:54` | `stp_uplink = false` on ports 2-7 | **Blocked upstream**, as `:53` | As `:53` |
-| `device_usw_aggregation.tf:55` | `eee_enabled = false` on ports 2-7 | **Blocked upstream**, as `:53` | As `:53` |
-| `device_usw_aggregation.tf:56` | `link_debounce_auto = true` on ports 2-7 | **Blocked upstream**, as `:53` | As `:53` |
-| `device_usw_aggregation.tf:57` | `multicast_router_mode = "NONE"` on ports 2-7 | **Blocked upstream**, as `:53` | As `:53` |
-| `device_usw_aggregation.tf:58` | `sd_wan_underlay_port = false` on ports 2-7 | **Blocked upstream**, as `:53` | As `:53` |
+| `device_usw_aggregation.tf:53` | `stp_bpdu_guard_enabled = true` on disabled ports 2-4 and 6-8 | **Blocked upstream:** no `port_override` attribute; every write of the array carries it over from the controller | The attribute on `port_override` and `unifi_device_port` |
+| `device_usw_aggregation.tf:54` | `stp_uplink = false` on ports 2-4 and 6-8 | **Blocked upstream**, as `:53` | As `:53` |
+| `device_usw_aggregation.tf:55` | `eee_enabled = false` on ports 2-4, 6 and 7 | **Blocked upstream**, as `:53` | As `:53` |
+| `device_usw_aggregation.tf:56` | `link_debounce_auto = true` on ports 2-4 and 6-8 | **Blocked upstream**, as `:53` | As `:53` |
+| `device_usw_aggregation.tf:57` | `multicast_router_mode = "NONE"` on ports 2-4 and 6-8 | **Blocked upstream**, as `:53` | As `:53` |
+| `device_usw_aggregation.tf:58` | `sd_wan_underlay_port = false` on ports 2-4 and 6-8 | **Blocked upstream**, as `:53` | As `:53` |
 | `device_usw_pro_max_24_poe.tf:4` | `forget_on_destroy`, as the bedroom AP | **Deliberately unmanaged** | As `device_u7_pro_bedroom.tf:4` |
 | `device_usw_pro_max_24_poe.tf:25` | `ignore_changes = [port_override]` | **Blocked upstream**, as `device_udm_pro_max.tf:9` | As `device_udm_pro_max.tf:9` |
-| `device_usw_pro_max_24_poe.tf:106` | `stp_bpdu_guard_enabled = true` on disabled ports 9-11 and 25 | **Blocked upstream**, as `device_usw_aggregation.tf:53` | As `device_usw_aggregation.tf:53` |
-| `device_usw_pro_max_24_poe.tf:107` | `stp_uplink = false` on ports 9-11 and 25 | **Blocked upstream**, as `device_usw_aggregation.tf:53` | As `device_usw_aggregation.tf:53` |
-| `device_usw_pro_max_24_poe.tf:108` | `eee_enabled = false` on ports 9-11 and 25 | **Blocked upstream**, as `device_usw_aggregation.tf:53` | As `device_usw_aggregation.tf:53` |
-| `device_usw_pro_max_24_poe.tf:109` | `link_debounce_auto = true` on ports 9-11 and 25 | **Blocked upstream**, as `device_usw_aggregation.tf:53` | As `device_usw_aggregation.tf:53` |
-| `device_usw_pro_max_24_poe.tf:110` | `multicast_router_mode = "NONE"` on ports 9-11 and 25 | **Blocked upstream**, as `device_usw_aggregation.tf:53` | As `device_usw_aggregation.tf:53` |
-| `device_usw_pro_max_24_poe.tf:111` | `sd_wan_underlay_port = false` on ports 9-11 and 25 | **Blocked upstream**, as `device_usw_aggregation.tf:53` | As `device_usw_aggregation.tf:53` |
-| `firewall.tf:37` | Policy order: 10000 and 10001 in the Internal → IoT pair | **Blocked upstream:** `index` is computed only, and there is no reorder call (upstream #348) | A reorder call upstream |
+| `device_usw_pro_max_24_poe.tf:106` | `stp_bpdu_guard_enabled = true` on disabled ports 9-11 | **Blocked upstream**, as `device_usw_aggregation.tf:53` | As `device_usw_aggregation.tf:53` |
+| `device_usw_pro_max_24_poe.tf:107` | `stp_uplink = false` on ports 9-11 | **Blocked upstream**, as `device_usw_aggregation.tf:53` | As `device_usw_aggregation.tf:53` |
+| `device_usw_pro_max_24_poe.tf:108` | `eee_enabled = false` on ports 9-11 | **Blocked upstream**, as `device_usw_aggregation.tf:53` | As `device_usw_aggregation.tf:53` |
+| `device_usw_pro_max_24_poe.tf:109` | `link_debounce_auto = true` on ports 9-11 | **Blocked upstream**, as `device_usw_aggregation.tf:53` | As `device_usw_aggregation.tf:53` |
+| `device_usw_pro_max_24_poe.tf:110` | `multicast_router_mode = "NONE"` on ports 9-11 | **Blocked upstream**, as `device_usw_aggregation.tf:53` | As `device_usw_aggregation.tf:53` |
+| `device_usw_pro_max_24_poe.tf:111` | `sd_wan_underlay_port = false` on ports 9-11 | **Blocked upstream**, as `device_usw_aggregation.tf:53` | As `device_usw_aggregation.tf:53` |
+| `firewall.tf:40` | Policy order: 10000 and 10001 in the Internal → IoT pair | **Blocked upstream:** `index` is computed only, and there is no reorder call (upstream #348) | A reorder call upstream |
 | `networks.tf:15` | `dhcp_guarding` Read is sticky: a network imported unguarded never reads its guarding back | **Blocked upstream:** Read fills the block only on an import with guarding on, or when state already has it | A Read that fills it whenever guarding is on. Meanwhile a `state rm` and re-import adopt the block with no write (`unifi-import-plan.md`); an apply would rewrite the four guard keys instead |
 | `networks.tf:33` | Default (Untagged) has DHCP off, and `dhcp_server` is not declared | **Deliberately unmanaged:** Read fills `dhcp_server` only on an import with DHCP on, so declaring `enabled = false` costs one write of every `dhcp_server` key but `boot` | A Read that fills `dhcp_server` while DHCP is off, or accepting that one write |
 | `port_profiles.tf:6` | Port Mode (`stp_edge_state`): Infrastructure on UniFi Device, Edge on the other four | **Blocked upstream:** no `unifi_port_profile` attribute; upstream #695 added it to `port_override` only | The attribute on `unifi_port_profile` |
@@ -889,8 +891,8 @@ The Global Switch Settings the provider covers and the Gateway mDNS Proxy are ma
 | `settings.tf:138` | Backups: monthly auto backup (`super_mgmt.autobackup_cron_expr`) | **Blocked upstream:** no `super_mgmt` block | A `super_mgmt` block upstream |
 | `settings.tf:141` | Default security posture Allow All (`global_network.default_security_posture = "ALLOW_ALL"`) | **Blocked upstream:** no attribute, no resource and no go-unifi type | A `global_network` setting in go-unifi and the provider |
 | `vpn.tf:8` | Teleport (enabled, `192.168.7.1/24`) and Site Magic (on, no tunnels) | **UI-only by design:** the `unifi_teleport` data source (v0.62.0) only reads it; upstream #589, the request behind that data source, left managing Teleport out of its scope; nothing covers Site Magic | Nothing planned upstream |
-| `vpn.tf:37` | `encryption_cipher = "AES_256_CBC"` pinned, a concession for a re-create | **Blocked upstream:** a create still defaults to `AES_256_GCM`, which the controller rejects | A create default the controller accepts; to report, below. The pin changes nothing on the wire meanwhile |
-| `vpn.tf:44` | OpenVPN values without an attribute: protocol, MSS clamp, MTU, compression, DHCP range; `setting_preference` always sent as `manual` | **Blocked upstream:** no attributes; updates never send the first five, and every create and update sends `setting_preference = "manual"` | The attributes on `unifi_vpn_server` |
+| `vpn.tf:54` | `encryption_cipher = "AES_256_CBC"` pinned, a concession for a re-create | **Blocked upstream:** a create still defaults to `AES_256_GCM`, which the controller rejects | A create default the controller accepts; to report, below. The pin changes nothing on the wire meanwhile |
+| `vpn.tf:61` | OpenVPN values without an attribute: protocol, MSS clamp, MTU, compression, DHCP range; `setting_preference` always sent as `manual` | **Blocked upstream:** no attributes; updates never send the first five, and every create and update sends `setting_preference = "manual"` | The attributes on `unifi_vpn_server` |
 | `wans.tf:38` | The WAN SLA, `ICMP Probes` on both WANs, set by hand | **Blocked upstream:** no WAN SLA resource, and no `unifi_wan` attribute for the SLA a WAN uses | A WAN SLA resource and a `wan_sla` attribute on `unifi_wan` upstream |
 | `wlans.tf:1` | `passphrase` stays in `ignore_changes` on all four SSIDs | **Needs a live read first:** whether the controller returns `x_passphrase` to the tofu account in clear or masked is unchecked. If in clear, a plan without the ignore that comes back clean proves OpenBao holds the live keys (both IoT SSIDs read one variable, so their live keys must match) | A PR that drops the ignore and shows a clean plan; StKr may show a one-time `passphrase -> null`, which sends nothing. A `~ passphrase` on a PSK SSID means OpenBao differs from live: fix OpenBao, never apply it. A diff that never clears means a masked key: move to `passphrase_wo` instead |
 

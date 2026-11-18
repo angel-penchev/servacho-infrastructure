@@ -248,6 +248,12 @@ Some of the notes assume a machine of one's own:
 
 ## SSH from the internet
 
+sshd takes connections from every source: the host sets
+`servacho.ssh.sources = "any"`. A source list in its place must keep
+`192.168.5.15`. From there the root plane deploys the host and runs the
+`os-tues students` workflow over SSH. `nixos/deployed-by-root-plane.nix`
+checks this.
+
 Students log in with their passwords, or with their own keys once they have
 put them in `~/.ssh/authorized_keys`. No other account takes a password, and
 root takes keys only from the home networks.
@@ -275,5 +281,5 @@ set with that in mind:
   initial passwords. The SSH host key changes too, so students see a warning.
 - **No disk quotas.** One student can fill `/home` for everyone, though not
   the system or the Nix store.
-- **WAN failover** depends on `wan-dns` and Qoax Community's plane, as for
+- **WAN failover** depends on `wan-dns` and Qoax's plane, as for
   the intercom ([wan-dns.md](wan-dns.md)).

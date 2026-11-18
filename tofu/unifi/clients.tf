@@ -29,10 +29,10 @@ resource "unifi_client" "qoax_community_management_plane" {
   allow_existing = true
 }
 
-resource "unifi_client" "fmicodes_management_plane" {
-  mac            = "bc:24:11:9d:30:04"
-  name           = "fmicodes-management-plane"
-  fixed_ip       = "192.168.12.15"
+resource "unifi_client" "sugaming_management_plane" {
+  mac            = "bc:24:11:85:1b:83"
+  name           = "sugaming-management-plane"
+  fixed_ip       = "192.168.13.15"
   allow_existing = true
 }
 
