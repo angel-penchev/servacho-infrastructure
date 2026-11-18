@@ -1,5 +1,5 @@
 {
-  "qoax-broadcast": {
+  "qoax-broadcast-ontime": {
     "names": ["ontime.qo.ax"],
     "https": ["192.168.10.23:443"],
     "http": ["192.168.10.23:80"],
