@@ -2,3 +2,4 @@
 # skills-lock.json pins their hashes. Git must not change their line endings,
 # also with core.autocrlf=true. Keep this line below any "* text" line.
 /.agents/skills/** -text
+/.githooks/** text eol=lf
