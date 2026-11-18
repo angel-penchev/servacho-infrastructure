@@ -6,7 +6,7 @@
     # The NixOS modules and installer shared with the organisations'
     # infrastructure repositories.
     reusables = {
-      url = "github:angel-penchev/infrastructure-reusables/v0.9.1";
+      url = "github:angel-penchev/infrastructure-reusables/v0.10.0";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -66,9 +66,26 @@
               }
             ];
           };
+
+      # The root plane deploys the hosts below over SSH, so each one takes
+      # ./deployed-by-root-plane.nix. A new host gets the check without an
+      # edit here. The check leaves out two hosts. The root plane deploys
+      # itself over loopback, which no SSH source list closes. The installer
+      # does not use base, so it has no servacho.ssh option.
+      withDeployerCheck =
+        name: host:
+        if
+          lib.elem name [
+            "servacho-management-plane"
+            "installer"
+          ]
+        then
+          host
+        else
+          host.extendModules { modules = [ ./deployed-by-root-plane.nix ]; };
     in
     {
-      nixosConfigurations = {
+      nixosConfigurations = lib.mapAttrs withDeployerCheck {
         # The root plane, switched to in place by tofu/root-plane/.
         servacho-management-plane = lib.nixosSystem {
           inherit system;
@@ -83,7 +100,7 @@
         # The organisations' planes, installed and deployed by
         # tofu/organisation/plane.tf.
         qoax-community-management-plane = mkInstalledPlane ./hosts/qoax-community-management-plane/configuration.nix;
-        fmicodes-management-plane = mkInstalledPlane ./hosts/fmicodes-management-plane.nix;
+        sugaming-management-plane = mkInstalledPlane ./hosts/sugaming-management-plane.nix;
 
         # The operating systems class's machine, installed and deployed by
         # tofu/os_tues.tf (docs/os-tues.md).
@@ -96,8 +113,8 @@
           ];
         };
 
-        # The VM that routes the internet's 80 and 443 to each tenant by
-        # name, installed and deployed by tofu/ingress.tf (docs/ingress.md).
+        # The VM that routes 80 and 443 to the tenants by name, installed and
+        # deployed by tofu/ingress.tf (docs/ingress.md).
         ingress = lib.nixosSystem {
           inherit system;
           modules = [
@@ -134,18 +151,14 @@
           self.nixosConfigurations.servacho-management-plane.config.system.build.toplevel;
         qoax-community-management-plane =
           self.nixosConfigurations.qoax-community-management-plane.config.system.build.toplevel;
-        fmicodes-management-plane =
-          self.nixosConfigurations.fmicodes-management-plane.config.system.build.toplevel;
+        sugaming-management-plane =
+          self.nixosConfigurations.sugaming-management-plane.config.system.build.toplevel;
         os-tues = self.nixosConfigurations.os-tues.config.system.build.toplevel;
         # LazyVim starting offline, in the build sandbox (hosts/os-tues/lazyvim.nix).
         os-tues-lazyvim = self.nixosConfigurations.os-tues.config.system.build.lazyvimCheck;
         ingress = self.nixosConfigurations.ingress.config.system.build.toplevel;
-        # The tenant file: no name claimed twice or covered by another
-        # tenant's suffix, no server at the VM's own address or its gateway,
-        # and a configuration haproxy -c accepts (hosts/ingress/haproxy.nix).
-        # The system's build, checks.ingress, runs it too, and also tries the
-        # checks on files they must refuse (rejectedFiles). Which networks a
-        # server may be on is the plan's to check (tofu/unifi/ingress.tf).
+        # The tenant file's checks and haproxy -c; the assertions on
+        # rejectedFiles run only in checks.ingress (hosts/ingress/haproxy.nix).
         ingress-haproxy = self.nixosConfigurations.ingress.config.system.build.haproxyCheck;
         installer = self.nixosConfigurations.installer.config.system.build.toplevel;
       };

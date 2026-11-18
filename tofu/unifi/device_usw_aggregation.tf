@@ -47,9 +47,9 @@ resource "unifi_device" "usw_aggregation" {
     port_profile_id    = unifi_port_profile.private_servers.id
   }
 
-  # Ports 2-7: Port State Disabled, in the switch's shape; stp_edge_state "enabled" is
-  # Port Mode: Edge. Every exposed attribute is set; the live override also carries
-  # these UI-only keys:
+  # Ports 2-4 and 6-8: Port State Disabled, in the switch's shape; stp_edge_state
+  # "enabled" is Port Mode: Edge. Every exposed attribute is set; the live override also
+  # carries these UI-only keys (port 8 stores neither eee_enabled nor poe_mode):
   # FIXME(unifi-ui-only): stp_bpdu_guard_enabled = true    (Services -> BPDU Guard)
   # FIXME(unifi-ui-only): stp_uplink = false               (Services -> STP Uplink)
   # FIXME(unifi-ui-only): eee_enabled = false              (Energy Efficient Ethernet)
@@ -116,24 +116,12 @@ resource "unifi_device" "usw_aggregation" {
     port_keepalive_enabled = false
   }
 
+  # SFP+ 5: 10 GbE uplink to USW Pro Max 24 PoE port 25.
   port_override {
-    index                  = 5
-    name                   = "SFP+ 5 (Disabled)"
-    forward                = "disabled"
-    port_security          = { enabled = true }
-    tagged_vlan_mgmt       = "block_all"
-    native_networkconf_id  = null
-    voice_networkconf_id   = null
-    setting_preference     = "manual"
-    poe_mode               = "auto"
-    autoneg                = true
-    dot1x                  = { ctrl = "auto", idle_timeout = "5m0s" }
-    lldpmed                = { enabled = true }
-    stp_port_mode          = true
-    stp_edge_state         = "enabled"
-    isolation              = false
-    egress_rate_limit      = { enabled = false }
-    port_keepalive_enabled = false
+    index              = 5
+    name               = "USW-Pro-Max-24-PoE"
+    setting_preference = "manual"
+    port_profile_id    = unifi_port_profile.unifi_devices.id
   }
 
   port_override {
@@ -176,11 +164,22 @@ resource "unifi_device" "usw_aggregation" {
     port_keepalive_enabled = false
   }
 
-  # SFP+ 8, uplink to the UDM.
   port_override {
-    index              = 8
-    name               = "UDM-Pro-Max"
-    setting_preference = "auto"
-    port_profile_id    = unifi_port_profile.unifi_devices.id
+    index                  = 8
+    name                   = "SFP+ 8 (Disabled)"
+    forward                = "disabled"
+    port_security          = { enabled = true }
+    tagged_vlan_mgmt       = "block_all"
+    native_networkconf_id  = null
+    voice_networkconf_id   = null
+    setting_preference     = "manual"
+    autoneg                = true
+    dot1x                  = { ctrl = "auto", idle_timeout = "5m0s" }
+    lldpmed                = { enabled = true }
+    stp_port_mode          = true
+    stp_edge_state         = "enabled"
+    isolation              = false
+    egress_rate_limit      = { enabled = false }
+    port_keepalive_enabled = false
   }
 }

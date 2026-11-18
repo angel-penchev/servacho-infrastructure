@@ -280,25 +280,12 @@ resource "unifi_device" "usw_pro_max_24_poe" {
     port_profile_id    = unifi_port_profile.unifi_devices.id
   }
 
-  # SFP+ 1: unused, Port State Disabled. Same shape and UI-only keys as ports 9-11.
+  # SFP+ 1: 10 GbE uplink to USW Aggregation port 5.
   port_override {
-    index                  = 25
-    name                   = "SFP+ 1 (Disabled)"
-    forward                = "disabled"
-    port_security          = { enabled = true }
-    tagged_vlan_mgmt       = "block_all"
-    native_networkconf_id  = null
-    voice_networkconf_id   = null
-    setting_preference     = "manual"
-    poe_mode               = "auto"
-    autoneg                = true
-    dot1x                  = { ctrl = "auto", idle_timeout = "5m0s" }
-    lldpmed                = { enabled = true }
-    stp_port_mode          = true
-    stp_edge_state         = "enabled"
-    isolation              = false
-    egress_rate_limit      = { enabled = false }
-    port_keepalive_enabled = false
+    index              = 25
+    name               = "USW-Aggregation"
+    setting_preference = "manual"
+    port_profile_id    = unifi_port_profile.unifi_devices.id
   }
 
   # SFP+ 2: 10 GbE uplink to UDM port 10.

@@ -1,8 +1,9 @@
 name: "Unseal the tenant management planes"
 description: >-
   After the root OpenBao is unsealed, unseals every tenant management plane
-  recorded in it (scripts/tenant-plane-openbao.sh unseal-all). A plane that is
-  down or stays sealed is a warning, not a failure.
+  recorded in it (scripts/tenant-plane-openbao.sh unseal-all). It tries every
+  plane. Then it fails if a plane did not answer, is still sealed, or has a
+  record it cannot read.
 inputs:
   vault_token:
     description: "Token for the root OpenBao"

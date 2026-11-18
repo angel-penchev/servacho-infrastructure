@@ -1,5 +1,5 @@
 # Three remote-access servers, one tunnel subnet each (third octet = order):
-#   1. Teleport / WiFiman     192.168.7.1/24   UI-only, FIXME below
+#   1. Teleport / WiFiman     192.168.7.1/24   UI-only, FIXME and check below
 #   2. StKr OpenVPN Server    192.168.8.1/24   unifi_vpn_server.openvpn
 #   3. StKr WireGuard Server  192.168.9.1/24   unifi_vpn_server.wireguard
 # All land in the default `Vpn` zone; Vpn -> IoT stays blocked on purpose. WireGuard
@@ -7,10 +7,27 @@
 
 # FIXME(unifi): Teleport is a site setting (`/get/setting` key `teleport`:
 #   enabled true, subnet_cidr 192.168.7.1/24), not a network. At v0.65.0 the provider
-#   can only read it (data source `unifi_teleport`); `unifi_setting` has no `teleport`
-#   block. It has no name either, so the "StKr <x> Server" convention cannot apply. It
-#   is the admin's current way in -- never touch it.
+#   can only read it (data source `unifi_teleport`, used by the check below);
+#   `unifi_setting` has no `teleport` block. It has no name either, so the "StKr <x>
+#   Server" convention cannot apply. It is the admin's current way in -- never touch it.
 #   Also UI-only: `magic_site_to_site_vpn` (Site Magic), enabled by default, no tunnels.
+
+# A host whose SSH sources come from nixos/admin-sources.nix lets Teleport users in only
+# from Teleport's subnet. Both servacho-infrastructure and qoax-infrastructure can have
+# that file. Nothing else here reads the subnet. So a change in the UI would lock
+# Teleport users out of SSH on such a host. A failed check is a warning in the plan, not
+# an error: the plan and the apply go on.
+#
+# The data source is outside the check block on purpose. A data source inside a check
+# block shows as a read in every plan. The plan would then never say "No changes."
+data "unifi_teleport" "default" {}
+
+check "teleport_subnet" {
+  assert {
+    condition     = data.unifi_teleport.default.subnet_cidr == "192.168.7.1/24"
+    error_message = "Teleport's subnet must be 192.168.7.1/24, and the controller reports ${coalesce(data.unifi_teleport.default.subnet_cidr, "none")}. A host whose SSH sources come from nixos/admin-sources.nix lets Teleport users in only from 192.168.7.0/24. Both servacho-infrastructure and qoax-infrastructure can have that file. Until the subnet and that list agree, Teleport users cannot open SSH to such a host. Set the subnet back in the UniFi UI. Or add the new subnet to the list in each repository that has one, then change this check."
+  }
+}
 
 # Authenticates against the built-in RADIUS profile (users in radius.tf). Certificates,
 # DH parameters and the TLS auth key are controller-generated, computed `openvpn.*`.

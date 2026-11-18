@@ -8,6 +8,71 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ---
 
+## Session 2026-11-17 — the Aggregation uplinks through the Pro Max
+
+The user plans a GPON SFP stick in a UDM SFP+ port, in place of the Vivacom ONT on WAN1. Both UDM SFP+ ports carried switch uplinks: port 10 to the Pro Max and port 11 to the Aggregation. The Aggregation now uplinks to the Pro Max instead, which frees UDM port 11.
+
+**Cabling.** The 1 m OEM DAC (`SFP-H10GB-CU1M`) moved from UDM port 11 and Aggregation port 8 to Pro Max port 25 and Aggregation port 5. The Pro Max uplink stays port 26 to UDM port 10, on the white `Uplink-SFP28-.15`.
+
+**Outage, 05:29Z to about 06:26Z.** The cable moved before either new port was set. Aggregation port 5 was still disabled. Thus the Aggregation had no path to the controller, and it could not get a new setting for that port. No host was on the Aggregation (Servacho-Gosho is on Pro Max port 21), so only the switch itself was offline.
+
+**Recovery.** Pro Max port 25 got the UniFi Device profile first. Then two `UACC-CM-RJ45-MG` RJ45 modules and a patch cable linked Pro Max port 25 to Aggregation port 8, which still had the UniFi Device profile. Port 5 got its profile over that link, and the DAC went back on port 5.
+
+**Lesson.** Set both ends of a new switch link before you move a switch's only uplink.
+
+Made in the UniFi web UI (Port Manager) from the user's Chrome session, and read back over `GET /stat/device` after each change.
+
+| Port | Attribute | Was | Now |
+|---|---|---|---|
+| USW Pro Max 24 PoE, 25 | `name` | `SFP+ 1 (Disabled)` | `USW-Aggregation` |
+| | override | the disabled shape of ports 9–11 | `{name, portconf_id UniFi Device, setting_preference manual}` (`manual` is the UI's own choice) |
+| USW Aggregation, 5 | `name` | `SFP+ 5 (Disabled)` | `USW-Pro-Max-24-PoE` |
+| | override | the disabled shape of ports 2–7 | `{name, portconf_id UniFi Device, setting_preference manual}` |
+| USW Aggregation, 8 | `name` | `UDM-Pro-Max` | `SFP+ 8 (Disabled)` |
+| | override | `{name, portconf_id UniFi Device, setting_preference auto}` | the disabled shape of port 7, set field by field: Port Profile off, Port Mode Edge, native None, tagged Block All, Advanced Manual, MAC Address Filter on with no MACs, 802.1X Auto, then Port State Disabled. The UI wrote no `eee_enabled` and no `poe_mode` key. |
+
+**Read-back, 06:50Z.** All five devices are `state 1`. The Aggregation's uplink is port 5 to Pro Max port 25, at 10 GbE full duplex, forwarding, with no errors. Aggregation port 8 is `forward disabled`. UDM port 11 has no module. It keeps `USW-Aggregation` and the UniFi Device profile until the GPON stick takes it as WAN1.
+
+**Code.** `device_usw_pro_max_24_poe.tf`, `device_usw_aggregation.tf` and `device_udm_pro_max.tf` mirror the new ports. The port blocks are under `ignore_changes`, so the plan is unaffected.
+
+---
+
+## Session 2026-11-09 (b) — the SUGAMING plane's client, the FMI{Codes} plane's record
+
+After the apply of #102. VM 13015 showed under the hostname `nixos`, from its installer's DHCP request. The apply forgot the FMI{Codes} plane's client at 06:45:25 UTC. VM 12015's destroy finished 2 s later, and the controller made a new, unnamed record for its MAC. The changes went through the controller's REST API from the user's Chrome session (`https://192.168.2.1`). A read-back followed each write.
+
+| Object | Attribute | Was | Now |
+|---|---|---|---|
+| Client `6af16c1bf1a8a0e9ad976286`, `bc:24:11:85:1b:83` (VM 13015), `PUT /rest/user` | `name` (alias) | unset | `sugaming-management-plane` |
+| | `use_fixedip` / `fixed_ip` | unset / unset | `true` / `192.168.13.15` |
+| | `noted` | unset | `true` |
+| Client record for `bc:24:11:9d:30:04` (VM 12015), `POST /cmd/stamgr` | `forget-sta`, sent twice | unnamed record | gone |
+
+Read back: the SUGAMING plane's client has the same settings as the Qoax plane's. It has no network binding and no local DNS record. The Qoax client also has the `local_dns_record*` and `virtual_network_override_*` keys, all off, which the UI wrote. This client has none of them. Its fixed IP is outside the DHCP pool (from `.100`). The first forget went out before 07:02 UTC. At 07:02 the controller made the record again, and it last saw the MAC at 07:05. No VM on the node has that MAC. At 06:45 Proxmox logged the destroy of VM 12015 and the create and start of VM 13015. It logged no other task up to 07:15. A read-back after the second forget, at 08:36, showed the record gone.
+
+**Code.** `clients.tf` declares `unifi_client.sugaming_management_plane`, and `tofu/imports_unifi.tf` adopts it by MAC. The expected plan is 1 to import and no change.
+
+---
+
+## Session 2026-11-09 — VLAN 13 for SUGAMING, VLAN 12 renamed
+
+FMI{Codes} is replaced by a new organisation, SUGAMING, on a new VLAN 13. VLAN 12 becomes Qoax's network for hosts that take a port forward from the internet, in the Dmz zone. Made through the controller's REST API from the user's Chrome session (`https://192.168.2.1`), read-modify-write and read back after each write.
+
+| Object | Attribute | Was | Now |
+|---|---|---|---|
+| Network `6af1576ff1a8a0e9ad974ee7`, `POST /rest/networkconf` | whole object | none existed | `SUGAMING VPS`: VLAN 12's object with `vlan 13`, `ip_subnet 192.168.13.1/24`, `dhcpd_start 192.168.13.100`, `dhcpd_stop 192.168.13.254` and `dhcpd_ip_1 192.168.13.1` (the DHCP Guarding server) |
+| Network `6a9d360a3346f05e9f31f145` (VLAN 12), `PUT /rest/networkconf` | `name` | `FMI{Codes} VPS` | `Qoax Public Servers` |
+
+Read back: SUGAMING VPS differs from VLAN 12 only in those keys, its `_id` and its `external_id`. It is in Internal. On VLAN 12 only `name` changed. VLAN 13 needs no switch change: the host's port profile, Private Server (Aggregation port 1, and USW Pro Max port 21 while the DAC is out), tags every VLAN (`tagged_vlan_mgmt = "auto"`).
+
+**Not done live: VLAN 12 into Dmz.** `PUT /v2/api/site/default/firewall/zone/6a9d37ad3346f05e9f31f329` with the full zone object returned 400 (`Unrecognized field "attr_no_edit"`) and changed nothing. No retry was sent. Add it in the UI (Settings → Security → Zones → Dmz) before the merge, or let the apply do it from `unifi_firewall_zone.dmz`. An apply from `main` before this change merges renames VLAN 12 back and takes it out of Dmz. This change's apply puts both back.
+
+**The Dmz zone's predefined policies**, read the same day over `GET /v2/api/site/default/firewall-policies`: Dmz → Internal, Vpn, Dmz, Hotspot and IoT block everything but return traffic. Dmz → Gateway blocks everything but DNS, DHCP, DHCPv6, ICMP, ICMPv6 and return traffic, so a host there needs public NTP. Dmz → External allows everything. Internal, Vpn and Gateway → Dmz allow everything.
+
+**Code.** `networks.tf` declares `unifi_network.sugaming_vps`, which `tofu/imports_unifi.tf` adopts, and renames `fmicodes_vps` to `qoax_public_servers` with a `moved` block there. `firewall.tf` adds VLAN 12 to `unifi_firewall_zone.dmz`. The plan shows 1 to import, no change to either network, and a change to the Dmz zone's `network_ids` until the UI step is done.
+
+---
+
 ## Session 2026-11-07 — a WAN SLA that fails over a captive WAN1
 
 WAN1's bill was left unpaid on purpose, to test failover. Vivacom put the line behind its captive portal (`captivation.vivacom.bg`), and the gateway never failed over. Both WANs ran the **Auto** SLA, which is down only when two of three probes fail: a ping to `ping.ui.com`, and DNS lookups of `ui.com` through 1.1.1.1 and 8.8.8.8. Through the captive line DNS reached the real resolvers (Cloudflare saw `46.10.181.183`), while ICMP was dropped past the gateway, plain HTTP was redirected with a 302 to the portal, and HTTPS timed out. Only the ping failed, so WAN1 stayed Online and active. The `www` health subsystem showed `warning`, but it does not drive failover.
@@ -102,7 +167,7 @@ No network binding and no local DNS record, like the root plane's entry. The fix
 
 ## Session 2026-10-04 — DHCP pools of the VPS VLANs start at .100
 
-Made in the UniFi web UI (Settings → Networks → the network → IPv4: Auto-Scale Network off, DHCP Range Start, Apply Changes) so that the organisations' management planes (`.15`) and Qoax Community's cluster addresses (from `.21`) are outside DHCP. Read back over `GET /rest/networkconf`. Neither VLAN had a client or a reservation at the time.
+Made in the UniFi web UI (Settings → Networks → the network → IPv4: Auto-Scale Network off, DHCP Range Start, Apply Changes) so that the organisations' management planes (`.15`) and Qoax's cluster addresses (from `.21`) are outside DHCP. Read back over `GET /rest/networkconf`. Neither VLAN had a client or a reservation at the time.
 
 | Network | Attribute | Was | Now |
 |---|---|---|---|

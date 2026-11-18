@@ -4,7 +4,7 @@
 #
 # Besides the pool, the user can do exactly what creating a VM there takes:
 # allocate disks on the VM storage, keep ISO images (its installer) in a
-# storage of its own, and put a network card on its own VLAN.
+# storage of its own, and put a network card on its own VLANs.
 
 resource "proxmox_virtual_environment_pool" "this" {
   pool_id = "pool-${var.id}"
@@ -60,10 +60,17 @@ resource "proxmox_virtual_environment_user" "tofu" {
     role_id = var.roles.isos
   }
   # Proxmox checks a tagged network card against the bridge's VLAN path, so
-  # this is the organisation's VLAN and nothing else on the bridge.
+  # these are the organisation's VLANs and nothing else on the bridge.
   acl {
     path    = "/sdn/zones/localnetwork/${var.bridge}/${var.vlan}"
     role_id = var.roles.network
+  }
+  dynamic "acl" {
+    for_each = var.extra_vlans
+    content {
+      path    = "/sdn/zones/localnetwork/${var.bridge}/${acl.value}"
+      role_id = var.roles.network
+    }
   }
 }
 
@@ -72,6 +79,13 @@ resource "proxmox_virtual_environment_user_token" "tofu" {
   user_id               = proxmox_virtual_environment_user.tofu.user_id
   token_name            = "tofu-provisioner"
   privileges_separation = false
+
+  # The provider (0.69.1) empties value in state on every update, and the
+  # OpenBao copy and the plane's bootstrap read it. A new name must not update
+  # the token, so the comment keeps the name the token was created with.
+  lifecycle {
+    ignore_changes = [comment]
+  }
 }
 
 resource "vault_kv_secret_v2" "proxmox_token" {

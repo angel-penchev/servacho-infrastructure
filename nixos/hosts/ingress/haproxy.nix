@@ -1,30 +1,4 @@
-# HAProxy on ingress, built from tenants.json (docs/ingress.md says how to add
-# a tenant).
-#
-# 443 is routed by the TLS server name and passed on unopened, so the VM
-# ends no TLS and holds no tenant's keys; 80 is routed by the Host header. A
-# connection with no name, or with a name no tenant claims, is closed on 443
-# and gets a 404 on 80: there is no default backend.
-#
-# tenants.json maps each tenant, named with lower-case letters, digits and
-# dashes, to:
-#
-#   names           exact names, and suffixes with a leading dot, each of
-#                   which covers every name under it: ".example.org" covers
-#                   "www.example.org", but not "example.org" or
-#                   "badexample.org". An exact name wins over a suffix.
-#   https           its servers for 443, as "address:port"
-#   http            its servers for 80, which answer ACME HTTP-01 challenges
-#                   and redirect to HTTPS; left out, HAProxy redirects itself
-#   proxy_protocol  true when its servers take a PROXY v2 header with the
-#                   visitor's address, on both ports; false when left out
-#
-# A file that claims a name twice, in which a tenant's suffix covers another
-# tenant's name, or that makes the VM or its gateway (vm.json) a server, does
-# not evaluate, and the system's build runs haproxy -c on the result: a bad
-# entry fails the pull request's plan, not the VM. The same build tries these
-# checks on files they must refuse (rejectedFiles). Which networks a server
-# may be on is tofu/unifi/ingress.tf's to check, in the same plan.
+# HAProxy on ingress, built from tenants.json (docs/ingress.md).
 {
   config,
   lib,
@@ -33,7 +7,6 @@
 }:
 let
   tenants = lib.importJSON ./tenants.json;
-  # The VM's address and gateway, as configuration.nix sets them.
   vm = lib.importJSON ./vm.json;
 
   label = "[a-z0-9]([a-z0-9-]*[a-z0-9])?";
@@ -41,14 +14,8 @@ let
   matches = pattern: s: builtins.isString s && builtins.match pattern s != null;
   isListOf = check: v: builtins.isList v && lib.all check v;
   isName = matches "\\.?${label}(\\.${label})+";
-  # On the home's networks, and neither the VM itself nor its gateway. The VM
-  # trusts lo, so a server at its own address would hand each connection of a
-  # tenant without proxy_protocol back to HAProxy, from that address, until
-  # perAddressLimits turned it away: the tenant's site would fail, and the
-  # loop would hold up to 256 of HAProxy's connections (64 on 80). The
-  # gateway's 80 and 443 are the UniFi console. Which networks a server may be
-  # on, and which hosts on them it may not be, is tofu/unifi/ingress.tf's to
-  # check: it knows them, and fails the plan.
+  # Not the VM, which would loop back into HAProxy, nor its gateway, whose 80
+  # and 443 are the UniFi console. tofu/unifi/ingress.tf checks the rest.
   isServer =
     s:
     matches "192\\.168\\.${octet}\\.${octet}:[1-9][0-9]{0,4}" s
@@ -57,7 +24,7 @@ let
       vm.address
       vm.gateway
     ];
-  # isServer in words, for the problems below.
+  # isServer in words: change the two together.
   serverRule = "address:port, the addresses in 192.168.0.0/16 and neither the VM's ${vm.address} nor its gateway ${vm.gateway}";
 
   tenantProblems =
@@ -82,14 +49,12 @@ let
         t ? proxy_protocol && !builtins.isBool t.proxy_protocol
       ) "${id}: proxy_protocol is true or false";
 
-  # Every name, with the tenant that claims it.
   claimsOf =
     ts:
     lib.concatLists (
       lib.mapAttrsToList (tenant: t: map (name: { inherit tenant name; }) (lib.unique t.names)) ts
     );
 
-  # Whether a covers b: the same name, or a suffix that b ends with.
   covers = a: b: a == b || (lib.hasPrefix "." a && lib.hasSuffix a b);
 
   conflicts =
@@ -107,9 +72,6 @@ let
       ) claims
     ) claims;
 
-  # What is wrong with a tenant file, if anything: a function of the file, so
-  # that rejectedFiles below can be tried as well as tenants.json. Names are
-  # compared only once every entry has the right shape.
   problemsOf =
     file:
     if !builtins.isAttrs file then
@@ -122,14 +84,8 @@ let
 
   problems = problemsOf tenants;
 
-  # tenants.json shows only that a good file passes. Each of these files must
-  # fail, with the problem given: the assertions below try them in every
-  # build of the system, so in every plan, with nothing added to CI. The
-  # problem is matched, not just any problem, because a case turned away for
-  # its shape would never reach the names it is meant to test. The first two
-  # keep one tenant off another's names: whoever gets a name's port 80 can
-  # answer its ACME challenges and get a certificate for it. Apart from the
-  # problem under test, each file is a good one, its servers on Qoax VPS.
+  # Tried by the assertions below. Each is otherwise good and must report
+  # its own problem: one refused for its shape never reaches the name checks.
   rejectedFiles =
     let
       tenant = names: {
@@ -189,10 +145,6 @@ let
         nixos/hosts/ingress/tenants.json (docs/ingress.md):
         ${lib.concatMapStrings (problem: "  - ${problem}\n") problems}'';
 
-  # One pair of maps serves both ports, from each name to its tenant: exact
-  # names, and the suffixes map_end matches. Each port makes the tenant its
-  # own backend's name, https-<tenant> or http-<tenant>, prefixes no other
-  # backend has.
   mapFile =
     kind: suffixes:
     pkgs.writeText "ingress-${kind}.map" (
@@ -203,8 +155,7 @@ let
   exactMap = mapFile "exact" false;
   suffixMap = mapFile "suffix" true;
 
-  # A server is named after its address, which is what the log shows, so a
-  # server listed twice is listed once.
+  # Named after its address, so that the log shows it.
   servers =
     t: addresses:
     map (
@@ -239,20 +190,9 @@ let
     )
   );
 
-  # The limits on one source address, in both the https and the http
-  # frontend, so that its connections on 443 and 80 count together in the
-  # per-address table: 256 at once, and 1,000 opened in 10 s. The gateway,
-  # which all of NAT loopback comes from, and Cloudflare's ranges
-  # (cloudflare-ipv4.txt), one address of which carries a whole audience,
-  # may each hold 1,024 at once, at any rate. Only the count at once keeps
-  # an address from holding the slots. The rate limits the work it makes,
-  # and counts rejected attempts too, so an address that keeps retrying
-  # stays out. A connection over one of these limits is closed before
-  # HAProxy reads it, with no log line; the exporter counts it, in
-  # haproxy_frontend_denied_connections_total. These lines must come before
-  # any tcp-request content, http-request or use_backend line in their
-  # frontend: haproxy -c warns otherwise, and -dW fails the build. They are
-  # joined so that each line keeps its frontend's indentation.
+  # In both frontends, so that 80 and 443 count together (docs/ingress.md).
+  # These lines must come before any tcp-request content, http-request or
+  # use_backend line, or haproxy -c -dW fails the build.
   perAddressLimits = lib.concatStringsSep "\n  " [
     "acl shared-address src ${vm.gateway}"
     "acl shared-address src -f ${./cloudflare-ipv4.txt}"
@@ -265,41 +205,28 @@ in
 {
   services.haproxy = {
     enable = true;
-    # The module opens the global section with the stats socket that hands
-    # the listeners over on a reload; this carries on from there.
+    # Carries on the module's global section, whose stats socket hands the
+    # listeners over on a reload.
     config = ''
-        # 4,096 connections in all, about 135 MB (tofu/ingress.tf). The
-        # frontends' own limits, 3,500 on 443, 500 on 80 and 16 for the
-        # exporter, add up to less, so that a flood that fills one of them
-        # leaves the others answering. A connection over a frontend's limit
-        # isn't refused: it waits in the kernel's listen queue until a slot
-        # frees.
+        # About 135 MB (docs/ingress.md). The frontends' maxconn add up to
+        # less, so that a flood on one leaves the others answering. A
+        # connection over a frontend's maxconn waits in the kernel's listen
+        # queue rather than being refused.
         maxconn 4096
-        # After a reload, old workers keep their connections until those
-        # close, for 30 minutes at most.
         hard-stop-after 30m
-        # One line per connection on 443, and per request on 80, to HAProxy's
-        # own journal (LogNamespace, below).
+        # To HAProxy's own journal (LogNamespace, below).
         log stdout format short daemon
 
       defaults
         log global
-        # A connection that sends nothing, a port probe or one held open
-        # idle, leaves no line, and neither does one over perAddressLimits;
-        # the exporter still counts both.
         option dontlognull
         timeout connect 2s
-        # 443's: 5 minutes of silence, so that held streams and WebSockets
-        # stay open. Port 80 sets its own. Once the tenant's server has closed
-        # its side, 30 s of silence from the visitor ends the connection
-        # (client-fin), so that a visitor who vanished doesn't hold the slot 5
-        # minutes more; a visitor who closes first leaves the server its 5
-        # minutes (no server-fin).
+        # 443's, long for WebSockets; port 80 sets its own. client-fin:
+        # 30 s of the visitor's silence once the server has closed its side.
+        # No server-fin, so the server keeps its 5m after the visitor closes.
         timeout client 5m
         timeout server 5m
         timeout client-fin 30s
-        # Every server is checked every 5 s and down after 2 failures, and a
-        # failed connection is retried on the tenant's next server.
         default-server inter 5s fall 2 rise 2
         option redispatch 1
 
@@ -308,11 +235,7 @@ in
         bind :443
         maxconn 3500
         log-format "%ci:%cp %ft %[var(sess.name)] %b/%s %Tw/%Tc/%Tt %B %ts %ac/%fc/%bc/%sc/%rc %sq/%bq"
-        # Each source address's limits, before any other rule
-        # (perAddressLimits).
         ${perAddressLimits}
-        # Up to 5 s for the ClientHello. Its server name picks the tenant,
-        # an exact name before a suffix.
         tcp-request inspect-delay 5s
         tcp-request content set-var(sess.name) req.ssl_sni,lower if { req.ssl_hello_type 1 }
         tcp-request content set-var(sess.tenant) var(sess.name),map_str(${exactMap}) if { var(sess.name) -m found }
@@ -326,26 +249,19 @@ in
         bind :80
         maxconn 500
         log-format "%ci:%cp %ft %[var(txn.name)] %b/%s %TR/%Tw/%Tc/%Tr/%Ta %ST %B %tsc %ac/%fc/%bc/%sc/%rc %sq/%bq %{+Q}r"
-        # The same limits as on 443, in the same table, before any other
-        # rule (perAddressLimits); and at most 64 at once on 80 from an
-        # ordinary address, so that a few addresses can't fill its 500 and
-        # stop every tenant's ACME challenges.
         ${perAddressLimits}
+        # So that a few addresses can't fill 80 and stop every ACME challenge.
         tcp-request connection track-sc1 src table per-address-80
         tcp-request connection reject if !shared-address { sc1_conn_cur gt 64 }
-        # 10 s to send the headers.
         timeout http-request 10s
         timeout client 30s
-        # The Host header without its port picks the tenant, as on 443.
         http-request set-var(txn.name) req.hdr(host),host_only,lower
         http-request set-var(txn.tenant) var(txn.name),map_str(${exactMap}) if { var(txn.name) -m found }
         http-request set-var(txn.tenant) var(txn.name),map_end(${suffixMap}) if { var(txn.name) -m found } !{ var(txn.tenant) -m found }
         http-request deny deny_status 404 unless { var(txn.tenant) -m found }
         use_backend http-%[var(txn.tenant)]
 
-      # HAProxy's Prometheus exporter, for the sources configuration.nix
-      # admits, with 16 connections of its own that a flood on 80 or 443
-      # can't take.
+      # Who may reach the exporter is configuration.nix's firewall.
       frontend metrics
         mode http
         bind :8405
@@ -355,13 +271,8 @@ in
         http-request use-service prometheus-exporter if { path /metrics }
         http-request deny deny_status 404
 
-      # The tables perAddressLimits counts in, by source address: per-address
-      # holds the connections open on 80 and 443 and those opened in the last
-      # 10 s, per-address-80 those open on 80. An address is kept a minute
-      # past its last connection; 64k of them take up to about 13 MB a table
-      # when full (192 bytes an entry at most), and when a table is full the
-      # oldest unused go first. Neither backend has servers, and no tenant's
-      # can take their names (https-<tenant>, http-<tenant>).
+      # Up to 13 MB a table; a full one drops its oldest unused entries.
+      # Tenants' backends are https-<tenant> and http-<tenant>, never these.
       backend per-address
         stick-table type ipv4 size 64k expire 1m store conn_cur,conn_rate(10s)
 
@@ -371,30 +282,22 @@ in
     + backends;
   };
 
-  # A changed configuration is reloaded rather than restarted, as the module
-  # alone would: the new workers take the listeners over, and the old ones
-  # keep their connections.
+  # Reload, not restart, so that the old workers keep their connections.
   systemd.services.haproxy.reloadIfChanged = true;
 
-  # HAProxy's lines go to a journal of their own, up to 256 MB, so that a
-  # flood of them rotates out only HAProxy's older lines, never SSH's or the
-  # system's in the base module's 1 GiB. journalctl --namespace=haproxy
-  # reads it. A reload, which is what reloadIfChanged makes of a deploy,
-  # keeps the old stdout, so a change to LogNamespace takes effect on a full
-  # restart; this one lands before the VM's first deploy.
+  # A journal of its own, so that a flood rotates out none of the system's.
+  # A reload keeps the old stdout: a change to LogNamespace needs a restart.
   systemd.services.haproxy.serviceConfig.LogNamespace = "haproxy";
   environment.etc."systemd/journald@haproxy.conf".text = ''
     [Journal]
     SystemMaxUse=256M
   '';
-  # The namespace's journald restarts when that file changes, as NixOS's
-  # journald module does for journald.conf.
+  # As NixOS's journald module does for journald.conf.
   systemd.services."systemd-journald@".restartTriggers = [
     config.environment.etc."systemd/journald@haproxy.conf".source
   ];
 
-  # haproxy -c, warnings included, on the configuration the VM runs, maps and
-  # all: part of the system's build, and the flake's checks.ingress-haproxy.
+  # Also the flake's checks.ingress-haproxy.
   system.build.haproxyCheck =
     let
       haproxy = lib.getExe config.services.haproxy.package;
@@ -406,8 +309,6 @@ in
     '';
   system.checks = [ config.system.build.haproxyCheck ];
 
-  # The files the checks above must refuse (rejectedFiles), tried in every
-  # build of the system.
   assertions = lib.mapAttrsToList (name: c: {
     assertion = lib.elem c.problem (problemsOf c.file);
     message = "haproxy.nix lets a tenant file with ${name} through: it should report \"${c.problem}\", and reports ${builtins.toJSON (problemsOf c.file)}.";

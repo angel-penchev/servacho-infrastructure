@@ -15,7 +15,7 @@ output → variable plumbing. One topic per file:
 | File | Contents | Where it lives in the UI |
 |---|---|---|
 | `module.tf` | provider pin, the five secret inputs, shared data sources | — |
-| `networks.tf` | the nine LAN networks / VLANs (incl. the VLAN 99 management network) | Settings → Networks |
+| `networks.tf` | the ten LAN networks / VLANs (incl. the VLAN 99 management network) | Settings → Networks |
 | `wans.tf` | the two Vivacom uplinks; WAN SLA block (unsupported) | Settings → Internet |
 | `port_profiles.tf` | the five switch-port profiles (UniFi Device, Host Device, per-VLAN) | Settings → Profiles → Ethernet Ports |
 | `device_udm_pro_max.tf` | the gateway: name, port overrides | Devices |
@@ -28,7 +28,7 @@ output → variable plumbing. One topic per file:
 | `ingress.tf` | one policy per tenant of the ingress VM, from `nixos/hosts/ingress/tenants.json`, with the VM's address from `vm.json` beside it as their source; created by the apply, not in the UI first (`docs/ingress.md`). Also `terraform_data.ingress_checks`, nothing on the controller: its preconditions fail the plan if `vm.json` leaves Public Servers, or if a tenant's server is off the four server networks or is the VM, a gateway or an infrastructure host | Settings → Policy Engine |
 | `port_forwards.tf` | NAT port forwards | Settings → Policy Engine → NAT |
 | `radius.tf` | the RADIUS user accounts | Settings → Profiles → RADIUS |
-| `vpn.tf` | Teleport (documented; the provider can only read it), OpenVPN and WireGuard servers | Settings → VPN |
+| `vpn.tf` | Teleport (set in the UI only, its subnet checked in every plan), OpenVPN and WireGuard servers | Settings → VPN |
 | `settings.tf` | site settings (`unifi_setting`), including the Global Switch Settings the provider covers (`global_switch`; the 802.1X fallback VLAN and four other keys stay hand-set) and the Gateway mDNS Proxy (`mdns`); security posture (unsupported); Etherlighting (expressible, unmanaged on purpose) | Settings → System, Settings → Networks → Global Switch Settings, Settings → Networks → Global, Control Plane → Console |
 | `mdns.tf` | notes on the Gateway mDNS Proxy, which `settings.tf` manages: why Main + IoT, the excluded services and the 25-service catalogue | Settings → Networks → Global |
 | `admins.tf` | the two admin accounts (unsupported, documentation only) | Admins & Users |
