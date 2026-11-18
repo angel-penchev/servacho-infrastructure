@@ -92,8 +92,8 @@ Nothing has served the home's 80 and 443 since `192.168.5.58` was shut down
    {
      "yourorg": {
        "names": ["yourorg.example", ".yourorg.example"],
-       "https": ["192.168.12.40:443"],
-       "http": ["192.168.12.40:80"],
+       "https": ["192.168.10.40:443"],
+       "http": ["192.168.10.40:80"],
        "proxy_protocol": true
      }
    }
@@ -104,7 +104,7 @@ Nothing has served the home's 80 and 443 since `192.168.5.58` was shut down
      `www.yourorg.example`, but not `yourorg.example` itself, hence both, nor
      `badyourorg.example`.
    - `https` lists the servers for 443, as `address:port`, on Public
-     Servers, Private Servers, Qoax VPS or FMI{Codes} VPS
+     Servers, Private Servers, Qoax VPS or SUGAMING VPS
      (`ingress_server_networks` in `tofu/unifi/ingress.tf`). Step 3 says
      which addresses on them are refused.
    - `http` lists the servers for 80, on the same networks. Leave it out,
@@ -129,7 +129,9 @@ Nothing has served the home's 80 and 443 since `192.168.5.58` was shut down
      the UniFi console;
    - HAProxy rejects the configuration, or warns about it (`haproxy -c`);
    - a server is on a network other than the four in step 1: Main,
-     Default, UniFi Devices, Guest, IoT or a VPN's pool;
+     Default, UniFi Devices, Guest, IoT, Qoax Public Servers or a VPN's
+     pool. Qoax Public Servers is in `Dmz`, like the VM, and the gateway
+     blocks traffic between two `Dmz` networks;
    - a server is another network's gateway, or an infrastructure host
      reserved in `tofu/unifi/clients.tf`: the Proxmox host, a management
      plane or a JetKVM.
@@ -157,7 +159,7 @@ Nothing has served the home's 80 and 443 since `192.168.5.58` was shut down
    its own network, without the gateway.
 4. **Merge.** The apply creates the policy and deploys the new configuration.
 5. **Point the tenant's names at the home's lines.**
-   - Qoax Community's records follow the active line through `wan-dns`
+   - Qoax's records follow the active line through `wan-dns`
      ([wan-dns.md](wan-dns.md)). Other tenants handle their own.
    - Any name, proxied or not, can get a certificate from ACME HTTP-01
      through port 80, as long as nothing redirects
@@ -255,7 +257,7 @@ systemd's lines about starting and reloading it, which stay in the system's
 journal. A line on 443 reads:
 
 ```text
-203.0.113.7:51234 https yourorg.example https-yourorg/192.168.12.40:443 1/0/2 2302 -- 1/1/0/0/0 0/0
+203.0.113.7:51234 https yourorg.example https-yourorg/192.168.10.40:443 1/0/2 2302 -- 1/1/0/0/0 0/0
 ```
 
 That is the visitor's address, the frontend, the server name, the tenant's
@@ -435,7 +437,7 @@ In a pull request of its own that updates this file:
   address.
 - **Each tenant's records name one line at a time** (#70), even with the
   forward on both lines.
-- **Nothing pins Private Servers, Qoax VPS and FMI{Codes} VPS to Internal**,
+- **Nothing pins Private Servers, Qoax VPS and SUGAMING VPS to Internal**,
   the zone the tenants' policies open. They are in it only because no zone
   in `tofu/unifi/firewall.tf` lists them; one moved to a zone of its own
   would leave its tenants' policies matching nothing, and no plan would

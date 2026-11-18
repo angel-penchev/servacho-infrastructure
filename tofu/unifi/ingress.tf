@@ -10,11 +10,13 @@ locals {
   # The networks a tenant's servers may be on: the VM's own, and Internal's
   # but for Main, Default and UniFi Devices. One added here must be in
   # Internal, and needs its plane's reservation in ingress_not_servers.
+  # Never Qoax Public Servers: it is in Dmz, and the gateway blocks traffic
+  # between two Dmz networks.
   ingress_server_networks = [
     unifi_network.public_servers,
     unifi_network.private_servers,
     unifi_network.qoax_community_vps,
-    unifi_network.fmicodes_vps,
+    unifi_network.sugaming_vps,
   ]
 
   # Never a tenant's server: the VM, any gateway (the UniFi console) and the
@@ -28,6 +30,7 @@ locals {
         unifi_network.main,
         unifi_network.guest,
         unifi_network.iot,
+        unifi_network.qoax_public_servers,
       ]) : split("/", network.subnet)[0]
     ],
     # A reservation cleared in the UI is mirrored with fixed_ip = "".
@@ -35,7 +38,7 @@ locals {
       unifi_client.servacho_gosho.fixed_ip,
       unifi_client.servacho_management_plane.fixed_ip,
       unifi_client.qoax_community_management_plane.fixed_ip,
-      unifi_client.fmicodes_management_plane.fixed_ip,
+      unifi_client.sugaming_management_plane.fixed_ip,
       unifi_client.jetkvm_servacho_gosho.fixed_ip,
       unifi_client.jetkvm_michelangelo.fixed_ip,
     ]),
