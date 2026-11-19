@@ -50,13 +50,26 @@ resource "unifi_port_forward" "broadcast_srt" {
   protocol = "udp"
 
   wan = {
-    interface  = "both"
-    ip_address = "any"
-    port       = "8890"
+    port = "8890"
   }
 
   forward = {
     ip   = "192.168.12.23"
     port = "8890"
+  }
+
+  destination_ips = [
+    { destination_ip = "any", interface = "wan" },
+    { destination_ip = "any", interface = "wan2" },
+  ]
+
+  # FIXME(unifi): the controller stores this rule with pfwd_interface "all" and
+  #   one destination_ips entry per WAN, because that is how the UI saves "All
+  #   WANs". wan.interface accepts only wan, wan2 or both, so the code cannot
+  #   declare "all", and an undeclared interface plans a change to null. The
+  #   ignore keeps the controller's value. When the provider accepts "all",
+  #   declare it and remove the ignore.
+  lifecycle {
+    ignore_changes = [wan.interface]
   }
 }
