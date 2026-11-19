@@ -163,9 +163,10 @@ resource "unifi_network" "iot" {
   }
 }
 
-# A /23 (192.168.10.0-192.168.11.255). .2-.99 are for static hosts (the
-# management plane on .15, the clusters from .21); DHCP, which a VM's
-# installer needs, starts above them.
+# A /23 (192.168.10.0-192.168.11.255). .2-.99 are for static hosts. Qoax
+# allocates them in qoax-infrastructure, except the management plane's .15
+# (docs/tenant-management-planes.md). DHCP, which a VM's installer needs,
+# starts above them.
 resource "unifi_network" "qoax_community_vps" {
   name               = "Qoax VPS"
   purpose            = "corporate"

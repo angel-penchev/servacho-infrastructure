@@ -8,6 +8,24 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ---
 
+## Session 2026-11-19: UDP 8890 forwarded to qoax-broadcast-srt
+
+Made in the UniFi web UI (Settings → Policy Engine → Create New Policy → Port Forwarding) from the user's Chrome session, and read back over `GET /proxy/network/api/s/default/rest/portforward`.
+
+| Object | Attribute | Was | Now |
+|---|---|---|---|
+| Port forward `6afeb74bb09f1dba7f87d586` (`qoax-broadcast SRT`) | whole object | none existed | `proto udp`, `pfwd_interface all`, `destination_ips` `[{any, wan}, {any, wan2}]`, no `destination_ip`, `dst_port 8890`, `fwd 192.168.12.23`, `fwd_port 8890`, `enabled true`, `log false`, `src_limiting_enabled false` |
+
+It sends SRT from the internet to Qoax's relay, `qoax-broadcast-srt` on Qoax Public Servers (VLAN 12, in Dmz). The forward starts in the UI because, since provider 0.62.0, the apply creates a forward without `enabled = true` as disabled (`docs/unifi-manual-vs-tofu.md` §8).
+
+**The UI's format.** "All WANs" saved `pfwd_interface all` and one `destination_ips` entry per WAN. The intercom and os-tues forwards have `pfwd_interface both` and `destination_ip any`. Provider 0.65.0 cannot declare `all` (`docs/unifi-manual-vs-tofu.md` §8 and §15).
+
+**Firewall.** The policy table also shows the UI's own "Allow Port Forward" policy for it: External to DMZ, UDP, to `192.168.12.23`. The other two forwards have the same kind of policy.
+
+**Code.** `port_forwards.tf` declares `unifi_port_forward.broadcast_srt` with the two `destination_ips` entries, and keeps `wan.interface` under `ignore_changes`. `tofu/imports_unifi.tf` adopts it by `_id`. The expected plan is 1 to import and no change.
+
+---
+
 ## Session 2026-11-17 — the Aggregation uplinks through the Pro Max
 
 The user plans a GPON SFP stick in a UDM SFP+ port, in place of the Vivacom ONT on WAN1. Both UDM SFP+ ports carried switch uplinks: port 10 to the Pro Max and port 11 to the Aggregation. The Aggregation now uplinks to the Pro Max instead, which frees UDM port 11.

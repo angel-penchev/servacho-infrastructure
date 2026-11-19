@@ -37,3 +37,39 @@ resource "unifi_port_forward" "os_tues_ssh" {
     port = "22"
   }
 }
+
+# qoax-broadcast-srt, Qoax's SRT relay, public as srt.qo.ax
+# (docs/qoax-broadcast.md in qoax-community/qoax-infrastructure). Qoax sets
+# the VM's address in that repository, so a move there must change forward.ip
+# here too. SRT uses UDP alone. The forward is on both WANs, as the
+# intercom's is. After a failover to WAN2 the record follows, and encoders
+# still reach the relay. No source limit, because encoders publish from
+# mobile networks and venues whose addresses nobody knows in advance.
+resource "unifi_port_forward" "broadcast_srt" {
+  name     = "qoax-broadcast SRT"
+  protocol = "udp"
+
+  wan = {
+    port = "8890"
+  }
+
+  forward = {
+    ip   = "192.168.12.23"
+    port = "8890"
+  }
+
+  destination_ips = [
+    { destination_ip = "any", interface = "wan" },
+    { destination_ip = "any", interface = "wan2" },
+  ]
+
+  # FIXME(unifi): the controller stores this rule with pfwd_interface "all" and
+  #   one destination_ips entry per WAN, because that is how the UI saves "All
+  #   WANs". wan.interface accepts only wan, wan2 or both, so the code cannot
+  #   declare "all", and an undeclared interface plans a change to null. The
+  #   ignore keeps the controller's value. When the provider accepts "all",
+  #   declare it and remove the ignore.
+  lifecycle {
+    ignore_changes = [wan.interface]
+  }
+}

@@ -5,3 +5,11 @@ import {
   id = "bc:24:11:85:1b:83"
   to = module.unifi.unifi_client.sugaming_management_plane
 }
+
+# The SRT forward was made in the UniFi UI first
+# (docs/unifi-browser-changes.md) and is adopted here by its _id. The block
+# is inert once applied; remove it in a later change.
+import {
+  id = "6afeb74bb09f1dba7f87d586"
+  to = module.unifi.unifi_port_forward.broadcast_srt
+}
