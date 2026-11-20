@@ -13,3 +13,11 @@ import {
   id = "6afeb74bb09f1dba7f87d586"
   to = module.unifi.unifi_port_forward.broadcast_srt
 }
+
+# The SRT camera forward was made in the UniFi UI first
+# (docs/unifi-browser-changes.md) and is adopted here by its _id. The block
+# is inert once applied; remove it in a later change.
+import {
+  id = "6affbfdcb09f1dba7f88a69e"
+  to = module.unifi.unifi_port_forward.broadcast_srt_cameras
+}

@@ -73,3 +73,34 @@ resource "unifi_port_forward" "broadcast_srt" {
     ignore_changes = [wan.interface]
   }
 }
+
+# One SRT port per camera feed on qoax-broadcast-srt, for encoders that cannot
+# send an SRT stream ID, such as the Sony FX30. The relay finds the feed by the
+# port: 889N is camN (cam1 to cam6). Qoax's relay
+# (qoax-community/qoax-infrastructure) sets the ports, so a change to the
+# range there must change it here too. Open from all addresses, as
+# broadcast_srt.
+resource "unifi_port_forward" "broadcast_srt_cameras" {
+  name     = "qoax-broadcast SRT cameras"
+  protocol = "udp"
+
+  wan = {
+    port = "8891-8896"
+  }
+
+  forward = {
+    ip   = "192.168.12.23"
+    port = "8891-8896"
+  }
+
+  destination_ips = [
+    { destination_ip = "any", interface = "wan" },
+    { destination_ip = "any", interface = "wan2" },
+  ]
+
+  # FIXME(unifi): as broadcast_srt, the UI saved this rule with pfwd_interface
+  #   "all", which wan.interface cannot declare.
+  lifecycle {
+    ignore_changes = [wan.interface]
+  }
+}
