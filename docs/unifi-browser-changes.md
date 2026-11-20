@@ -8,6 +8,20 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ---
 
+## Session 2026-11-20: UDP 8891-8896 forwarded to qoax-broadcast-srt
+
+Made in the UniFi web UI (Settings → Policy Engine → Create New Policy → Port Forwarding) from the user's Chrome session, and read back over `GET /proxy/network/api/s/default/rest/portforward`.
+
+| Object | Attribute | Was | Now |
+|---|---|---|---|
+| Port forward `6affbfdcb09f1dba7f88a69e` (`qoax-broadcast SRT cameras`) | whole object | none existed | `proto udp`, `pfwd_interface all`, `destination_ips` `[{any, wan}, {any, wan2}]`, no `destination_ip`, `dst_port 8891-8896`, `fwd 192.168.12.23`, `fwd_port 8891-8896`, `enabled true`, `log false`, `src_limiting_enabled false` |
+
+The Sony FX30 cannot send an SRT stream ID. Creators' App has no field for it, and the camera drops a `?streamid=` query from the URL: the relay logged `invalid path name: cannot be empty ()` for each attempt. So the relay gets one port per camera feed, and the port selects the feed: 889N is `camN`, from `cam1` on 8891 to `cam6` on 8896. Qoax's relay sets these ports in qoax-community/qoax-infrastructure.
+
+**Code.** `port_forwards.tf` declares `unifi_port_forward.broadcast_srt_cameras` in the same shape as `broadcast_srt`. `tofu/imports_unifi.tf` adopts it by `_id`. The expected plan is 1 to import and no change.
+
+---
+
 ## Session 2026-11-19: UDP 8890 forwarded to qoax-broadcast-srt
 
 Made in the UniFi web UI (Settings → Policy Engine → Create New Policy → Port Forwarding) from the user's Chrome session, and read back over `GET /proxy/network/api/s/default/rest/portforward`.
