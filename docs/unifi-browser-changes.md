@@ -8,6 +8,20 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ---
 
+## Session 2026-11-21: TCP 20110 forwarded to Unity Intercom's tally
+
+Made in the UniFi web UI (Settings → Policy Engine → Create New Policy → Port Forwarding) from the user's Chrome session, and read back over `GET /proxy/network/api/s/default/rest/portforward`.
+
+| Object | Attribute | Was | Now |
+|---|---|---|---|
+| Port forward `6b020c3bb09f1dba7f8c0ed8` (`Unity Intercom TSL tally`) | whole object | none existed | `proto tcp`, `pfwd_interface all`, `destination_ips` `[{any, wan}, {any, wan2}]`, no `destination_ip`, `dst_port 20110`, `fwd 192.168.4.24`, `fwd_port 20110`, `enabled true`, `log false`, `src_limiting_enabled false` |
+
+It sends TSL 3.1 tally from the venue to Unity Intercom Server on `mac4o-mini`, which listens on its Tally Port, TCP 20110 (`docs/unity-intercom.md`). A converter at the venue connects out to `intercom.qo.ax:20110`, so the venue's network needs no forward. The policy table shows the UI's own "Allow Port Forward" policy for it: External to DMZ, TCP, to `192.168.4.24`.
+
+**Code.** `port_forwards.tf` declares `unifi_port_forward.unity_intercom_tally` in the same shape as `broadcast_srt_cameras`, with the forward IP from `unifi_client.mac4o_mini.fixed_ip` as `unity_intercom`. `tofu/imports_unifi.tf` adopts it by `_id`. The expected plan is 1 to import and no change.
+
+---
+
 ## Session 2026-11-20: UDP 8891-8896 forwarded to qoax-broadcast-srt
 
 Made in the UniFi web UI (Settings → Policy Engine → Create New Policy → Port Forwarding) from the user's Chrome session, and read back over `GET /proxy/network/api/s/default/rest/portforward`.
