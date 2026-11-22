@@ -87,3 +87,31 @@ resource "unifi_firewall_policy" "allow_private_servers_to_iot" {
     matching_target = "ANY"
   }
 }
+
+# Unity Intercom Server on mac4o-mini plays the venue's vMix audio into a
+# channel (docs/unity-intercom.md): it reads the SRT relay's feed as a home
+# reader. Both hosts are in Dmz, whose predefined policies block traffic
+# between its own networks, so this opens only that one flow. The address is
+# the relay's static one from qoax-infrastructure, as in port_forwards.tf.
+resource "unifi_firewall_policy" "allow_intercom_to_srt_relay" {
+  name                 = "Allow Intercom to SRT relay"
+  action               = "ALLOW"
+  ip_version           = "IPV4"
+  protocol             = "udp"
+  create_allow_respond = true
+  logging              = false
+
+  source = {
+    zone_id         = unifi_firewall_zone.dmz.id
+    matching_target = "IP"
+    ips             = [unifi_client.mac4o_mini.fixed_ip]
+  }
+
+  destination = {
+    zone_id            = unifi_firewall_zone.dmz.id
+    matching_target    = "IP"
+    ips                = ["192.168.12.23"]
+    port_matching_type = "SPECIFIC"
+    port               = "8890"
+  }
+}

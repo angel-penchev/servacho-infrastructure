@@ -60,3 +60,11 @@ import {
   id = "eb57d467-2147-4f78-9c93-442306a61181"
   to = module.unifi.unifi_firewall_policy.allow_private_servers_to_iot
 }
+
+# The intercom-to-SRT-relay policy was made in the UniFi UI first
+# (docs/unifi-browser-changes.md) and is adopted here by its id. The block is
+# inert once applied; remove it in a later change.
+import {
+  id = "072edf7f-1914-42e8-8d35-57ea543bbdf7"
+  to = module.unifi.unifi_firewall_policy.allow_intercom_to_srt_relay
+}
