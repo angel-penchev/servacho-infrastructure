@@ -491,7 +491,7 @@ Both checklist assignments (Hotspot ← Guest, DMZ ← Public Servers) are done,
 
 ## 8. Port forwards (`port_forwards.tf`)
 
-### Code and live since #111 (2026-11-19), four rules
+### Code and live since #111 (2026-11-19), five rules
 
 | Resource | Name | Proto | WAN | Forward |
 |---|---|---|---|---|
@@ -499,12 +499,13 @@ Both checklist assignments (Hotspot ← Guest, DMZ ← Public Servers) are done,
 | `os_tues_ssh` | **os-tues SSH** | tcp | both WANs, 22 | **192.168.4.31**:22 (`docs/os-tues.md`) |
 | `broadcast_srt` | **qoax-broadcast SRT** | udp | all WANs, 8890 (`destination_ips` per WAN) | **192.168.12.23**:8890, `qoax-broadcast-srt` on Qoax Public Servers (`docs/qoax-broadcast.md` in qoax-infrastructure) |
 | `broadcast_srt_cameras` | **qoax-broadcast SRT cameras** | udp | all WANs, 8891-8896 (`destination_ips` per WAN) | **192.168.12.23**:8891-8896, one port per camera feed for encoders with no SRT stream ID (889N is camN, cam1 to cam6) |
+| `unity_intercom_tally` | **Unity Intercom TSL tally** | tcp | all WANs, 20110 (`destination_ips` per WAN) | `unifi_client.mac4o_mini.fixed_ip` (**192.168.4.24**):20110, TSL 3.1 tally into Unity Intercom Server (`docs/unity-intercom.md`) |
 
-The apply created the intercom and os-tues forwards at provider 0.55.0, when an undeclared `enabled` still defaulted to `true`. `broadcast_srt` and `broadcast_srt_cameras` started in the UI, and imports adopted them by `_id`, as the next paragraph says. `nginx_proxy` (the `NGINX Server` below) became `soki web` on 2026-10-29, TCP 80 and 443 to soki at `192.168.10.41`, next to `soki_ssh` (TCP 2241 to soki's 22). #85 removed both when soki was torn down, so 80 and 443 are closed until the ingress VM (#83) gets its own forward.
+The apply created the intercom and os-tues forwards at provider 0.55.0, when an undeclared `enabled` still defaulted to `true`. `broadcast_srt`, `broadcast_srt_cameras` and `unity_intercom_tally` started in the UI, and imports adopted them by `_id`, as the next paragraph says. `nginx_proxy` (the `NGINX Server` below) became `soki web` on 2026-10-29, TCP 80 and 443 to soki at `192.168.10.41`, next to `soki_ssh` (TCP 2241 to soki's 22). #85 removed both when soki was torn down, so 80 and 443 are closed until the ingress VM (#83) gets its own forward.
 
 **Adding a forward.** Since provider 0.62.0 a forward created from code without `enabled = true` is written disabled (upstream #553). Create it in the UI, read it back, mirror it and import it by `_id`. At 0.65.0 the provider marks `enabled` deprecated, so the code does not declare it. An existing rule keeps the controller's `enabled`, `logging` and `source_limiting.enabled` when they are undeclared, and since 0.65.0 a create without `protocol` is `tcp_udp` again.
 
-**The UI's "All WANs".** Network 10.6 saves it as `pfwd_interface` `all`, with one `destination_ips` entry per WAN and no `destination_ip`. The intercom and os-tues forwards, from the apply at 0.55.0, have `pfwd_interface` `both` and `destination_ip` `any`. At 0.65.0, `wan.interface` accepts only `wan`, `wan2` or `both`. So `broadcast_srt` and `broadcast_srt_cameras` declare the two `destination_ips` entries and no `wan.interface`, and keep `wan.interface` under `ignore_changes` (§15). A new forward on all WANs needs the same.
+**The UI's "All WANs".** Network 10.6 saves it as `pfwd_interface` `all`, with one `destination_ips` entry per WAN and no `destination_ip`. The intercom and os-tues forwards, from the apply at 0.55.0, have `pfwd_interface` `both` and `destination_ip` `any`. At 0.65.0, `wan.interface` accepts only `wan`, `wan2` or `both`. So `broadcast_srt`, `broadcast_srt_cameras` and `unity_intercom_tally` declare the two `destination_ips` entries and no `wan.interface`, and keep `wan.interface` under `ignore_changes` (§15). A new forward on all WANs needs the same.
 
 ### Live on 2026-09-13 — one rule
 
@@ -827,7 +828,7 @@ Re-checked against v0.65.0 on 2026-11-02: every upstream entry is closed. The re
 
 ## 15. What is still not in code at provider 0.65.0
 
-Every `FIXME` and `TODO` marker in `tofu/` on 2026-11-20, one row each, from `git grep -n -E 'FIXME|TODO' -- tofu`: 61 markers. Line numbers are those of that tree, so re-run the grep after editing a file. Paths are under `tofu/unifi/` except `tofu/providers.tf`. The grep also matches four lines that are not markers: `tofu/unifi/README.md:38` and `:40` define the two `FIXME` kinds, and `vpn.tf:2` and `vpn.tf:35` point at markers below them.
+Every `FIXME` and `TODO` marker in `tofu/` on 2026-11-21, one row each, from `git grep -n -E 'FIXME|TODO' -- tofu`: 62 markers. Line numbers are those of that tree, so re-run the grep after editing a file. Paths are under `tofu/unifi/` except `tofu/providers.tf`. The grep also matches four lines that are not markers: `tofu/unifi/README.md:38` and `:40` define the two `FIXME` kinds, and `vpn.tf:2` and `vpn.tf:35` point at markers below them.
 
 Why a marker stays:
 
@@ -873,6 +874,7 @@ The Global Switch Settings the provider covers and the Gateway mDNS Proxy are ma
 | `networks.tf:33` | Default (Untagged) has DHCP off, and `dhcp_server` is not declared | **Deliberately unmanaged:** Read fills `dhcp_server` only on an import with DHCP on, so declaring `enabled = false` costs one write of every `dhcp_server` key but `boot` | A Read that fills `dhcp_server` while DHCP is off, or accepting that one write |
 | `port_forwards.tf:66` | `ignore_changes = [wan.interface]` on `broadcast_srt`: live has `pfwd_interface` `all`, as the UI saves "All WANs" (§8) | **Blocked upstream:** `wan.interface` accepts only `wan`, `wan2` or `both`, and an undeclared interface plans a change to null | The provider accepting `all` for `wan.interface`; then declare it and remove the ignore |
 | `port_forwards.tf:101` | `ignore_changes = [wan.interface]` on `broadcast_srt_cameras`, as `:66` | **Blocked upstream**, as `:66` | As `:66` |
+| `port_forwards.tf:134` | `ignore_changes = [wan.interface]` on `unity_intercom_tally`, as `:66` | **Blocked upstream**, as `:66` | As `:66` |
 | `port_profiles.tf:6` | Port Mode (`stp_edge_state`): Infrastructure on UniFi Device, Edge on the other four | **Blocked upstream:** no `unifi_port_profile` attribute; upstream #695 added it to `port_override` only | The attribute on `unifi_port_profile` |
 | `port_profiles.tf:8` | Flow Control on, all five | **Blocked upstream:** no attribute, and every profile write sends it as `false` (`:19`) | The attribute on `unifi_port_profile`, and `:19` fixed |
 | `port_profiles.tf:9` | PTP on, all five | **Blocked upstream**, as `:8` | As `:8` |

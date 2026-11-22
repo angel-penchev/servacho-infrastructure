@@ -6,6 +6,7 @@ Unity Intercom Server runs on `mac4o-mini`, a Mac mini in Public Servers (VLAN 4
 |---|---|---|
 | Fixed IP `192.168.4.24` for `1c:f6:4c:47:5b:c6` | `unifi_client.mac4o_mini`, `tofu/unifi/clients.tf` | tofu (set in the UI first, `docs/unifi-browser-changes.md`) |
 | UDP 20101 on both WANs → `192.168.4.24:20101` | `unifi_port_forward.unity_intercom`, `tofu/unifi/port_forwards.tf` | tofu |
+| TCP 20110 on all WANs → `192.168.4.24:20110`, TSL 3.1 tally (below) | `unifi_port_forward.unity_intercom_tally`, `tofu/unifi/port_forwards.tf` | tofu (made in the UI first, `docs/unifi-browser-changes.md`) |
 | `intercom.qo.ax` A, DNS only, TTL 60, comment "Unity Intercom on mac4o-mini; UDP 20101 forwarded by servacho-infrastructure. [follows-wan]" | Cloudflare, zone `qo.ax` (Quackstack account) | [qoax-infrastructure](https://github.com/qoax-community/qoax-infrastructure) (`tofu/dns/follows_wan.tf`, `docs/dns.md`), which ignores its address; the address is `wan-dns`'s |
 | `wan-dns`: the record's address follows the active WAN | `nixos/hosts/qoax-community-management-plane/wan-dns.nix` ([wan-dns.md](wan-dns.md)) | NixOS on Qoax's management plane (`192.168.10.15`), beside the repository that manages the zone |
 
@@ -21,6 +22,13 @@ After WAN1 fails, clients reach the intercom again within about three minutes: t
 
 - **Pro → encryption on, "Leave TCP Port Open" off.** The server then listens on UDP 20101 only (on 2026-10-14 TCP 20101 was refused and UDP 20101 answered like an open port), which is why the forward is UDP alone. Opening the TCP port again means `protocol = "tcp_udp"`.
 - **General → Network Port 20101.** A different port means changing both sides of the forward.
+- **Tally/GPIO → Tally Interface Type TSL 3.1, Tally Port 20110.** A different port means changing both sides of `unity_intercom_tally`. The tally fields need the Unity Intercom Tally licence or trial mode.
+
+## Tally from a venue
+
+The server shows a video mixer's tally on the clients: red for Program, green for Preview. Each user's **Tally ID** in the server's user settings is the mixer input of the camera that user operates, or N/A for no tally. For ATEM, TriCaster and vMix the server connects out to the mixer's IP address, which a mixer behind a venue's NAT does not allow. So tally from a venue comes in as TSL 3.1 instead: a converter on the venue's network (for example Tally Arbiter) reads the mixer and connects out to `intercom.qo.ax:20110`. The venue needs no forward, and the record follows the WAN as for the clients.
+
+TSL 3.1 has no authentication, so anyone who reaches TCP 20110 can light the clients' tally. The forward has no source limit, because venue addresses are not known in advance. The worst case is a wrong tally light, and only while the server's tally interface is TSL 3.1.
 
 ## Administration
 

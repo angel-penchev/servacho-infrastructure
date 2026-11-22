@@ -104,3 +104,36 @@ resource "unifi_port_forward" "broadcast_srt_cameras" {
     ignore_changes = [wan.interface]
   }
 }
+
+# Tally for Unity Intercom Server on mac4o-mini (docs/unity-intercom.md). The
+# server listens for TSL 3.1 on TCP 20110, its Tally Port, and shows each
+# camera's tally on the client of the operator who has that Tally ID. A
+# converter at the venue reads the video mixer and connects out to
+# intercom.qo.ax:20110, so the venue needs no forward of its own. TSL 3.1 has
+# no authentication: anyone who reaches the port can light a client's tally.
+# No source limit all the same, because venue addresses are not known in
+# advance, as for broadcast_srt.
+resource "unifi_port_forward" "unity_intercom_tally" {
+  name     = "Unity Intercom TSL tally"
+  protocol = "tcp"
+
+  wan = {
+    port = "20110"
+  }
+
+  forward = {
+    ip   = unifi_client.mac4o_mini.fixed_ip
+    port = "20110"
+  }
+
+  destination_ips = [
+    { destination_ip = "any", interface = "wan" },
+    { destination_ip = "any", interface = "wan2" },
+  ]
+
+  # FIXME(unifi): as broadcast_srt, the UI saved this rule with pfwd_interface
+  #   "all", which wan.interface cannot declare.
+  lifecycle {
+    ignore_changes = [wan.interface]
+  }
+}
