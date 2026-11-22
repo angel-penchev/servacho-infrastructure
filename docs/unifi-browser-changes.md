@@ -8,6 +8,20 @@ Changes were made through the user's authenticated Chrome session against the co
 
 ---
 
+## Session 2026-11-22: UDP 8890 from the intercom Mac to the SRT relay
+
+Made in the UniFi web UI (Settings → Policy Engine → Policy Table → Create New Policy → Firewall) from the user's Chrome session, and read back over `GET /proxy/network/v2/api/site/default/firewall-policies`. The controller runs Network 11.0.104, which gives firewall zones and policies UUIDs instead of `_id`s (#118).
+
+| Object | Attribute | Was | Now |
+|---|---|---|---|
+| Firewall policy `072edf7f-1914-42e8-8d35-57ea543bbdf7` (`Allow Intercom to SRT relay`) | whole object | none existed | `ALLOW`, `udp`, `IPV4`, `create_allow_respond true`, `logging false`, `connection_state_type ALL`, index 10000 in Dmz → Dmz; source Dmz (`d8c27cf6-…`), `IP` `192.168.4.24`, any port; destination Dmz, `IP` `192.168.12.23`, port `8890` (`SPECIFIC`) |
+
+It lets Unity Intercom Server on `mac4o-mini` read the SRT relay's feed `vmix1` as a home reader, for program audio (`docs/unity-intercom.md`). Dmz's predefined policies block traffic between its own networks. The UI's "Flows Logging" was left on, its default; the provider has no attribute for it.
+
+**Code.** `firewall.tf` declares `unifi_firewall_policy.allow_intercom_to_srt_relay` with the same fields, and `tofu/imports_unifi.tf` adopts it by its id. The expected plan, once #118 is applied, is 1 to import and no change.
+
+---
+
 ## Session 2026-11-21: TCP 20110 forwarded to Unity Intercom's tally
 
 Made in the UniFi web UI (Settings → Policy Engine → Create New Policy → Port Forwarding) from the user's Chrome session, and read back over `GET /proxy/network/api/s/default/rest/portforward`.

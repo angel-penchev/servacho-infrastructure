@@ -29,3 +29,11 @@ import {
   id = "6b020c3bb09f1dba7f8c0ed8"
   to = module.unifi.unifi_port_forward.unity_intercom_tally
 }
+
+# The intercom-to-SRT-relay policy was made in the UniFi UI first
+# (docs/unifi-browser-changes.md) and is adopted here by its id. The block is
+# inert once applied; remove it in a later change.
+import {
+  id = "072edf7f-1914-42e8-8d35-57ea543bbdf7"
+  to = module.unifi.unifi_firewall_policy.allow_intercom_to_srt_relay
+}
