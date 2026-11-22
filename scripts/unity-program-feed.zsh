@@ -49,8 +49,10 @@ if [[ -z "$index" ]]; then
   exit 1
 fi
 
-# srt-live-transmit reads a latency= in the URL in ms, ffmpeg in µs. libsrt
-# logs an empty ACKACK from the relay about once a second; it is harmless.
+# srt-live-transmit reads a latency= in the URL in ms, ffmpeg in µs. Keep -q:
+# without it, srt-live-transmit prints the whole URL, passphrase included, at
+# every start, and launchd writes that into the log. libsrt logs an empty
+# ACKACK from the relay about once a second; it is harmless.
 # ffmpeg's default probe buffers about 5 s of the live pipe, and audiotoolbox
 # plays in real time, so that backlog would stay as delay: probe briefly.
 SLT=$(command -v /opt/homebrew/bin/srt-live-transmit /usr/local/bin/srt-live-transmit | head -1)
