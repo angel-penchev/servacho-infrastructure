@@ -13,6 +13,7 @@ repository, not here.
 | `hosts/servacho-managment-plane/` | The root management plane, deployed by `tofu/root-plane/`; its `hardware-configuration.nix` and `deploy-key.pub` were committed once from the VM |
 | `hosts/*-management-plane.nix`, `hosts/qoax-community-management-plane/` | The organisations' planes, installed and deployed by `tofu/organisation/plane.tf` (see [docs/tenant-management-planes.md](../docs/tenant-management-planes.md)) |
 | `hosts/os-tues/` | The operating systems class's machine, installed and deployed by `tofu/os_tues.tf`, with `os-tues-students`, which makes the students' accounts, sudo for its teachers, and LazyVim as everyone's `nvim` (see [docs/os-tues.md](../docs/os-tues.md)) |
+| `hosts/ingress/` | The VM that routes the internet's 80 and 443 to each tenant by name, installed and deployed by `tofu/ingress.tf` at the address in `vm.json`: HAProxy built from `tenants.json`, which the flake's `ingress-haproxy` check validates (see [docs/ingress.md](../docs/ingress.md)) |
 | `images/installer.nix` | The installer ISO an organisation's plane boots from an empty disk, letting the root plane in with its deploy key |
 | `admin-sources.nix` | The networks administrators open SSH connections from, for a host's `servacho.ssh.sources` |
 | `deployed-by-root-plane.nix` | The check that a host the root plane deploys keeps `192.168.5.15` in its SSH sources |
@@ -21,9 +22,9 @@ repository, not here.
 
 infrastructure-reusables requires `servacho.ssh.sources` on each host built
 on its `base` module: the addresses that may open SSH connections to the
-host, or `"any"`. Each host here sets `"any"`, so sshd is open to every
-source. A host that gets a list takes `admin-sources.nix` and adds its
-deployer.
+host, or `"any"`. A host that gets a list takes `admin-sources.nix` and adds
+its deployer. `hosts/ingress/` has such a list. Every other host here sets
+`"any"`, so sshd is open to every source.
 
 The root plane deploys the other hosts over SSH from `192.168.5.15`.
 `flake.nix` adds `deployed-by-root-plane.nix` to each of them, and to each
@@ -51,9 +52,10 @@ builds what it deploys.
 ## Updating infrastructure-reusables
 
 The tag is in `flake.nix`, in the `?ref=` of the OpenTofu modules in
-`tofu/organisations.tf`, `tofu/organisation/plane.tf` and `tofu/os_tues.tf`,
-and in each `uses:` of its actions in `../.github/workflows/`. Change all of
-them to the new tag, then lock only that input:
+`tofu/organisations.tf`, `tofu/organisation/plane.tf`, `tofu/os_tues.tf` and
+`tofu/ingress.tf`, and in each `uses:` of its actions in
+`../.github/workflows/`. Change all of them to the new tag, then lock only
+that input:
 
 ```bash
 nix flake update reusables --flake ./nixos
