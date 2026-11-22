@@ -7,7 +7,7 @@ Unity Intercom Server runs on `mac4o-mini`, a Mac mini in Public Servers (VLAN 4
 | Fixed IP `192.168.4.24` for `1c:f6:4c:47:5b:c6` | `unifi_client.mac4o_mini`, `tofu/unifi/clients.tf` | tofu (set in the UI first, `docs/unifi-browser-changes.md`) |
 | UDP 20101 on both WANs → `192.168.4.24:20101` | `unifi_port_forward.unity_intercom`, `tofu/unifi/port_forwards.tf` | tofu |
 | TCP 20110 on all WANs → `192.168.4.24:20110`, TSL 3.1 tally (below) | `unifi_port_forward.unity_intercom_tally`, `tofu/unifi/port_forwards.tf` | tofu (made in the UI first, `docs/unifi-browser-changes.md`) |
-| `intercom.qo.ax` A, DNS only, TTL 60, comment "Unity Intercom on mac4o-mini; UDP 20101 forwarded by servacho-infrastructure. [follows-wan]" | Cloudflare, zone `qo.ax` (Quackstack account) | [qoax-infrastructure](https://github.com/qoax-community/qoax-infrastructure) (`tofu/dns/follows_wan.tf`, `docs/dns.md`), which ignores its address; the address is `wan-dns`'s |
+| `intercom.qo.ax` A, DNS only, TTL 60, comment "Unity Intercom on mac4o-mini; UDP 20101, TCP 20110 tally forwarded by servacho. [follows-wan]" | Cloudflare, zone `qo.ax` (Quackstack account) | [qoax-infrastructure](https://github.com/qoax-community/qoax-infrastructure) (`tofu/dns/follows_wan.tf`, `docs/dns.md`), which ignores its address; the address is `wan-dns`'s |
 | `wan-dns`: the record's address follows the active WAN | `nixos/hosts/qoax-community-management-plane/wan-dns.nix` ([wan-dns.md](wan-dns.md)) | NixOS on Qoax's management plane (`192.168.10.15`), beside the repository that manages the zone |
 
 The record must stay DNS only: Cloudflare's proxy carries HTTP(S), not UDP. Change its TTL or comment in qoax-infrastructure, not the dashboard.
@@ -26,9 +26,39 @@ After WAN1 fails, clients reach the intercom again within about three minutes: t
 
 ## Tally from a venue
 
-The server shows a video mixer's tally on the clients: red for Program, green for Preview. Each user's **Tally ID** in the server's user settings is the mixer input of the camera that user operates, or N/A for no tally. For ATEM, TriCaster and vMix the server connects out to the mixer's IP address, which a mixer behind a venue's NAT does not allow. So tally from a venue comes in as TSL 3.1 instead: a converter on the venue's network (for example Tally Arbiter) reads the mixer and connects out to `intercom.qo.ax:20110`. The venue needs no forward, and the record follows the WAN as for the clients.
+The server shows a video mixer's tally on the clients: red for Program, green for Preview. Each user has a **Tally ID** (Tally/GPIO tab, user table), or N/A for no tally. For ATEM, TriCaster and vMix the server connects out to the mixer's IP address, which a mixer behind a venue's NAT does not allow. So tally from a venue comes in as TSL 3.1 instead: a converter on the venue's network reads the mixer and connects out to `intercom.qo.ax:20110`. The venue needs no forward, and the record follows the WAN as for the clients.
 
 TSL 3.1 has no authentication, so anyone who reaches TCP 20110 can light the clients' tally. The forward has no source limit, because venue addresses are not known in advance. The worst case is a wrong tally light, and only while the server's tally interface is TSL 3.1.
+
+### The converter: Tally Arbiter on the vMix PC
+
+[Tally Arbiter](https://github.com/josephdadams/TallyArbiter) (tested with 3.3.0) runs on the vMix PC at the venue, with its web UI on `http://127.0.0.1:4455` and its config in `%APPDATA%\TallyArbiter\config.json`. First used on 2026-11-22.
+
+| Setting | Value |
+|---|---|
+| Source | type VMix, IP `127.0.0.1` (vMix's TCP API, port 8099) |
+| Devices | one per camera, with a TSL address (below) and one device source: VMix, address = the vMix input number |
+| TSL client (Settings → Listeners) | `intercom.qo.ax`, port 20110, transport **TCP**, protocol TSL 3.1, Tally 1 = PVW, Tally 2 = PGM |
+| 1-Second Updates | on, so a client that missed a change catches up within a second |
+
+Unity shows a TSL address one higher than the address sent, and Tally Arbiter never sends address 0. So camera N gets **TSL address 99 + N** in Tally Arbiter and **Tally ID 100 + N** in Unity:
+
+| Camera | vMix input (2026-11-22) | Tally Arbiter TSL address | Unity Tally ID |
+|---|---|---|---|
+| CAM_MAIN | 14 | 100 | 101 |
+| CAM_SECOND | 15 | 101 | 102 |
+| CAM_THIRD | 18 | 102 | 103 |
+
+vMix's tally also counts an input shown as a layer of another input, so a camera inside a layout in Program shows red. The device sources follow vMix input **numbers**, not names, because that is all the vMix source reads: deleting or moving an input before a camera changes its number, and the device source must follow.
+
+To check it, the Tally/GPIO tab on the server shows **Tally Status** (green while a TSL client is connected) and indicators 1 to 128 (grey off, green Preview, red Program).
+
+### Tally Arbiter's limits
+
+- **It connects once.** The TCP client does not retry after a refused or closed connection. After the server restarts, the WAN fails over or the connection drops, Tally Arbiter stays disconnected until its TSL client is saved again (Edit → Save Changes, which reconnects after 5 seconds) or Tally Arbiter restarts. On Windows, `Get-NetTCPConnection -RemotePort 20110 -State Established` shows whether it is connected.
+- **The server keeps one TSL client.** A second connection to TCP 20110 drops the first, so anything else that sends TSL takes Tally Arbiter off until it is saved again.
+- **Saving the TSL client writes a config without it.** Tally Arbiter writes `config.json` while the client is stopped for its 5-second restart. The client then runs but is gone after the next restart of Tally Arbiter. Any later change saves the file again; turning 1-Second Updates off and on is the shortest one.
+- **A dropped address stays lit.** The server keeps the last state of a TSL address that nobody sends any more, for example after a camera's address changes. To clear it, send that address an 18-byte TSL 3.1 packet with every tally bit off: byte 0 = `0x80` + address, byte 1 = `0xC0`, then 16 bytes of text. Then save Tally Arbiter's TSL client again, because the extra connection drops it.
 
 ## Administration
 
