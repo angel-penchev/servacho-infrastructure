@@ -66,18 +66,44 @@ Unity Server is a menu-bar app with no web UI or API: users, passwords, channels
 
 ## Program audio from a venue
 
-The venue's vMix Master plays into the Teams Support Crew channel, so the crew hears the show. Unity mixes audio into a channel only from the Mac's own Input Device (Channels → **Input Number**), so the audio travels to the Mac first, through Qoax's SRT relay ([qoax-broadcast.md in qoax-infrastructure](https://github.com/qoax-community/qoax-infrastructure/blob/main/docs/qoax-broadcast.md)):
+The venue's vMix Master reaches the crew as a Unity program feed. Unity Server takes a program feed only from an audio input of the Mac (Audio Feeds → **Source**). So the audio goes to the Mac first, through Qoax's SRT relay ([qoax-broadcast.md in qoax-infrastructure](https://github.com/qoax-community/qoax-infrastructure/blob/main/docs/qoax-broadcast.md)):
 
-1. vMix publishes an SRT output to the relay's feed `vmix1`, at `srt.qo.ax:8890`.
-2. The Mac reads `vmix1` as a reader at home, from `192.168.12.23:8890`, and plays its audio into a virtual audio device.
-3. Unity Server takes that device as its Input Device, and the Teams Support Crew channel takes its input.
+1. vMix publishes an SRT output to the relay's feed `vmix1`, at `srt.qo.ax:8890`. The output's Audio Channels setting is **Master**.
+2. The Mac reads `vmix1` as a reader at home, from `192.168.12.23:8890`. It plays the audio, mono, into BlackHole 2ch, a virtual audio device.
+3. Unity Server uses BlackHole 2ch as its Input Device. Audio Feeds → program feed 1 has Source = Audio Input 1, and the crew's users can select that feed in their clients.
 
 | Piece | Where | Managed by |
 |---|---|---|
 | UDP 8890 from `192.168.4.24` to `192.168.12.23` | `unifi_firewall_policy.allow_intercom_to_srt_relay`, `tofu/unifi/firewall.tf` | tofu |
 | Feed `vmix1`, its reader and passphrases | qoax-infrastructure (`nixos/hosts/qoax-broadcast-srt/feeds.json`), URLs in OpenBao | qoax-infrastructure |
+| The reader on the Mac: LaunchAgent `ax.qo.unity-program-feed` | `scripts/unity-program-feed.zsh`, run on the Mac | by hand (below) |
+| Input Device, program feed 1, the users' allowed feeds | Unity Server window | by hand |
+| The SRT output | vMix, Settings → Outputs/NDI/OMT/SRT | by hand, at the venue |
 
 Both hosts are in `Dmz`, whose predefined policies block traffic between its own networks, so the policy opens only this flow. Reading through `srt.qo.ax` instead would need the gateway to loop UDP back to its own WAN address.
+
+### The reader on the Mac
+
+To install it, copy `scripts/unity-program-feed.zsh` to the Mac and run `zsh unity-program-feed.zsh` in Terminal, as the user that runs Unity Server. It installs Homebrew's `ffmpeg`, `srt` and `blackhole-2ch`. Then it asks for `vmix1_read_url_home`. The Mac cannot reach OpenBao, because the Dmz zone blocks it, so get the URL on another computer and paste it at the hidden prompt.
+
+The script writes `run.sh` and the LaunchAgent. These design points come from the first setup on 2026-11-22:
+
+- **Two programs.** Homebrew's `ffmpeg` has no libsrt. `srt-live-transmit`, from Homebrew's `srt`, receives the feed and sends MPEG-TS to `ffmpeg` through a pipe.
+- **The device by name.** The `audiotoolbox` output of `ffmpeg` takes a device index, and the index changes when devices change. `audiotoolbox` is an output only, so `run.sh` lists the devices through an output at each start and finds BlackHole 2ch by its name.
+- **A short probe.** With its default probe, `ffmpeg` held about 5 s of the live pipe, and that backlog stayed as delay. `-probesize 32768 -analyzeduration 0` brought it down to 0.3 s.
+- **Restarts.** launchd starts `run.sh` again 10 s after it stops, for example while vMix does not publish.
+- **The URL.** It is in `~/Library/Application Support/unity-program-feed/read-url`, mode 0600. `srt-live-transmit` gets it as an argument, so another local user can read it with `ps`. The URL only lets a reader play `vmix1`.
+
+CoreAudio loads BlackHole only after `sudo killall coreaudiod` or a restart of the Mac. The first command interrupts Unity Server's audio for a moment.
+
+To check the reader, run these on the Mac:
+
+```sh
+launchctl print gui/$(id -u)/ax.qo.unity-program-feed | grep -E 'state|last exit'
+tail ~/Library/Logs/unity-program-feed.log
+```
+
+`state = running` and an empty log are correct. On 2026-11-22 the feed was AAC LC, 48 kHz, stereo, from vMix 29. After the user unmuted vMix Master, the feed measured a mean of -20 dB, and the Android client played it. A feed at -91 dB is digital silence: examine the Master bus in vMix before the Mac.
 
 ## Known gaps
 
