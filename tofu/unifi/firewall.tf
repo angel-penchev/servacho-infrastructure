@@ -9,9 +9,10 @@ data "unifi_firewall_zone" "internal" {
 resource "unifi_firewall_zone" "dmz" {
   name = "Dmz"
 
+  # Live order since Network 11.0.104; the other order plans a rewrite.
   network_ids = [
-    unifi_network.public_servers.id,
     unifi_network.qoax_public_servers.id,
+    unifi_network.public_servers.id,
   ]
 }
 
